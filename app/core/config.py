@@ -7,7 +7,11 @@ class Settings(BaseSettings):
     api_token: str = "changeme"
     database_url: str = "postgresql+psycopg://postgres:postgres@db:5432/finance_control"
 
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
 
 settings = Settings()

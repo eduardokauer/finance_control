@@ -1,34 +1,48 @@
-# Finance Control Backend (FastAPI)
+# Finance Control Backend
 
-Backend Python 3.11+ para ingestão de extrato Itaú (OFX) e fatura Itaú (CSV), com validação estrutural, deduplicação, categorização determinística, conciliação e geração automática de análise financeira em HTML.
+Python 3.11+ backend with FastAPI for ingesting Itau bank statements (OFX) and credit card bills (CSV), with structural validation, deduplication, deterministic categorization, reconciliation, and HTML financial analysis generation.
 
 ## Stack
 - FastAPI
 - Pydantic
 - SQLAlchemy
-- Postgres (local via Docker / produção Supabase Postgres)
+- Postgres
 - Pytest
 - Docker
 
-## Como rodar localmente (Windows + Docker Desktop)
-1. Copie `.env.example` para `.env`.
-2. Ajuste o token e variáveis se necessário.
-3. Suba tudo:
-   ```bash
-   docker compose up --build
-   ```
-4. API disponível em `http://localhost:8000`.
-5. Healthcheck: `GET /health`.
+## Local Run With Docker
+1. Copy `.env.example` to `.env`.
+2. Adjust `API_TOKEN` if needed.
+3. Start the stack:
 
-> As migrations SQL em `supabase/migrations` são aplicadas automaticamente no primeiro boot do Postgres local via `/docker-entrypoint-initdb.d`.
-
-## Autenticação
-Header obrigatório:
+```bash
+docker compose up --build
 ```
+
+API:
+- `http://localhost:8000`
+
+Health check:
+- `GET /health`
+
+Notes:
+- The local Postgres container is started by `docker-compose.yml`.
+- SQL migrations in `supabase/migrations` are applied automatically on the first database boot.
+
+## Run In Background
+```bash
+docker compose up --build -d
+docker compose ps
+```
+
+## Authentication
+All protected endpoints require:
+
+```text
 Authorization: Bearer <API_TOKEN>
 ```
 
-## Endpoints
+## Main Endpoints
 - `POST /ingest/bank-statement`
 - `POST /ingest/credit-card-bill`
 - `GET /transactions`
@@ -36,25 +50,65 @@ Authorization: Bearer <API_TOKEN>
 - `GET /analysis/runs`
 - `GET /health`
 
-## Formatos esperados
-### OFX (extrato)
-Valida tags esperadas (`<OFX>`, `<BANKTRANLIST>`, `<STMTTRN>`) e campos por transação (`TRNTYPE`, `DTPOSTED`, `TRNAMT`, `NAME`).
+## Expected File Formats
+### OFX
+Required structure:
+- `<OFX>`
+- `<BANKTRANLIST>`
+- `<STMTTRN>`
 
-### CSV (fatura)
-Colunas obrigatórias e na ordem:
-`data,descricao,valor,tipo`
-- Data: `%d/%m/%Y`
-- Valor: decimal com vírgula ou ponto
-- Encoding: UTF-8/UTF-8 BOM
+Required fields per transaction:
+- `TRNTYPE`
+- `DTPOSTED`
+- `TRNAMT`
+- `NAME`
 
-## Testes
-Rodar localmente (fora de Docker) com Python 3.11+:
+### CSV
+Expected columns, in this exact order:
+
+```text
+data,descricao,valor,tipo
+```
+
+Rules:
+- Date format: `%d/%m/%Y`
+- Value: decimal with comma or dot
+- Encoding: UTF-8 or UTF-8 BOM
+
+## Tests
+Validated Docker flow:
+
+```bash
+docker compose up --build -d
+docker compose exec app pytest -q
+```
+
+Run a specific file:
+
+```bash
+docker compose exec app pytest -q tests/test_api.py
+docker compose exec app pytest -q tests/test_unit_rules.py
+```
+
+If the `app` service is not running, use:
+
+```bash
+docker compose run --rm app pytest -q
+```
+
+Local Python execution outside Docker:
+
 ```bash
 pip install -r requirements.txt
 pytest -q
 ```
 
-## Deploy no Render
-- Use o `Dockerfile`.
-- Configure `DATABASE_URL` para o Supabase Postgres.
-- Configure `API_TOKEN` fixo para o Make.
+## Stop The Stack
+```bash
+docker compose down
+```
+
+## Render Deploy
+- Use the provided `Dockerfile`.
+- Set `DATABASE_URL` to your Supabase Postgres connection string.
+- Set a fixed `API_TOKEN` for Make.

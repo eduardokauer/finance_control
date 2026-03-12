@@ -50,7 +50,7 @@ class CategorizationRule(Base):
 class Transaction(Base):
     __tablename__ = "transactions"
     __table_args__ = (
-        UniqueConstraint("source_type", "external_id", name="uq_transactions_external", sqlite_where=None),
+        UniqueConstraint("source_type", "external_id", name="uq_transactions_external"),
         UniqueConstraint("canonical_hash", name="uq_transactions_canonical_hash"),
     )
 
