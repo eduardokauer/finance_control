@@ -48,3 +48,9 @@ def test_parse_ofx_fields():
     ofx = "<OFX><BANKTRANLIST><STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260307<TRNAMT>-10<NAME>Uber<FITID>ABC</STMTTRN></BANKTRANLIST></OFX>"
     parsed = parse_ofx(ofx)
     assert parsed[0]["external_id"] == "ABC"
+
+
+def test_parse_ofx_uses_memo_when_name_is_absent():
+    ofx = "<OFX><BANKTRANLIST><STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260307<TRNAMT>-10<MEMO>PIX TRANSF TESTE<FITID>ABC</STMTTRN></BANKTRANLIST></OFX>"
+    parsed = parse_ofx(ofx)
+    assert parsed[0]["description"] == "PIX TRANSF TESTE"

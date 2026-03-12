@@ -17,18 +17,26 @@ def ingest_file(db: Session, source_type: str, file_name: str, file_path: str, r
     f_hash = file_hash(raw_content)
     existing_file = db.scalar(select(SourceFile).where(SourceFile.file_hash == f_hash))
     if existing_file:
-        return {"status": "duplicate", "message": "Arquivo duplicado", "source_file_id": existing_file.id}
-
-    sf = SourceFile(
-        source_type=source_type,
-        file_name=file_name,
-        file_path=file_path,
-        reference_id=reference_id,
-        file_hash=f_hash,
-        status="processing",
-    )
-    db.add(sf)
-    db.flush()
+        if existing_file.status == "processed":
+            return {"status": "duplicate", "message": "Arquivo duplicado", "source_file_id": existing_file.id}
+        sf = existing_file
+        sf.source_type = source_type
+        sf.file_name = file_name
+        sf.file_path = file_path
+        sf.reference_id = reference_id
+        sf.status = "processing"
+        sf.error_message = None
+    else:
+        sf = SourceFile(
+            source_type=source_type,
+            file_name=file_name,
+            file_path=file_path,
+            reference_id=reference_id,
+            file_hash=f_hash,
+            status="processing",
+        )
+        db.add(sf)
+        db.flush()
     try:
         if source_type == "bank_statement":
             parsed = parse_ofx(raw_content.decode("utf-8", errors="ignore"))
