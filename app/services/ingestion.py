@@ -87,8 +87,8 @@ def ingest_file(db: Session, source_type: str, file_name: str, file_path: str, r
             duplicate_tx = db.scalar(select(Transaction.id).where(Transaction.canonical_hash == current_hash))
         if duplicate_tx:
             continue
-        cat = categorize(row["description"])
         kind = infer_transaction_kind(source_type, row["description"], row["amount"])
+        cat = categorize(row["description"], transaction_kind=kind)
         flags = reconciliation_flags(kind)
         db.add(
             Transaction(

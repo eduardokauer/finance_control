@@ -54,3 +54,13 @@ def sample_csv_file(tmp_path: Path):
     f = tmp_path / "sample.csv"
     f.write_text(content, encoding="utf-8")
     return f
+
+
+@pytest.fixture()
+def fixture_dir() -> Path:
+    return Path(__file__).parent / "fixtures"
+
+
+@pytest.fixture()
+def real_ofx_file(fixture_dir: Path) -> Path:
+    return fixture_dir / "ofx" / "itau_statement_sample.ofx"
