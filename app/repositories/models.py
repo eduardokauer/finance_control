@@ -1,0 +1,109 @@
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.core.database import Base
+
+
+class SourceFile(Base):
+    __tablename__ = "source_files"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_path: Mapped[str] = mapped_column(Text, nullable=False)
+    reference_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    file_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(40), default="processed", nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RawTransaction(Base):
+    __tablename__ = "raw_transactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_file_id: Mapped[int] = mapped_column(ForeignKey("source_files.id"), nullable=False)
+    external_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    raw_payload: Mapped[str] = mapped_column(Text, nullable=False)
+    transaction_date: Mapped[str] = mapped_column(Date, nullable=False)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    description_raw: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Category(Base):
+    __tablename__ = "categories"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+
+
+class CategorizationRule(Base):
+    __tablename__ = "categorization_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    rule_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    pattern: Mapped[str] = mapped_column(String(255), nullable=False)
+    category_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+    __table_args__ = (
+        UniqueConstraint("source_type", "external_id", name="uq_transactions_external"),
+        UniqueConstraint("canonical_hash", name="uq_transactions_canonical_hash"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_file_id: Mapped[int] = mapped_column(ForeignKey("source_files.id"), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    account_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    external_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    canonical_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    transaction_date: Mapped[str] = mapped_column(Date, nullable=False)
+    competence_month: Mapped[str] = mapped_column(String(7), nullable=False)
+    description_raw: Mapped[str] = mapped_column(Text, nullable=False)
+    description_normalized: Mapped[str] = mapped_column(Text, nullable=False)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    direction: Mapped[str] = mapped_column(String(10), nullable=False)
+    transaction_kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    category: Mapped[str] = mapped_column(String(120), nullable=False)
+    categorization_method: Mapped[str] = mapped_column(String(40), nullable=False)
+    categorization_confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    applied_rule: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    manual_override: Mapped[bool] = mapped_column(Boolean, default=False)
+    manual_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    manual_updated_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_card_bill_payment: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_adjustment: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_reconciled: Mapped[bool] = mapped_column(Boolean, default=False)
+    should_count_in_spending: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Reconciliation(Base):
+    __tablename__ = "reconciliations"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_file_id: Mapped[int] = mapped_column(ForeignKey("source_files.id"), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ReconciliationItem(Base):
+    __tablename__ = "reconciliation_items"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    reconciliation_id: Mapped[int] = mapped_column(ForeignKey("reconciliations.id"), nullable=False)
+    transaction_id: Mapped[int] = mapped_column(ForeignKey("transactions.id"), nullable=False)
+    role: Mapped[str] = mapped_column(String(30), nullable=False)
+
+
+class AnalysisRun(Base):
+    __tablename__ = "analysis_runs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    period_start: Mapped[str] = mapped_column(Date, nullable=False)
+    period_end: Mapped[str] = mapped_column(Date, nullable=False)
+    trigger_source_file_id: Mapped[int | None] = mapped_column(ForeignKey("source_files.id"), nullable=True)
+    payload: Mapped[str] = mapped_column(Text, nullable=False)
+    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    html_output: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
