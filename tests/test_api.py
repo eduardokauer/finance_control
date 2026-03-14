@@ -65,27 +65,47 @@ def test_invalid_file(client, auth_headers, tmp_path):
 
 
 def test_ingest_credit_card_valid(client, auth_headers, sample_csv_file):
-    resp = client.post('/ingest/credit-card-bill', headers=auth_headers, json={"file_name": "a.csv", "file_path": str(sample_csv_file)})
+    resp = client.post(
+        "/ingest/credit-card-bill",
+        headers=auth_headers,
+        json={"file_name": "a.csv", "file_path": str(sample_csv_file)},
+    )
     assert resp.status_code == 200
     assert resp.json()["analysis_run_id"] is not None
 
 
 def test_duplicate_file(client, auth_headers, sample_csv_file):
     payload = {"file_name": "a.csv", "file_path": str(sample_csv_file)}
-    client.post('/ingest/credit-card-bill', headers=auth_headers, json=payload)
-    resp = client.post('/ingest/credit-card-bill', headers=auth_headers, json=payload)
-    assert resp.json()['status'] == 'duplicate'
+    client.post("/ingest/credit-card-bill", headers=auth_headers, json=payload)
+    resp = client.post("/ingest/credit-card-bill", headers=auth_headers, json=payload)
+    assert resp.json()["status"] == "duplicate"
     assert resp.json()["analysis_run_id"] is None
 
 
 def test_query_transactions_and_analysis(client, auth_headers, sample_csv_file):
-    client.post('/ingest/credit-card-bill', headers=auth_headers, json={"file_name": "a.csv", "file_path": str(sample_csv_file)})
-    resp = client.get("/transactions?period_start=2026-03-01&period_end=2026-03-31&limit=10&offset=0", headers=auth_headers)
+    client.post(
+        "/ingest/credit-card-bill",
+        headers=auth_headers,
+        json={"file_name": "a.csv", "file_path": str(sample_csv_file)},
+    )
+    resp = client.get(
+        "/transactions?period_start=2026-03-01&period_end=2026-03-31&limit=10&offset=0",
+        headers=auth_headers,
+    )
     assert resp.status_code == 200
-    run = client.post('/analysis/run', headers=auth_headers, json={"period_start": "2026-03-01", "period_end": "2026-03-31"})
+    run = client.post(
+        "/analysis/run",
+        headers=auth_headers,
+        json={"period_start": "2026-03-01", "period_end": "2026-03-31"},
+    )
     assert run.status_code == 200
     runs = client.get("/analysis/runs", headers=auth_headers)
     assert runs.status_code == 200
+    assert runs.headers["content-type"].startswith("application/json; charset=utf-8")
+    raw_body = runs.content.decode("utf-8")
+    assert "Análise Financeira" in raw_body
+    assert "Período" in raw_body
+    assert "Mês anterior" in raw_body
     html_output = runs.json()[0]["html_output"]
     assert "Análise Financeira" in html_output
     assert "Período:" in html_output
@@ -94,7 +114,11 @@ def test_query_transactions_and_analysis(client, auth_headers, sample_csv_file):
 
 
 def test_manual_reclassify_transactions(client, auth_headers, sample_csv_file):
-    client.post('/ingest/credit-card-bill', headers=auth_headers, json={"file_name": "a.csv", "file_path": str(sample_csv_file)})
+    client.post(
+        "/ingest/credit-card-bill",
+        headers=auth_headers,
+        json={"file_name": "a.csv", "file_path": str(sample_csv_file)},
+    )
     listed = client.get(
         "/transactions?period_start=2026-03-01&period_end=2026-03-31&limit=10&offset=0",
         headers=auth_headers,
