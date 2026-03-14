@@ -11,6 +11,7 @@ class IngestRequest(BaseModel):
 
 class IngestResponse(BaseModel):
     source_file_id: int | None = None
+    analysis_run_id: int | None = None
     status: str
     message: str
 

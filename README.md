@@ -70,6 +70,20 @@ Use this endpoint to reclassify one transaction or a batch without creating a pe
 You can also target a batch with filters such as `period_start`, `period_end`, `source_file_id`, `current_category`, `source_type`, or `description_contains`.
 
 ## Expected File Formats
+### Bank statement upload contract
+`POST /ingest/bank-statement` must receive `multipart/form-data` with:
+- `file`: required `.ofx` file
+- `reference_id`: optional text field
+
+Example:
+
+```bash
+curl -X POST http://localhost:8000/ingest/bank-statement \
+  -H "Authorization: Bearer <API_TOKEN>" \
+  -F "file=@tests/fixtures/ofx/itau_statement_sample.ofx;type=application/octet-stream" \
+  -F "reference_id=manual-ofx-import"
+```
+
 ### OFX
 Required structure:
 - `<OFX>`

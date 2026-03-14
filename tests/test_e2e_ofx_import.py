@@ -33,14 +33,12 @@ def test_e2e_ofx_import_and_manual_reclassification(client, db_session, auth_hea
     ingest_response = client.post(
         "/ingest/bank-statement",
         headers=auth_headers,
-        json={
-            "file_name": real_ofx_file.name,
-            "file_path": str(real_ofx_file),
-            "reference_id": "pytest-e2e-ofx",
-        },
+        files={"file": (real_ofx_file.name, real_ofx_file.read_bytes(), "application/octet-stream")},
+        data={"reference_id": "pytest-e2e-ofx"},
     )
     assert ingest_response.status_code == 200
     assert ingest_response.json()["status"] == "processed"
+    assert ingest_response.json()["analysis_run_id"] is not None
     print(f"[e2e] ingest response: {ingest_response.json()}")
 
     db_session.expire_all()
