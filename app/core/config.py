@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     environment: str = "dev"
     api_token: str = "changeme"
     database_url: str = "postgresql+psycopg://postgres:postgres@db:5432/finance_control"
+    port: int = 8000
 
     model_config = SettingsConfigDict(
         env_file=".env",

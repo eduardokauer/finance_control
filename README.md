@@ -28,6 +28,7 @@ Health check:
 Notes:
 - The local Postgres container is started by `docker-compose.yml`.
 - SQL migrations in `supabase/migrations` are applied automatically on the first database boot.
+- For production or external databases, run migrations with `python -m app.core.migrate`.
 
 ## Run In Background
 ```bash
@@ -165,6 +166,12 @@ pip install -r requirements.txt
 pytest -vv
 ```
 
+Run SQL migrations manually against the configured `DATABASE_URL`:
+
+```bash
+python -m app.core.migrate
+```
+
 ## Stop The Stack
 ```bash
 docker compose down
@@ -172,5 +179,17 @@ docker compose down
 
 ## Render Deploy
 - Use the provided `Dockerfile`.
-- Set `DATABASE_URL` to your Supabase Postgres connection string.
+- Set `DATABASE_URL` to your Supabase Postgres connection string using the SQLAlchemy format:
+  `postgresql+psycopg://USER:PASSWORD@HOST:PORT/DBNAME?sslmode=require`
+- Prefer the Supabase session pooler connection string when possible.
 - Set a fixed `API_TOKEN` for Make.
+- Set `ENVIRONMENT=prod`.
+- Set `PORT` only if you need to override Render's default injected value.
+- Configure the health check path as `/health`.
+- Before the first deploy, or in a Render job/release step, run:
+
+```bash
+python -m app.core.migrate
+```
+
+- The app container on Render listens on the configured `PORT` automatically.
