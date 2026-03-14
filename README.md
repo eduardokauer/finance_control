@@ -49,6 +49,7 @@ Authorization: Bearer <API_TOKEN>
 - `GET /transactions`
 - `POST /transactions/reclassify`
 - `POST /analysis/run`
+- `POST /analysis/llm-email`
 - `GET /analysis/runs`
 - `GET /health`
 
@@ -68,6 +69,50 @@ Use this endpoint to reclassify one transaction or a batch without creating a pe
 ```
 
 You can also target a batch with filters such as `period_start`, `period_end`, `source_file_id`, `current_category`, `source_type`, or `description_contains`.
+
+## LLM Email Preparation
+Use `POST /analysis/llm-email` to prepare the deterministic email summary plus a compact payload for an external LLM call orchestrated by Make.
+
+Request:
+
+```json
+{
+  "period_start": "2026-03-01",
+  "period_end": "2026-03-31",
+  "trigger_source_file_id": 123
+}
+```
+
+Response shape:
+
+```json
+{
+  "summary_html": "<section>...</section>",
+  "llm_payload": {
+    "analysis_mode": "full_history",
+    "generated_at": "2026-03-14T12:00:00+00:00",
+    "currency": "BRL",
+    "current_period": {
+      "months_available_for_history": 12,
+      "history_window_target_months": 12,
+      "history_window_used_months": 12,
+      "history_quality": "full"
+    },
+    "deterministic_summary": {},
+    "historical_baseline": {},
+    "current_vs_history": {},
+    "signals": {},
+    "guardrails": {}
+  }
+}
+```
+
+History fallback rules:
+- `full_history`: 12 months available before the current period
+- `partial_history`: 3 to 11 months available
+- `insufficient_history`: 0 to 2 months available
+
+The endpoint never calls an LLM directly. It only prepares deterministic numbers plus a concise historical payload for Make to forward to an external model.
 
 ## Expected File Formats
 ### Bank statement upload contract
