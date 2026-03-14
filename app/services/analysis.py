@@ -29,12 +29,15 @@ def run_analysis(db: Session, period_start: date, period_end: date, trigger_sour
     prev_total = sum(t.amount for t in prev_txs)
 
     html = (
-        f"<html><body><h1>Análise Financeira</h1><p>Período: {period_start} a {period_end}</p>"
+        "<!DOCTYPE html>"
+        "<html><head><meta charset=\"UTF-8\"></head><body>"
+        f"<h1>Análise Financeira</h1><p>Período: {period_start} a {period_end}</p>"
         f"<p>Total de gastos: {total:.2f}</p><p>Mês anterior: {prev_total:.2f}</p>"
         "<p>Comparação ano contra ano: MVP com base histórica parcial.</p>"
         f"<h2>Categorias</h2><ul>{cat_rows}</ul>"
         "<h2>Oportunidades de redução</h2><p>Revise categorias com maior peso e assinaturas recorrentes.</p>"
-        "<h2>Saúde financeira</h2><p>Mantenha reserva e reduza despesas variáveis elevadas.</p></body></html>"
+        "<h2>Saúde financeira</h2><p>Mantenha reserva e reduza despesas variáveis elevadas.</p>"
+        "</body></html>"
     )
     run = AnalysisRun(
         period_start=period_start,

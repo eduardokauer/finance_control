@@ -84,6 +84,13 @@ def test_query_transactions_and_analysis(client, auth_headers, sample_csv_file):
     assert resp.status_code == 200
     run = client.post('/analysis/run', headers=auth_headers, json={"period_start": "2026-03-01", "period_end": "2026-03-31"})
     assert run.status_code == 200
+    runs = client.get("/analysis/runs", headers=auth_headers)
+    assert runs.status_code == 200
+    html_output = runs.json()[0]["html_output"]
+    assert "Análise Financeira" in html_output
+    assert "Período:" in html_output
+    assert "Mês anterior:" in html_output
+    assert '<meta charset="UTF-8">' in html_output
 
 
 def test_manual_reclassify_transactions(client, auth_headers, sample_csv_file):
