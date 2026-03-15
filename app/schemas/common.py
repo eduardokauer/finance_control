@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -37,6 +38,17 @@ class AnalysisRunOut(BaseModel):
     period_end: date
     status: str
     html_output: str
+
+
+class LLMEmailAnalysisRequest(BaseModel):
+    period_start: date
+    period_end: date
+    trigger_source_file_id: int | None = None
+
+
+class LLMEmailAnalysisResponse(BaseModel):
+    summary_html: str
+    llm_payload: dict[str, Any]
 
 
 class TransactionReclassifyFilters(BaseModel):
