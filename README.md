@@ -28,8 +28,8 @@ Health check:
 
 Notes:
 - The local Postgres container is started by `docker-compose.yml`.
-- SQL migrations in `supabase/migrations` are applied automatically on the first database boot.
-- For production or external databases, run migrations with `python -m app.core.migrate`.
+- The application startup applies SQL migrations automatically before serving requests.
+- This keeps local Docker and Render free deploys aligned on the same migration flow.
 
 ## Run In Background
 ```bash
@@ -312,12 +312,14 @@ docker compose down
 - Set `ENVIRONMENT=prod`.
 - Set `PORT` only if you need to override Render's default injected value.
 - Configure the health check path as `/health`.
-- Before the first deploy, or in a Render job/release step, run:
+- On Render free, you can leave `Docker Command` and `Start Command` empty and let the container boot with the `Dockerfile` default command.
+- The current container startup already runs migrations before starting the app:
 
 ```bash
-python -m app.core.migrate
+/bin/sh -c "python -m app.core.migrate && python -m app.run"
 ```
 
+- This is intentional so the free plan can apply migrations without requiring paid pre-deploy hooks or shell access.
 - The app container on Render listens on the configured `PORT` automatically.
 - After deploy, access the admin UI at `https://<your-render-service>.onrender.com/admin`.
 

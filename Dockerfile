@@ -13,4 +13,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["python", "-m", "app.run"]
+CMD ["/bin/sh", "-c", "python -m app.core.migrate && python -m app.run"]
