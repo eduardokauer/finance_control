@@ -83,9 +83,7 @@ def _summarize_period(transactions: list[Transaction]) -> dict:
     expense_total_raw = sum(t.amount for t in transactions if t.should_count_in_spending and t.amount < 0)
     net_total = round(sum(t.amount for t in transactions), 2)
     category_totals = _collect_category_totals(transactions)
-    expense_transactions = [
-        tx for tx in transactions if tx.should_count_in_spending and tx.amount < 0
-    ]
+    expense_transactions = [tx for tx in transactions if tx.should_count_in_spending and tx.amount < 0]
 
     top_categories = [
         {"category": category, "amount": round(amount, 2)}
@@ -247,9 +245,7 @@ def _build_signals(
         sum(tx.amount for tx in current_transactions if tx.category in UNCATEGORIZED_CATEGORIES and tx.amount > 0),
         2,
     )
-    uncategorized_transactions_count = sum(
-        1 for tx in current_transactions if tx.category in UNCATEGORIZED_CATEGORIES
-    )
+    uncategorized_transactions_count = sum(1 for tx in current_transactions if tx.category in UNCATEGORIZED_CATEGORIES)
 
     high_concentration_categories = [
         {
