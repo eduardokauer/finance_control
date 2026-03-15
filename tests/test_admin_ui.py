@@ -250,7 +250,7 @@ def test_admin_reapply_can_skip_specific_transactions(client, db_session, monkey
 def test_admin_transactions_first_load_shows_latest_closed_month_records(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     monkeypatch.setattr(
-        "app.web.routes.admin.latest_closed_month_with_transactions",
+        "app.web.routes.admin.transactions.latest_closed_month_with_transactions",
         lambda db: (date(2026, 2, 1), date(2026, 2, 28)),
     )
     _seed_categories(db_session)
@@ -314,4 +314,29 @@ def test_admin_reapply_without_period_uses_whole_base(client, db_session, monkey
     assert feb_tx.category == "Outros"
     assert mar_tx.category == "Outros"
 
+
+
+def test_admin_reapply_preview_links_to_rule_editor(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(db_session, description="UBER EDIT RULE", normalized="uber edit rule")
+    rule = CategorizationRule(
+        rule_type="contains",
+        pattern="uber",
+        category_name="Transporte",
+        transaction_kind="expense",
+        priority=0,
+        is_active=True,
+    )
+    db_session.add(rule)
+    db_session.commit()
+    _login(client)
+
+    preview = client.post("/admin/reapply/preview", data={})
+    assert preview.status_code == 200
+    assert f'/admin/rules?open_rule_id={rule.id}#rule-{rule.id}' in preview.text
+
+    rules_page = client.get(f"/admin/rules?open_rule_id={rule.id}")
+    assert rules_page.status_code == 200
+    assert f'id="rule-{rule.id}" class="rule-row accordion" open' in rules_page.text
 

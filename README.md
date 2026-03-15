@@ -1,4 +1,4 @@
-# Finance Control Backend
+﻿# Finance Control Backend
 
 Python 3.11+ backend with FastAPI for ingesting Itau bank statements (OFX) and credit card bills (CSV), with structural validation, deduplication, deterministic categorization, reconciliation, HTML financial analysis generation, and manual transaction reclassification.
 
@@ -191,6 +191,26 @@ Rules:
 - Value: decimal with comma or dot
 - Encoding: UTF-8 or UTF-8 BOM
 
+## Full Local Validation Reset
+Use this when you want to restart the local environment from zero, validate the boot flow, run the full test suite, log into the admin UI, ingest a real OFX fixture, and validate `/analysis/llm-email` end to end.
+
+Command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\validate_local_reset.ps1
+```
+
+What it does:
+- `docker compose down -v`
+- `docker compose up --build -d`
+- waits for `GET /health`
+- runs `pytest -q`
+- logs into `/admin`
+- imports `tests/fixtures/ofx/itau_statement_sample.ofx`
+- validates `POST /analysis/llm-email`
+
+Warning:
+- this script deletes the local Postgres volume and recreates the database from zero
 ## Tests
 Validated Docker flow:
 
@@ -300,3 +320,7 @@ python -m app.core.migrate
 
 - The app container on Render listens on the configured `PORT` automatically.
 - After deploy, access the admin UI at `https://<your-render-service>.onrender.com/admin`.
+
+
+
+

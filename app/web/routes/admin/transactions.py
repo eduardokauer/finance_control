@@ -1,0 +1,220 @@
+﻿from __future__ import annotations
+
+from datetime import date
+from urllib.parse import quote, unquote
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy.orm import Session
+
+from app.core.admin_auth import require_admin_session
+from app.core.database import get_db
+from app.repositories.models import CategorizationRule, Transaction
+from app.services.admin import (
+    build_pagination,
+    build_transaction_filters,
+    default_closed_month,
+    latest_closed_month_with_transactions,
+    list_categories,
+    list_transactions_for_admin,
+    preview_bulk_reclassification,
+    preview_similar_transactions,
+    reclassify_transactions_manual,
+    upsert_rule,
+)
+
+from .helpers import render_admin, templates
+
+router = APIRouter()
+
+
+@router.get("/transactions", response_class=HTMLResponse)
+def admin_transactions(
+    request: Request,
+    month: str | None = None,
+    period_start: date | None = None,
+    period_end: date | None = None,
+    category: str | None = None,
+    description: str | None = None,
+    uncategorized_only: bool = False,
+    transaction_kind: str | None = None,
+    sort: str | None = "recent",
+    limit: int = Query(default=20, le=50),
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    default_period = latest_closed_month_with_transactions(db) or default_closed_month()
+    filters = build_transaction_filters(
+        month=month,
+        period_start=period_start,
+        period_end=period_end,
+        category=category,
+        description=description,
+        uncategorized_only=uncategorized_only,
+        transaction_kind=transaction_kind,
+        sort=sort,
+        default_period=default_period,
+    )
+    transactions, total = list_transactions_for_admin(db, filters, limit=limit, offset=offset)
+    current_url = str(request.url)
+    context = {
+        "filters": filters,
+        "transactions": transactions,
+        "pagination": build_pagination(total, limit=limit, offset=offset),
+        "categories": list_categories(db),
+        "current_url": current_url,
+        "encoded_current_url": quote(current_url, safe=""),
+        "current_path": request.url.path,
+        "current_query": request.url.query,
+    }
+    return render_admin(request, "admin/transactions.html", context)
+
+
+@router.get("/transactions/{transaction_id}", response_class=HTMLResponse)
+def admin_transaction_detail(
+    transaction_id: int,
+    request: Request,
+    return_to: str | None = None,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    tx = db.get(Transaction, transaction_id)
+    if tx is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return_to_value = unquote(return_to or "/admin/transactions")
+    current_rule = db.get(CategorizationRule, tx.categorization_rule_id) if tx.categorization_rule_id else None
+    context = {
+        "transaction": tx,
+        "categories": list_categories(db),
+        "current_rule": current_rule,
+        "return_to": return_to_value,
+        "encoded_return_to": quote(return_to_value, safe=""),
+    }
+    return render_admin(request, "admin/transaction_detail.html", context)
+
+
+@router.post("/transactions/{transaction_id}/preview-similar", response_class=HTMLResponse)
+def admin_preview_similar(
+    transaction_id: int,
+    request: Request,
+    pattern: str = Form(...),
+    match_mode: str = Form(...),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    tx = db.get(Transaction, transaction_id)
+    if tx is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    similar = preview_similar_transactions(db, tx, match_mode=match_mode, pattern=pattern)
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/similar_preview.html",
+        {"request": request, "transactions": similar, "count": len(similar)},
+    )
+
+
+@router.post("/transactions/{transaction_id}/update")
+def admin_update_transaction(
+    transaction_id: int,
+    request: Request,
+    category: str = Form(...),
+    transaction_kind: str = Form(...),
+    notes: str | None = Form(default=None),
+    return_to: str = Form("/admin/transactions"),
+    rule_action: str = Form("none"),
+    rule_pattern: str | None = Form(default=None),
+    rule_match_mode: str = Form("contains"),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    tx = db.get(Transaction, transaction_id)
+    if tx is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    reclassify_transactions_manual(
+        db,
+        [tx],
+        category=category,
+        transaction_kind=transaction_kind,
+        notes=notes,
+        origin="manual_edit",
+    )
+    if rule_action in {"create", "update_current"} and rule_pattern:
+        rule_id = tx.categorization_rule_id if rule_action == "update_current" else None
+        rule = upsert_rule(
+            db,
+            rule_id=rule_id,
+            pattern=rule_pattern,
+            rule_type=rule_match_mode,
+            category_name=category,
+            transaction_kind=transaction_kind,
+            priority=0,
+            is_active=True,
+        )
+        tx.categorization_rule_id = rule.id
+        db.commit()
+    request.session["flash"] = "Lançamento atualizado."
+    return RedirectResponse(url=unquote(return_to), status_code=303)
+
+
+@router.post("/transactions/bulk-preview", response_class=HTMLResponse)
+def admin_bulk_preview(
+    request: Request,
+    selected_ids: list[int] = Form(default=[]),
+    category: str = Form(...),
+    transaction_kind: str = Form(...),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    txs = preview_bulk_reclassification(db, transaction_ids=selected_ids)
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/bulk_preview.html",
+        {
+            "request": request,
+            "transactions": txs[:5],
+            "count": len(txs),
+            "selected_ids": selected_ids,
+            "category": category,
+            "transaction_kind": transaction_kind,
+        },
+    )
+
+
+@router.post("/transactions/bulk-apply")
+def admin_bulk_apply(
+    request: Request,
+    selected_ids: list[int] = Form(default=[]),
+    category: str = Form(...),
+    transaction_kind: str = Form(...),
+    notes: str | None = Form(default=None),
+    return_to: str = Form("/admin/transactions"),
+    save_rule: bool = Form(False),
+    rule_pattern: str | None = Form(default=None),
+    rule_match_mode: str = Form("contains"),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    txs = preview_bulk_reclassification(db, transaction_ids=selected_ids)
+    if txs:
+        reclassify_transactions_manual(
+            db,
+            txs,
+            category=category,
+            transaction_kind=transaction_kind,
+            notes=notes,
+            origin="bulk_reclassification",
+        )
+        if save_rule and rule_pattern:
+            upsert_rule(
+                db,
+                rule_id=None,
+                pattern=rule_pattern,
+                rule_type=rule_match_mode,
+                category_name=category,
+                transaction_kind=transaction_kind,
+                priority=0,
+                is_active=True,
+            )
+    request.session["flash"] = f"{len(txs)} lançamento(s) atualizados."
+    return RedirectResponse(url=unquote(return_to), status_code=303)

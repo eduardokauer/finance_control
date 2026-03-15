@@ -45,7 +45,7 @@
 
   <h2>Regras cadastradas</h2>
   {% for rule in rules %}
-    <details class="rule-row accordion">
+    <details id="rule-{{ rule.id }}" class="rule-row accordion" {% if open_rule_id == rule.id %}open{% endif %}>
       <summary>
         <span>{{ rule.pattern }}</span>
         <span class="subtle">{{ rule.category_name }} · {{ rule.transaction_kind }} · prioridade {{ rule.priority }} · {{ 'ativa' if rule.is_active else 'inativa' }}</span>
@@ -101,3 +101,4 @@
   {% endfor %}
 </div>
 {% endblock %}
+

@@ -25,7 +25,12 @@
           Tipo: <strong>{{ item.from_kind or 'não definido' }}</strong> → <strong>{{ item.to_kind or 'não definido' }}</strong>
         </span>
         <span class="subtle">
-          Regra aplicada: <strong>{{ item.rule_pattern or 'nenhuma regra manual selecionada / fallback atual' }}</strong>
+          Regra aplicada:
+          {% if item.rule_id %}
+            <a href="/admin/rules?open_rule_id={{ item.rule_id }}#rule-{{ item.rule_id }}"><strong>{{ item.rule_pattern }}</strong></a>
+          {% else %}
+            <strong>{{ item.rule_pattern or 'nenhuma regra manual selecionada / fallback atual' }}</strong>
+          {% endif %}
         </span>
       </label>
     {% else %}
@@ -41,3 +46,4 @@
     </div>
   </form>
 </div>
+
