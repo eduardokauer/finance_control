@@ -101,7 +101,12 @@ Response shape:
     "deterministic_summary": {},
     "historical_baseline": {},
     "current_vs_history": {},
-    "signals": {},
+    "signals": {
+      "uncategorized_expense_total": 0,
+      "uncategorized_income_total": 0,
+      "uncategorized_transactions_count": 0,
+      "uncategorized_share_pct": 0
+    },
     "guardrails": {}
   }
 }
@@ -113,6 +118,7 @@ History fallback rules:
 - `insufficient_history`: 0 to 2 months available
 
 The endpoint never calls an LLM directly. It only prepares deterministic numbers plus a concise historical payload for Make to forward to an external model.
+`summary_html` is returned as real email-friendly HTML using tags such as `<section>`, `<h2>`, `<p>`, `<ul>` and `<li>`.
 
 ## Expected File Formats
 ### Bank statement upload contract

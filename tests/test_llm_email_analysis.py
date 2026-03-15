@@ -89,8 +89,12 @@ def test_llm_email_analysis_with_insufficient_history(client, auth_headers, db_s
 
     assert resp.status_code == 200
     payload = resp.json()
-    assert "Resumo Determinístico" in payload["summary_html"]
-    assert "Período analisado: 2026-03-01 a 2026-03-31" in payload["summary_html"]
+    summary_html = payload["summary_html"]
+    assert "<section>" in summary_html
+    assert "<h2>Resumo Determinístico</h2>" in summary_html
+    assert "<ul>" in summary_html
+    assert "<li><strong>" in summary_html
+    assert "Período analisado: 2026-03-01 a 2026-03-31" in summary_html
     assert payload["llm_payload"]["analysis_mode"] == "insufficient_history"
     assert payload["llm_payload"]["current_period"]["months_available_for_history"] == 2
     assert payload["llm_payload"]["current_period"]["history_window_used_months"] == 2
@@ -120,8 +124,13 @@ def test_llm_email_analysis_with_partial_history(client, auth_headers, db_sessio
     assert llm_payload["guardrails"]["must_not_invent_missing_history"] is True
 
 
-def test_llm_email_analysis_with_full_history(client, auth_headers, db_session):
+def test_llm_email_analysis_with_full_history_uses_all_month_categories(client, auth_headers, db_session):
     _seed_history(db_session, months_before=12)
+    _add_transaction(db_session, 1, 100, date(2025, 3, 9), -150.0, "Transporte")
+    _add_transaction(db_session, 1, 101, date(2025, 3, 10), -120.0, "Lazer")
+    _add_transaction(db_session, 1, 102, date(2025, 3, 11), -110.0, "Pets")
+    _add_transaction(db_session, 1, 103, date(2025, 3, 12), -90.0, "Educação")
+    db_session.commit()
 
     resp = client.post(
         "/analysis/llm-email",
@@ -131,8 +140,8 @@ def test_llm_email_analysis_with_full_history(client, auth_headers, db_session):
 
     assert resp.status_code == 200
     body = resp.json()
-    assert "Total de receitas: 5500.00" in body["summary_html"]
-    assert "Top categorias" in body["summary_html"]
+    assert "<section>" in body["summary_html"]
+    assert "<h3>Top categorias</h3>" in body["summary_html"]
     llm_payload = body["llm_payload"]
     assert llm_payload["analysis_mode"] == "full_history"
     assert llm_payload["current_period"]["months_available_for_history"] == 12
@@ -142,3 +151,32 @@ def test_llm_email_analysis_with_full_history(client, auth_headers, db_session):
     assert len(llm_payload["deterministic_summary"]["top_categories"]) >= 2
     assert len(llm_payload["deterministic_summary"]["largest_expenses"]) >= 2
     assert "category_deltas" in llm_payload["current_vs_history"]
+
+    baseline_categories = {
+        item["category"]: item["avg_amount"] for item in llm_payload["historical_baseline"]["category_baselines"]
+    }
+    assert "Pets" in baseline_categories
+    assert baseline_categories["Pets"] > 0
+
+
+def test_llm_email_analysis_exposes_uncategorized_signals(client, auth_headers, db_session):
+    source_file = _seed_source_file(db_session)
+    _add_transaction(db_session, source_file.id, 1, date(2026, 3, 5), 4500.0, "Salário")
+    _add_transaction(db_session, source_file.id, 2, date(2026, 3, 6), -300.0, "Não Categorizado")
+    _add_transaction(db_session, source_file.id, 3, date(2026, 3, 7), -200.0, "Outros")
+    _add_transaction(db_session, source_file.id, 4, date(2026, 3, 8), 120.0, "Outros")
+    _add_transaction(db_session, source_file.id, 5, date(2026, 3, 9), -500.0, "Moradia")
+    db_session.commit()
+
+    resp = client.post(
+        "/analysis/llm-email",
+        headers=auth_headers,
+        json={"period_start": "2026-03-01", "period_end": "2026-03-31"},
+    )
+
+    assert resp.status_code == 200
+    signals = resp.json()["llm_payload"]["signals"]
+    assert signals["uncategorized_expense_total"] == 500.0
+    assert signals["uncategorized_income_total"] == 120.0
+    assert signals["uncategorized_transactions_count"] == 3
+    assert signals["uncategorized_share_pct"] == 50.0

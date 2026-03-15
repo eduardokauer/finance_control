@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.repositories.models import Transaction
 
+UNCATEGORIZED_CATEGORIES = {"Não Categorizado", "Outros"}
+
 
 def build_llm_email_analysis(
     db: Session,
@@ -19,9 +21,7 @@ def build_llm_email_analysis(
     current_transactions = db.scalars(
         select(Transaction).where(Transaction.transaction_date >= period_start, Transaction.transaction_date <= period_end)
     ).all()
-    history_transactions = db.scalars(
-        select(Transaction).where(Transaction.transaction_date < period_start)
-    ).all()
+    history_transactions = db.scalars(select(Transaction).where(Transaction.transaction_date < period_start)).all()
 
     current_summary = _summarize_period(current_transactions)
     monthly_history = _build_monthly_history(history_transactions)
@@ -37,7 +37,7 @@ def build_llm_email_analysis(
     }[analysis_mode]
     historical_baseline = _build_historical_baseline(used_history)
     current_vs_history = _build_current_vs_history(current_summary, historical_baseline, used_history)
-    signals = _build_signals(current_summary, historical_baseline, used_history)
+    signals = _build_signals(current_summary, current_transactions, historical_baseline, used_history)
 
     llm_payload = {
         "analysis_mode": analysis_mode,
@@ -82,13 +82,10 @@ def _summarize_period(transactions: list[Transaction]) -> dict:
     income_total = round(sum(t.amount for t in transactions if t.amount > 0), 2)
     expense_total_raw = sum(t.amount for t in transactions if t.should_count_in_spending and t.amount < 0)
     net_total = round(sum(t.amount for t in transactions), 2)
-    category_totals: dict[str, float] = defaultdict(float)
-    expense_transactions = []
-
-    for tx in transactions:
-        if tx.should_count_in_spending and tx.amount < 0:
-            category_totals[tx.category] += abs(tx.amount)
-            expense_transactions.append(tx)
+    category_totals = _collect_category_totals(transactions)
+    expense_transactions = [
+        tx for tx in transactions if tx.should_count_in_spending and tx.amount < 0
+    ]
 
     top_categories = [
         {"category": category, "amount": round(amount, 2)}
@@ -114,6 +111,14 @@ def _summarize_period(transactions: list[Transaction]) -> dict:
     }
 
 
+def _collect_category_totals(transactions: list[Transaction]) -> dict[str, float]:
+    category_totals: dict[str, float] = defaultdict(float)
+    for tx in transactions:
+        if tx.should_count_in_spending and tx.amount < 0:
+            category_totals[tx.category] += abs(tx.amount)
+    return {category: round(amount, 2) for category, amount in category_totals.items()}
+
+
 def _build_monthly_history(transactions: list[Transaction]) -> list[dict]:
     grouped: dict[str, list[Transaction]] = defaultdict(list)
     for tx in transactions:
@@ -121,8 +126,8 @@ def _build_monthly_history(transactions: list[Transaction]) -> list[dict]:
 
     history = []
     for month in sorted(grouped):
-        summary = _summarize_period(grouped[month])
-        category_totals = {item["category"]: item["amount"] for item in summary["top_categories"]}
+        month_transactions = grouped[month]
+        summary = _summarize_period(month_transactions)
         history.append(
             {
                 "month": month,
@@ -130,7 +135,7 @@ def _build_monthly_history(transactions: list[Transaction]) -> list[dict]:
                 "expense_total": summary["expense_total"],
                 "net_total": summary["net_total"],
                 "transactions_count": summary["transactions_count"],
-                "category_totals": category_totals,
+                "category_totals": _collect_category_totals(month_transactions),
             }
         )
     return history
@@ -215,7 +220,12 @@ def _build_current_vs_history(current_summary: dict, historical_baseline: dict, 
     }
 
 
-def _build_signals(current_summary: dict, historical_baseline: dict, used_history: list[dict]) -> dict:
+def _build_signals(
+    current_summary: dict,
+    current_transactions: list[Transaction],
+    historical_baseline: dict,
+    used_history: list[dict],
+) -> dict:
     expense_total = current_summary["expense_total"] or 0.0
     current_categories = current_summary["top_categories"]
     category_baselines = {item["category"]: item["avg_amount"] for item in historical_baseline["category_baselines"]}
@@ -224,6 +234,22 @@ def _build_signals(current_summary: dict, historical_baseline: dict, used_histor
     for month in used_history:
         for category in month["category_totals"]:
             occurrences[category] += 1
+
+    uncategorized_expense_total = round(
+        sum(
+            abs(tx.amount)
+            for tx in current_transactions
+            if tx.category in UNCATEGORIZED_CATEGORIES and tx.should_count_in_spending and tx.amount < 0
+        ),
+        2,
+    )
+    uncategorized_income_total = round(
+        sum(tx.amount for tx in current_transactions if tx.category in UNCATEGORIZED_CATEGORIES and tx.amount > 0),
+        2,
+    )
+    uncategorized_transactions_count = sum(
+        1 for tx in current_transactions if tx.category in UNCATEGORIZED_CATEGORIES
+    )
 
     high_concentration_categories = [
         {
@@ -262,6 +288,10 @@ def _build_signals(current_summary: dict, historical_baseline: dict, used_histor
         ]
 
     return {
+        "uncategorized_expense_total": uncategorized_expense_total,
+        "uncategorized_income_total": uncategorized_income_total,
+        "uncategorized_transactions_count": uncategorized_transactions_count,
+        "uncategorized_share_pct": _share_pct(uncategorized_expense_total, expense_total),
         "high_concentration_categories": high_concentration_categories,
         "unusual_transactions": unusual_transactions[:3],
         "recurring_expenses": recurring_expenses[:5],
@@ -271,9 +301,11 @@ def _build_signals(current_summary: dict, historical_baseline: dict, used_histor
 
 
 def _build_summary_html(period_start: date, period_end: date, current_summary: dict) -> str:
-    categories_html = "".join(
-        f"<li>{item['category']}: {item['amount']:.2f}</li>" for item in current_summary["top_categories"]
-    ) or "<li>Sem categorias relevantes no período.</li>"
+    category_items = "".join(
+        f"<li><strong>{item['category']}</strong>: {item['amount']:.2f}</li>" for item in current_summary["top_categories"]
+    )
+    if not category_items:
+        category_items = "<li>Sem categorias relevantes no período.</li>"
     return (
         "<section>"
         "<h2>Resumo Determinístico</h2>"
@@ -282,7 +314,8 @@ def _build_summary_html(period_start: date, period_end: date, current_summary: d
         f"<p>Total de despesas: {current_summary['expense_total']:.2f}</p>"
         f"<p>Saldo: {current_summary['net_total']:.2f}</p>"
         f"<p>Quantidade de transações: {current_summary['transactions_count']}</p>"
-        f"<h3>Top categorias</h3><ul>{categories_html}</ul>"
+        "<h3>Top categorias</h3>"
+        f"<ul>{category_items}</ul>"
         "</section>"
     )
 
@@ -297,3 +330,9 @@ def _delta_pct(current: float, baseline: float | None) -> float | None:
     if baseline in (None, 0):
         return None
     return round(((current - baseline) / baseline) * 100, 2)
+
+
+def _share_pct(part: float, total: float) -> float | None:
+    if total == 0:
+        return None
+    return round((part / total) * 100, 2)
