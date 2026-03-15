@@ -1,0 +1,104 @@
+﻿{% extends "admin/base.html" %}
+{% block title %}Regras{% endblock %}
+{% block content %}
+<div class="card tableish">
+  <div class="inline" style="justify-content:space-between; align-items:center;">
+    <h1 style="margin:0;">Regras manuais de categorização</h1>
+  </div>
+
+  <details class="accordion">
+    <summary>Adicionar regra</summary>
+    <div class="accordion-body stack">
+      <form method="post" action="/admin/rules" class="grid grid-2">
+        <label>Padrão ou termo
+          <input type="text" name="pattern" placeholder="Ex.: uber" required>
+        </label>
+        <label>Modo do match
+          <select name="rule_type">
+            <option value="contains">contains</option>
+            <option value="exact_normalized">exact_normalized</option>
+          </select>
+        </label>
+        <label>Categoria destino
+          <select name="category_name">
+            {% for category in categories if category.is_active %}
+              <option value="{{ category.name }}">{{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Tipo destino
+          <select name="transaction_kind">
+            <option value="expense">expense</option>
+            <option value="income">income</option>
+            <option value="transfer">transfer</option>
+          </select>
+        </label>
+        <label>Prioridade
+          <input type="number" name="priority" value="0">
+        </label>
+        <div class="actions">
+          <button type="submit" class="button button-primary">Criar regra</button>
+        </div>
+      </form>
+    </div>
+  </details>
+
+  <h2>Regras cadastradas</h2>
+  {% for rule in rules %}
+    <details id="rule-{{ rule.id }}" class="rule-row accordion" {% if open_rule_id == rule.id %}open{% endif %}>
+      <summary>
+        <span>{{ rule.pattern }}</span>
+        <span class="subtle">{{ rule.category_name }} · {{ rule.transaction_kind }} · prioridade {{ rule.priority }} · {{ 'ativa' if rule.is_active else 'inativa' }}</span>
+      </summary>
+      <div class="accordion-body stack">
+        <form method="post" action="/admin/rules/{{ rule.id }}/update" class="grid grid-2">
+          <label>Padrão
+            <input type="text" name="pattern" value="{{ rule.pattern }}" required>
+          </label>
+          <label>Modo
+            <select name="rule_type">
+              <option value="contains" {% if rule.rule_type == 'contains' %}selected{% endif %}>contains</option>
+              <option value="exact_normalized" {% if rule.rule_type == 'exact_normalized' %}selected{% endif %}>exact_normalized</option>
+            </select>
+          </label>
+          <label>Categoria
+            <select name="category_name">
+              {% for category in categories %}
+                <option value="{{ category.name }}" {% if category.name == rule.category_name %}selected{% endif %}>{{ category.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Tipo
+            <select name="transaction_kind">
+              {% for kind in ['expense', 'income', 'transfer'] %}
+                <option value="{{ kind }}" {% if kind == rule.transaction_kind %}selected{% endif %}>{{ kind }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Prioridade
+            <input type="number" name="priority" value="{{ rule.priority }}">
+          </label>
+          <label class="inline" style="margin-top:28px;">
+            <input type="checkbox" name="is_active" value="true" {% if rule.is_active %}checked{% endif %} style="width:auto;">
+            Ativa
+          </label>
+          <div class="actions">
+            <button type="submit" class="button button-primary">Salvar</button>
+          </div>
+        </form>
+        <div class="actions">
+          <form method="post" action="/admin/rules/{{ rule.id }}/toggle">
+            <button type="submit" class="button">{{ 'Desativar' if rule.is_active else 'Ativar' }}</button>
+          </form>
+          <form method="post" action="/admin/rules/{{ rule.id }}/delete" onsubmit="return confirm('Excluir esta regra?');">
+            <button type="submit" class="button button-danger">Excluir</button>
+          </form>
+        </div>
+      </div>
+    </details>
+  {% else %}
+    <div class="subtle">Nenhuma regra cadastrada.</div>
+  {% endfor %}
+</div>
+{% endblock %}
+

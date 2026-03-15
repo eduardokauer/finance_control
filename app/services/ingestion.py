@@ -6,8 +6,7 @@ from sqlalchemy.orm import Session
 from app.parsers.csv_parser import parse_csv
 from app.parsers.ofx_parser import parse_ofx
 from app.repositories.models import RawTransaction, SourceFile, Transaction
-from app.services.categorization import categorize
-from app.services.reconciliation import infer_transaction_kind, reconciliation_flags
+from app.services.classification import apply_transaction_classification, classify_transaction
 from app.utils.hashing import canonical_hash, file_hash
 from app.utils.normalization import normalize_description
 
@@ -93,30 +92,37 @@ def ingest_bytes(
                 duplicate_tx = db.scalar(select(Transaction.id).where(Transaction.canonical_hash == current_hash))
             if duplicate_tx:
                 continue
-            kind = infer_transaction_kind(source_type, row["description"], row["amount"])
-            cat = categorize(row["description"], transaction_kind=kind)
-            flags = reconciliation_flags(kind)
-            db.add(
-                Transaction(
-                    source_file_id=sf.id,
-                    source_type=source_type,
-                    account_ref="default-account",
-                    external_id=row.get("external_id"),
-                    canonical_hash=current_hash,
-                    transaction_date=row["date"],
-                    competence_month=row["date"].strftime("%Y-%m"),
-                    description_raw=row["description"],
-                    description_normalized=normalized,
-                    amount=row["amount"],
-                    direction=direction,
-                    transaction_kind=kind,
-                    category=cat["category"],
-                    categorization_method=cat["method"],
-                    categorization_confidence=cat["confidence"],
-                    applied_rule=cat["rule"],
-                    **flags,
-                )
+            classification = classify_transaction(db, source_type, row["description"], row["amount"])
+            tx = Transaction(
+                source_file_id=sf.id,
+                source_type=source_type,
+                account_ref="default-account",
+                external_id=row.get("external_id"),
+                canonical_hash=current_hash,
+                transaction_date=row["date"],
+                competence_month=row["date"].strftime("%Y-%m"),
+                description_raw=row["description"],
+                description_normalized=classification["normalized_description"],
+                amount=row["amount"],
+                direction=direction,
+                transaction_kind=classification["transaction_kind"],
+                category=classification["category"],
+                categorization_method=classification["method"],
+                categorization_confidence=classification["confidence"],
+                applied_rule=classification["rule"],
+                categorization_rule_id=classification["rule_id"],
             )
+            apply_transaction_classification(
+                tx,
+                category=classification["category"],
+                transaction_kind=classification["transaction_kind"],
+                method=classification["method"],
+                confidence=classification["confidence"],
+                applied_rule=classification["rule"],
+                rule_id=classification["rule_id"],
+                manual_override=False,
+            )
+            db.add(tx)
             inserted += 1
     except Exception as exc:
         sf.status = "error"

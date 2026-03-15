@@ -1,0 +1,11 @@
+﻿{% if count %}
+  <div class="card stack">
+    <div><strong>{{ count }}</strong> lançamento(s) serão afetados.</div>
+    {% for tx in transactions %}
+      <div class="subtle">#{{ tx.id }} · {{ tx.transaction_date }} · {{ tx.description_raw }} · {{ tx.category }} ? {{ category }}</div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="subtle">Selecione ao menos um lançamento.</div>
+{% endif %}
+

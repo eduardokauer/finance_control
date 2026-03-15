@@ -1,0 +1,50 @@
+﻿{% extends "admin/base.html" %}
+{% block title %}Reaplicar Regras{% endblock %}
+{% block content %}
+<div class="card stack">
+  <h1>Reaplicar regras na base já importada</h1>
+  <p class="subtle">O padrão agora é aplicar na base toda. Se quiser limitar por período, preencha uma ou ambas as datas abaixo.</p>
+  <form class="stack">
+    <div class="grid grid-2">
+      <label>Data inicial opcional
+        <input type="date" name="period_start">
+      </label>
+      <label>Data final opcional
+        <input type="date" name="period_end">
+      </label>
+    </div>
+    <label class="inline">
+      <input type="checkbox" name="include_manual" value="true" style="width:auto;">
+      Incluir também lançamentos já ajustados manualmente
+    </label>
+
+    <details class="accordion card">
+      <summary>Selecionar regras para aplicar</summary>
+      <div class="accordion-body stack">
+        {% for rule in rules %}
+          <label class="inline" style="align-items:flex-start;">
+            <input type="checkbox" name="selected_rule_ids" value="{{ rule.id }}" checked style="width:auto; margin-top:3px;">
+            <span>
+              <strong>{{ rule.pattern }}</strong><br>
+              <span class="subtle">{{ rule.category_name }} · {{ rule.transaction_kind }} · prioridade {{ rule.priority }}</span>
+            </span>
+          </label>
+        {% else %}
+          <div class="subtle">Nenhuma regra ativa disponível.</div>
+        {% endfor %}
+      </div>
+    </details>
+
+    <div class="actions">
+      <button
+        type="button"
+        class="button"
+        hx-post="/admin/reapply/preview"
+        hx-include="closest form"
+        hx-target="#reapply-preview"
+        hx-swap="innerHTML">Pré-visualizar impacto</button>
+    </div>
+  </form>
+</div>
+<div id="reapply-preview"></div>
+{% endblock %}

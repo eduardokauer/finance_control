@@ -1,0 +1,66 @@
+﻿{% extends "admin/base.html" %}
+{% block title %}Admin Home{% endblock %}
+{% block content %}
+<section class="grid grid-2">
+  <div class="card">
+    <div class="subtle">Período padrão</div>
+    <div class="metric-value">{{ metrics.period_start.strftime('%m/%Y') }}</div>
+    <div class="subtle">Último mês fechado</div>
+  </div>
+  <div class="card">
+    <div class="subtle">Não categorizados</div>
+    <div class="metric-value">{{ metrics.uncategorized_count }}</div>
+    <div class="subtle">Total {{ '%.2f'|format(metrics.uncategorized_total) }}</div>
+  </div>
+</section>
+
+<section class="grid grid-2">
+  <div class="card stack">
+    <h2>Atalhos</h2>
+    <a class="button button-primary" href="/admin/transactions">Revisar lançamentos</a>
+    <a class="button" href="/admin/transactions?uncategorized_only=true">Ver não categorizados</a>
+    <a class="button" href="/admin/rules">Gerenciar regras</a>
+    <a class="button" href="/admin/categories">Gerenciar categorias</a>
+    <a class="button" href="/admin/reapply">Reaplicar regras</a>
+  </div>
+  <div class="card stack">
+    <h2>Nova análise</h2>
+    <p class="subtle">Depois das correções, gere uma nova análise determinística para o período revisado.</p>
+    <form method="post" action="/admin/analysis/run" class="stack">
+      <label>Início<input type="date" name="period_start" value="{{ metrics.period_start }}" required></label>
+      <label>Fim<input type="date" name="period_end" value="{{ metrics.period_end }}" required></label>
+      <input type="hidden" name="return_to" value="/admin">
+      <button type="submit" class="button button-primary">Gerar análise</button>
+    </form>
+  </div>
+</section>
+
+<section class="grid grid-2">
+  <div class="card stack">
+    <h2>Últimas alterações manuais</h2>
+    {% if metrics.latest_changes %}
+      {% for item in metrics.latest_changes %}
+        <div>
+          <div><strong>#{{ item.transaction_id }}</strong> · {{ item.origin }}</div>
+          <div class="subtle">{{ item.previous_category }} ? {{ item.new_category }} | {{ item.previous_transaction_kind }} ? {{ item.new_transaction_kind }}</div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="subtle">Ainda não há alterações auditadas.</div>
+    {% endif %}
+  </div>
+  <div class="card stack">
+    <h2>Regras recentes</h2>
+    {% if metrics.latest_rules %}
+      {% for rule in metrics.latest_rules %}
+        <div>
+          <div><strong>{{ rule.pattern }}</strong> ? {{ rule.category_name }}</div>
+          <div class="subtle">{{ rule.rule_type }} · {{ rule.transaction_kind }} · prioridade {{ rule.priority }}</div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="subtle">Nenhuma regra ativa encontrada.</div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

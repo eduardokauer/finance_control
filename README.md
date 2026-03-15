@@ -1,4 +1,4 @@
-# Finance Control Backend
+﻿# Finance Control Backend
 
 Python 3.11+ backend with FastAPI for ingesting Itau bank statements (OFX) and credit card bills (CSV), with structural validation, deduplication, deterministic categorization, reconciliation, HTML financial analysis generation, and manual transaction reclassification.
 
@@ -12,7 +12,7 @@ Python 3.11+ backend with FastAPI for ingesting Itau bank statements (OFX) and c
 
 ## Local Run With Docker
 1. Copy `.env.example` to `.env`.
-2. Adjust `API_TOKEN` if needed.
+2. Adjust `API_TOKEN`, `ADMIN_UI_PASSWORD`, and `ADMIN_UI_SESSION_SECRET` if needed.
 3. Start the stack:
 
 ```bash
@@ -21,6 +21,7 @@ docker compose up --build
 
 API:
 - `http://localhost:8000`
+- Admin UI: `http://localhost:8000/admin`
 
 Health check:
 - `GET /health`
@@ -43,6 +44,12 @@ All protected endpoints require:
 Authorization: Bearer <API_TOKEN>
 ```
 
+The admin UI uses a separate fixed-password flow with cookie session:
+- `ADMIN_UI_PASSWORD`: required to enable `/admin`
+- `ADMIN_UI_SESSION_SECRET`: secret used to sign the admin session cookie
+
+This does not change the Bearer authentication already used by Make and the ingestion API.
+
 ## Main Endpoints
 - `POST /ingest/bank-statement`
 - `POST /ingest/credit-card-bill`
@@ -52,6 +59,31 @@ Authorization: Bearer <API_TOKEN>
 - `POST /analysis/llm-email`
 - `GET /analysis/runs`
 - `GET /health`
+
+## Admin UI
+The application now serves a mobile-first administrative interface under `/admin` using server-rendered HTML with Jinja2 and HTMX.
+
+Main flows available in the UI:
+- review transactions by period
+- filter uncategorized transactions
+- manually correct category and transaction type
+- bulk reclassify selected transactions
+- create, edit, deactivate, and delete categorization rules
+- create and edit categories
+- reapply rules to already imported data without re-uploading OFX
+- trigger a fresh deterministic analysis after corrections
+
+Security model:
+- access `/admin/login`
+- authenticate with `ADMIN_UI_PASSWORD`
+- a signed session cookie protects the rest of the admin routes
+
+Recommended env vars:
+
+```text
+ADMIN_UI_PASSWORD=uma-senha-forte
+ADMIN_UI_SESSION_SECRET=um-segredo-longo-e-aleatorio
+```
 
 ## Manual Reclassification
 Use this endpoint to reclassify one transaction or a batch without creating a permanent rule.
@@ -159,12 +191,39 @@ Rules:
 - Value: decimal with comma or dot
 - Encoding: UTF-8 or UTF-8 BOM
 
+## Full Local Validation Reset
+Use this when you want to restart the local environment from zero, validate the boot flow, run the full test suite, log into the admin UI, ingest a real OFX fixture, and validate `/analysis/llm-email` end to end.
+
+Command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\validate_local_reset.ps1
+```
+
+What it does:
+- `docker compose down -v`
+- `docker compose up --build -d`
+- waits for `GET /health`
+- runs `pytest -q`
+- logs into `/admin`
+- imports `tests/fixtures/ofx/itau_statement_sample.ofx`
+- validates `POST /analysis/llm-email`
+
+Warning:
+- this script deletes the local Postgres volume and recreates the database from zero
 ## Tests
 Validated Docker flow:
 
 ```bash
 docker compose up --build -d
 docker compose exec app pytest -vv
+```
+
+Admin UI and regression validation used for this feature:
+
+```bash
+docker compose up --build -d
+docker compose exec app pytest -q tests/test_admin_ui.py tests/test_api.py tests/test_dedup.py tests/test_e2e_ofx_import.py
 ```
 
 Convenience aliases via `Makefile`:
@@ -248,6 +307,8 @@ docker compose down
   `postgresql+psycopg://USER:PASSWORD@HOST:PORT/DBNAME?sslmode=require`
 - Prefer the Supabase session pooler connection string when possible.
 - Set a fixed `API_TOKEN` for Make.
+- Set `ADMIN_UI_PASSWORD` for the admin interface.
+- Set `ADMIN_UI_SESSION_SECRET` with a long random value.
 - Set `ENVIRONMENT=prod`.
 - Set `PORT` only if you need to override Render's default injected value.
 - Configure the health check path as `/health`.
@@ -258,3 +319,8 @@ python -m app.core.migrate
 ```
 
 - The app container on Render listens on the configured `PORT` automatically.
+- After deploy, access the admin UI at `https://<your-render-service>.onrender.com/admin`.
+
+
+
+

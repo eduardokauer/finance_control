@@ -1,0 +1,245 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Admin{% endblock %}</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <style>
+    :root {
+      --bg: #f5efe2;
+      --surface: #fffdf7;
+      --surface-strong: #ffffff;
+      --ink: #1f2933;
+      --muted: #66788a;
+      --line: #dbcdb3;
+      --accent: #0f766e;
+      --accent-soft: #d9f3ef;
+      --warn: #b45309;
+      --warn-soft: #fff1d6;
+      --danger: #b42318;
+      --danger-soft: #fee4e2;
+      --ok: #18794e;
+      --shadow: 0 12px 30px rgba(31, 41, 51, 0.08);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Calibri, "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(180deg, #f2ead8 0%, #f8f4ec 35%, #f3efe6 100%);
+      color: var(--ink);
+    }
+    a { color: inherit; }
+    .shell {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 16px 14px 80px;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .brand {
+      font-size: 1.25rem;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .nav a, .nav button, .button {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      text-decoration: none;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    .button-primary {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .button-danger {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border-color: #f7b4ae;
+    }
+    .card, .panel {
+      background: rgba(255, 253, 247, 0.96);
+      border: 1px solid rgba(219, 205, 179, 0.9);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .grid {
+      display: grid;
+      gap: 12px;
+    }
+    .grid-2 {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .metric-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+    .subtle {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.82rem;
+    }
+    .badge.warn { background: var(--warn-soft); color: var(--warn); }
+    .badge.danger { background: var(--danger-soft); color: var(--danger); }
+    form { margin: 0; }
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+    input, select, textarea {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      padding: 12px 14px;
+      background: var(--surface-strong);
+      font: inherit;
+      color: var(--ink);
+    }
+    textarea { min-height: 90px; }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .card-list {
+      display: grid;
+      gap: 12px;
+    }
+    .tx-card header {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+    .amount-negative { color: #9f1239; font-weight: 700; }
+    .amount-positive { color: var(--ok); font-weight: 700; }
+    .stack { display: grid; gap: 10px; }
+    .inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .flash {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      margin-bottom: 14px;
+      border: 1px solid #a8dfd5;
+    }
+    .tableish {
+      display: grid;
+      gap: 10px;
+    }
+    .accordion {
+      overflow: hidden;
+    }
+    .accordion summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+      list-style: none;
+      font-weight: 700;
+    }
+    .accordion summary::-webkit-details-marker {
+      display: none;
+    }
+    .accordion summary::after {
+      content: "+";
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+    .accordion[open] summary::after {
+      content: "-";
+    }
+    .accordion-body {
+      margin-top: 14px;
+    }
+    .rule-row, .category-row {
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+      margin-top: 12px;
+    }
+    .login-shell {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+    .login-card {
+      width: min(420px, 100%);
+      background: rgba(255, 253, 247, 0.97);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+    @media (min-width: 860px) {
+      .shell { padding: 28px 24px 80px; }
+      .tx-card { padding: 18px 18px; }
+    }
+  </style>
+</head>
+<body>
+  {% block body %}
+  <div class="shell">
+    <div class="topbar">
+      <a href="/admin" class="brand">Finance Control Admin</a>
+      <form method="post" action="/admin/logout">
+        <button type="submit">Sair</button>
+      </form>
+    </div>
+    <nav class="nav">
+      <a href="/admin">Home</a>
+      <a href="/admin/transactions">Lançamentos</a>
+      <a href="/admin/transactions?uncategorized_only=true">Não categorizados</a>
+      <a href="/admin/rules">Regras</a>
+      <a href="/admin/categories">Categorias</a>
+      <a href="/admin/reapply">Reaplicar regras</a>
+    </nav>
+    {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </div>
+  {% endblock %}
+</body>
+</html>
+
