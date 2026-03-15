@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -13,7 +13,7 @@ from app.services.analysis import run_analysis
 from app.services.classification import apply_transaction_classification, classify_transaction, create_audit_log
 from app.utils.normalization import normalize_description
 
-UNCATEGORIZED_NAMES = ("NÃ£o Categorizado", "Não Categorizado")
+UNCATEGORIZED_NAMES = ("NÃƒÂ£o Categorizado", "NÃ£o Categorizado", "Não Categorizado")
 
 
 @dataclass
@@ -111,6 +111,42 @@ def list_transactions_for_admin(db: Session, filters: TransactionFilters, *, lim
 
     items = db.scalars(query.limit(limit).offset(offset)).all()
     return items, int(total)
+
+
+def is_uncategorized_category(category: str | None) -> bool:
+    return category in UNCATEGORIZED_NAMES
+
+
+def resolve_reapply_classification(
+    tx: Transaction,
+    result: dict,
+    *,
+    allow_degrade_to_uncategorized: bool,
+) -> dict:
+    target_category = result["category"]
+    degraded_to_uncategorized = (
+        not allow_degrade_to_uncategorized
+        and result["rule_id"] is None
+        and is_uncategorized_category(target_category)
+        and not is_uncategorized_category(tx.category)
+    )
+
+    if degraded_to_uncategorized:
+        return {
+            **result,
+            "category": tx.category,
+            "transaction_kind": tx.transaction_kind,
+            "preserved_current": True,
+            "degrade_blocked": True,
+        }
+
+    return {
+        **result,
+        "category": target_category,
+        "transaction_kind": result["transaction_kind"],
+        "preserved_current": False,
+        "degrade_blocked": False,
+    }
 
 
 def admin_dashboard_metrics(db: Session) -> dict:
@@ -260,7 +296,7 @@ def preview_similar_transactions(db: Session, tx: Transaction, *, match_mode: st
     if match_mode == "exact_normalized":
         query = query.where(Transaction.description_normalized == normalized_pattern)
     else:
-        query = query.where(Transaction.description_normalized.contains(normalized_pattern))
+        query = query.where(Transaction.description_normalized.contains(normalize_description(pattern)))
     return db.scalars(query.order_by(Transaction.transaction_date.desc(), Transaction.id.desc()).limit(20)).all()
 
 
@@ -291,6 +327,7 @@ def reapply_rules_for_period(
     period_start: date | None,
     period_end: date | None,
     include_manual: bool,
+    allow_degrade_to_uncategorized: bool = False,
     allowed_rule_ids: list[int] | None = None,
     selected_transaction_ids: list[int] | None = None,
 ) -> dict:
@@ -316,14 +353,19 @@ def reapply_rules_for_period(
             tx.amount,
             allowed_rule_ids=allowed_rule_ids,
         )
+        resolved = resolve_reapply_classification(
+            tx,
+            result,
+            allow_degrade_to_uncategorized=allow_degrade_to_uncategorized,
+        )
         apply_transaction_classification(
             tx,
-            category=result["category"],
-            transaction_kind=result["transaction_kind"],
-            method=result["method"],
-            confidence=result["confidence"],
-            applied_rule=result["rule"],
-            rule_id=result["rule_id"],
+            category=resolved["category"],
+            transaction_kind=resolved["transaction_kind"],
+            method=resolved["method"],
+            confidence=resolved["confidence"],
+            applied_rule=resolved["rule"],
+            rule_id=resolved["rule_id"],
             manual_override=tx.manual_override if include_manual else False,
             notes=tx.manual_notes if include_manual else None,
         )
@@ -335,8 +377,8 @@ def reapply_rules_for_period(
             new_category=tx.category,
             previous_transaction_kind=previous_kind,
             new_transaction_kind=tx.transaction_kind,
-            applied_rule_id=result["rule_id"],
-            notes="ReaplicaÃ§Ã£o administrativa de regras",
+            applied_rule_id=resolved["rule_id"],
+            notes="ReaplicaÃƒÂ§ÃƒÂ£o administrativa de regras",
         )
         if previous_category != tx.category or previous_kind != tx.transaction_kind:
             updated += 1
@@ -351,6 +393,7 @@ def preview_reapply_rules(
     period_start: date | None,
     period_end: date | None,
     include_manual: bool,
+    allow_degrade_to_uncategorized: bool = False,
     allowed_rule_ids: list[int] | None = None,
 ) -> dict:
     query = select(Transaction)
@@ -370,18 +413,24 @@ def preview_reapply_rules(
             tx.amount,
             allowed_rule_ids=allowed_rule_ids,
         )
-        will_change = tx.category != result["category"] or tx.transaction_kind != result["transaction_kind"]
+        resolved = resolve_reapply_classification(
+            tx,
+            result,
+            allow_degrade_to_uncategorized=allow_degrade_to_uncategorized,
+        )
+        will_change = tx.category != resolved["category"] or tx.transaction_kind != resolved["transaction_kind"]
         if not will_change:
             continue
         changed_items.append(
             {
                 "transaction": tx,
                 "from_category": tx.category,
-                "to_category": result["category"],
+                "to_category": resolved["category"],
                 "from_kind": tx.transaction_kind,
-                "to_kind": result["transaction_kind"],
-                "rule_id": result["rule_id"],
-                "rule_pattern": result["rule"],
+                "to_kind": resolved["transaction_kind"],
+                "rule_id": resolved["rule_id"],
+                "rule_pattern": resolved["rule"],
+                "degrade_blocked": resolved["degrade_blocked"],
                 "will_change": will_change,
             }
         )
@@ -407,3 +456,4 @@ def build_pagination(total: int, *, limit: int, offset: int) -> dict:
         "has_more": offset + limit < total,
         "next_offset": offset + limit,
     }
+

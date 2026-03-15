@@ -22,7 +22,15 @@ def _seed_categories(db_session):
     db_session.commit()
 
 
-def _seed_transaction(db_session, *, description: str = "UBER TRIP", normalized: str = "uber trip"):
+def _seed_transaction(
+    db_session,
+    *,
+    description: str = "UBER TRIP",
+    normalized: str = "uber trip",
+    amount: float = -25.0,
+    transaction_kind: str = "expense",
+    category: str = "NÃƒÂ£o Categorizado",
+):
     source_file = SourceFile(
         source_type="bank_statement",
         file_name="manual.ofx",
@@ -42,10 +50,10 @@ def _seed_transaction(db_session, *, description: str = "UBER TRIP", normalized:
         competence_month="2026-03",
         description_raw=description,
         description_normalized=normalized,
-        amount=-25.0,
-        direction="debit",
-        transaction_kind="expense",
-        category="NÃƒÂ£o Categorizado",
+        amount=amount,
+        direction="credit" if amount > 0 else "debit",
+        transaction_kind=transaction_kind,
+        category=category,
         categorization_method="fallback",
         categorization_confidence=0.3,
         applied_rule=None,
@@ -56,7 +64,6 @@ def _seed_transaction(db_session, *, description: str = "UBER TRIP", normalized:
     db_session.commit()
     db_session.refresh(tx)
     return tx
-
 
 def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
@@ -339,4 +346,98 @@ def test_admin_reapply_preview_links_to_rule_editor(client, db_session, monkeypa
     rules_page = client.get(f"/admin/rules?open_rule_id={rule.id}")
     assert rules_page.status_code == 200
     assert f'id="rule-{rule.id}" class="rule-row accordion" open' in rules_page.text
+
+
+def test_admin_reapply_preserves_existing_category_when_no_better_match(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(
+        db_session,
+        description="LOJA SEM REGRA",
+        normalized="loja sem regra",
+        category="Outros",
+        transaction_kind="expense",
+    )
+    _login(client)
+
+    preview = client.post("/admin/reapply/preview", data={})
+    assert preview.status_code == 200
+    assert "LOJA SEM REGRA" not in preview.text
+
+    resp = client.post("/admin/reapply", data={}, follow_redirects=False)
+    assert resp.status_code == 303
+
+    db_session.refresh(tx)
+    assert tx.category == "Outros"
+    assert tx.transaction_kind == "expense"
+
+
+def test_admin_reapply_can_apply_valid_fallback_without_manual_rule(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(
+        db_session,
+        description="TED 102 0001 EDUARDO K C",
+        normalized="ted 102 0001 eduardo k c",
+        category="Outros",
+        transaction_kind="expense",
+    )
+    _login(client)
+
+    preview = client.post("/admin/reapply/preview", data={})
+    assert preview.status_code == 200
+    assert "TED 102 0001 EDUARDO K C" in preview.text
+    assert "Transfer" in preview.text or "TransferÃ" in preview.text
+
+    resp = client.post(
+        "/admin/reapply",
+        data={
+            "selected_transaction_ids": str(tx.id),
+            "selection_present": "true",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+
+    db_session.refresh(tx)
+    assert tx.category in {"TransferÃƒÂªncias", "TransferÃªncias", "Transferências"}
+    assert tx.transaction_kind == "transfer"
+
+
+def test_admin_reapply_only_degrades_to_uncategorized_when_flag_is_enabled(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(
+        db_session,
+        description="COMPRA SEM MATCH",
+        normalized="compra sem match",
+        category="Outros",
+        transaction_kind="expense",
+    )
+    _login(client)
+
+    preview_without_flag = client.post("/admin/reapply/preview", data={})
+    assert preview_without_flag.status_code == 200
+    assert "COMPRA SEM MATCH" not in preview_without_flag.text
+
+    preview_with_flag = client.post(
+        "/admin/reapply/preview",
+        data={"allow_degrade_to_uncategorized": "true"},
+    )
+    assert preview_with_flag.status_code == 200
+    assert "COMPRA SEM MATCH" in preview_with_flag.text
+
+    resp = client.post(
+        "/admin/reapply",
+        data={
+            "allow_degrade_to_uncategorized": "true",
+            "selected_transaction_ids": str(tx.id),
+            "selection_present": "true",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+
+    db_session.refresh(tx)
+    assert tx.category in {"NÃƒÂ£o Categorizado", "Não Categorizado"}
 

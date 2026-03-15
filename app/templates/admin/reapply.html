@@ -17,6 +17,10 @@
       <input type="checkbox" name="include_manual" value="true" style="width:auto;">
       Incluir também lançamentos já ajustados manualmente
     </label>
+    <label class="inline">
+      <input type="checkbox" name="allow_degrade_to_uncategorized" value="true" style="width:auto;">
+      Permitir degradação explícita para Não Categorizado quando não houver classificação melhor
+    </label>
 
     <details class="accordion card">
       <summary>Selecionar regras para aplicar</summary>
@@ -48,3 +52,4 @@
 </div>
 <div id="reapply-preview"></div>
 {% endblock %}
+
