@@ -1,0 +1,26 @@
+﻿{% extends "admin/base.html" %}
+{% block title %}Login Admin{% endblock %}
+{% block body %}
+<div class="login-shell">
+  <div class="login-card stack">
+    <div>
+      <div class="badge">Interface administrativa</div>
+      <h1>Entrar</h1>
+      <p class="subtle">Use a senha fixa configurada em <code>ADMIN_UI_PASSWORD</code> para acessar a revisão financeira no celular ou desktop.</p>
+    </div>
+    {% if error %}<div class="flash" style="background:#fee4e2;color:#b42318;border-color:#f7b4ae;">{{ error }}</div>{% endif %}
+    {% if not admin_enabled %}
+      <div class="flash" style="background:#fff1d6;color:#b45309;border-color:#f1c57d;">Defina <code>ADMIN_UI_PASSWORD</code> para habilitar a interface.</div>
+    {% endif %}
+    <form method="post" action="/admin/login" class="stack">
+      <input type="hidden" name="next" value="{{ next }}">
+      <label>
+        Senha
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit" class="button button-primary">Entrar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+

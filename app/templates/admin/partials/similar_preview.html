@@ -1,0 +1,11 @@
+﻿{% if count %}
+  <div class="card stack">
+    <div><strong>{{ count }}</strong> lançamento(s) semelhantes encontrados.</div>
+    {% for tx in transactions %}
+      <div class="subtle">#{{ tx.id }} · {{ tx.transaction_date }} · {{ tx.description_raw }} · {{ '%.2f'|format(tx.amount) }}</div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="subtle">Nenhum lançamento semelhante encontrado.</div>
+{% endif %}
+

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.repositories.models import Transaction
 from app.schemas.common import TransactionReclassifyRequest
-from app.services.reconciliation import reconciliation_flags
+from app.services.classification import apply_transaction_classification, create_audit_log
 
 
 def _apply_filters(query: Select, payload: TransactionReclassifyRequest) -> Select:
@@ -49,24 +49,31 @@ def reclassify_transactions(db: Session, payload: TransactionReclassifyRequest) 
         return {"updated_count": 0, "transaction_ids": []}
 
     for tx in txs:
-        kind = payload.transaction_kind or tx.transaction_kind
-        flags = reconciliation_flags(kind)
-        tx.transaction_kind = kind
-        if payload.category is not None:
-            tx.category = payload.category
-        tx.categorization_method = "manual"
-        tx.categorization_confidence = 1.0
-        tx.applied_rule = "manual_override"
-        tx.manual_override = True
-        tx.manual_notes = payload.notes
+        previous_category = tx.category
+        previous_kind = tx.transaction_kind
+        apply_transaction_classification(
+            tx,
+            category=payload.category or tx.category,
+            transaction_kind=payload.transaction_kind or tx.transaction_kind,
+            method="manual",
+            confidence=1.0,
+            applied_rule="manual_override",
+            rule_id=tx.categorization_rule_id,
+            manual_override=True,
+            notes=payload.notes,
+            should_count_in_spending=payload.should_count_in_spending,
+        )
         tx.manual_updated_at = datetime.now(timezone.utc)
-        tx.is_card_bill_payment = flags["is_card_bill_payment"]
-        tx.is_adjustment = flags["is_adjustment"]
-        tx.is_reconciled = flags["is_reconciled"]
-        tx.should_count_in_spending = (
-            payload.should_count_in_spending
-            if payload.should_count_in_spending is not None
-            else flags["should_count_in_spending"]
+        create_audit_log(
+            db,
+            tx,
+            origin="manual_edit",
+            previous_category=previous_category,
+            new_category=tx.category,
+            previous_transaction_kind=previous_kind,
+            new_transaction_kind=tx.transaction_kind,
+            applied_rule_id=tx.categorization_rule_id,
+            notes=payload.notes,
         )
 
     db.commit()

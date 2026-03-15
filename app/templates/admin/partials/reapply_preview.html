@@ -1,0 +1,19 @@
+﻿<div class="card stack">
+  <div><strong>{{ preview.total }}</strong> lançamento(s) serão avaliados.</div>
+  {% for tx in preview.examples %}
+    <div class="subtle">#{{ tx.id }} · {{ tx.transaction_date }} · {{ tx.description_raw }} · {{ tx.category }}</div>
+  {% else %}
+    <div class="subtle">Nenhum lançamento encontrado nesse período.</div>
+  {% endfor %}
+  <form method="post" action="/admin/reapply" class="actions" onsubmit="return confirm('Reaplicar regras para esse período?');">
+    <input type="hidden" name="period_start" value="{{ period_start }}">
+    <input type="hidden" name="period_end" value="{{ period_end }}">
+    {% if include_manual %}<input type="hidden" name="include_manual" value="true">{% endif %}
+    <label class="inline">
+      <input type="checkbox" name="run_analysis_after" value="true" style="width:auto;">
+      Gerar nova análise após reaplicar
+    </label>
+    <button type="submit" class="button button-primary">Confirmar reaplicação</button>
+  </form>
+</div>
+

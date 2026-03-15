@@ -1,0 +1,33 @@
+﻿{% extends "admin/base.html" %}
+{% block title %}Reaplicar Regras{% endblock %}
+{% block content %}
+<div class="card stack">
+  <h1>Reaplicar regras na base já importada</h1>
+  <p class="subtle">Por padrão, a reaplicação respeita os lançamentos ajustados manualmente. Você pode incluir esses casos explicitamente.</p>
+  <form class="stack">
+    <div class="grid grid-2">
+      <label>Data inicial
+        <input type="date" name="period_start" required>
+      </label>
+      <label>Data final
+        <input type="date" name="period_end" required>
+      </label>
+    </div>
+    <label class="inline">
+      <input type="checkbox" name="include_manual" value="true" style="width:auto;">
+      Incluir também lançamentos já ajustados manualmente
+    </label>
+    <div class="actions">
+      <button
+        type="button"
+        class="button"
+        hx-post="/admin/reapply/preview"
+        hx-include="closest form"
+        hx-target="#reapply-preview"
+        hx-swap="innerHTML">Pré-visualizar impacto</button>
+    </div>
+  </form>
+</div>
+<div id="reapply-preview"></div>
+{% endblock %}
+

@@ -35,6 +35,10 @@ class Category(Base):
     __tablename__ = "categories"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    transaction_kind: Mapped[str] = mapped_column(String(40), nullable=False, default="expense")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class CategorizationRule(Base):
@@ -44,7 +48,11 @@ class CategorizationRule(Base):
     rule_type: Mapped[str] = mapped_column(String(30), nullable=False)
     pattern: Mapped[str] = mapped_column(String(255), nullable=False)
     category_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    transaction_kind: Mapped[str] = mapped_column(String(40), nullable=False, default="expense")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class Transaction(Base):
@@ -71,6 +79,7 @@ class Transaction(Base):
     categorization_method: Mapped[str] = mapped_column(String(40), nullable=False)
     categorization_confidence: Mapped[float] = mapped_column(Float, nullable=False)
     applied_rule: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    categorization_rule_id: Mapped[int | None] = mapped_column(ForeignKey("categorization_rules.id"), nullable=True)
     manual_override: Mapped[bool] = mapped_column(Boolean, default=False)
     manual_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     manual_updated_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -106,4 +115,19 @@ class AnalysisRun(Base):
     html_output: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TransactionAuditLog(Base):
+    __tablename__ = "transaction_audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    transaction_id: Mapped[int] = mapped_column(ForeignKey("transactions.id"), nullable=False)
+    origin: Mapped[str] = mapped_column(String(40), nullable=False)
+    previous_category: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    new_category: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    previous_transaction_kind: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    new_transaction_kind: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    applied_rule_id: Mapped[int | None] = mapped_column(ForeignKey("categorization_rules.id"), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())

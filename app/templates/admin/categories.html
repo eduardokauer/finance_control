@@ -1,0 +1,54 @@
+﻿{% extends "admin/base.html" %}
+{% block title %}Categorias{% endblock %}
+{% block content %}
+<div class="card stack">
+  <h1>Categorias</h1>
+  <form method="post" action="/admin/categories" class="grid grid-2">
+    <label>Nome
+      <input type="text" name="name" required>
+    </label>
+    <label>Tipo obrigatório
+      <select name="transaction_kind">
+        <option value="expense">expense</option>
+        <option value="income">income</option>
+        <option value="transfer">transfer</option>
+      </select>
+    </label>
+    <label class="inline" style="margin-top:28px;">
+      <input type="checkbox" name="is_active" value="true" checked style="width:auto;">
+      Ativa
+    </label>
+    <div class="actions">
+      <button type="submit" class="button button-primary">Criar categoria</button>
+    </div>
+  </form>
+</div>
+
+<div class="card tableish">
+  <h2>Lista de categorias</h2>
+  {% for category in categories %}
+    <div class="category-row">
+      <form method="post" action="/admin/categories/{{ category.id }}/update" class="grid grid-2">
+        <label>Nome
+          <input type="text" name="name" value="{{ category.name }}" required>
+        </label>
+        <label>Tipo
+          <select name="transaction_kind">
+            {% for kind in ['expense', 'income', 'transfer'] %}
+              <option value="{{ kind }}" {% if kind == category.transaction_kind %}selected{% endif %}>{{ kind }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="inline" style="margin-top:28px;">
+          <input type="checkbox" name="is_active" value="true" {% if category.is_active %}checked{% endif %} style="width:auto;">
+          Ativa
+        </label>
+        <div class="actions">
+          <button type="submit" class="button">Salvar</button>
+        </div>
+      </form>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
