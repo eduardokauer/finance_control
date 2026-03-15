@@ -6,6 +6,7 @@
     {% if period_start %}<input type="hidden" name="period_start" value="{{ period_start }}">{% endif %}
     {% if period_end %}<input type="hidden" name="period_end" value="{{ period_end }}">{% endif %}
     {% if include_manual %}<input type="hidden" name="include_manual" value="true">{% endif %}
+    {% if allow_degrade_to_uncategorized %}<input type="hidden" name="allow_degrade_to_uncategorized" value="true">{% endif %}
     {% for rule_id in selected_rule_ids %}
       <input type="hidden" name="selected_rule_ids" value="{{ rule_id }}">
     {% endfor %}
@@ -46,4 +47,3 @@
     </div>
   </form>
 </div>
-

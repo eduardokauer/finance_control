@@ -30,6 +30,7 @@ def admin_reapply_preview(
     period_start: str | None = Form(default=None),
     period_end: str | None = Form(default=None),
     include_manual: bool = Form(False),
+    allow_degrade_to_uncategorized: bool = Form(False),
     selected_rule_ids: list[int] = Form(default=[]),
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
@@ -41,6 +42,7 @@ def admin_reapply_preview(
         period_start=parsed_period_start,
         period_end=parsed_period_end,
         include_manual=include_manual,
+        allow_degrade_to_uncategorized=allow_degrade_to_uncategorized,
         allowed_rule_ids=selected_rule_ids or None,
     )
     return templates.TemplateResponse(
@@ -52,6 +54,7 @@ def admin_reapply_preview(
             "period_start": parsed_period_start,
             "period_end": parsed_period_end,
             "include_manual": include_manual,
+            "allow_degrade_to_uncategorized": allow_degrade_to_uncategorized,
             "selected_rule_ids": selected_rule_ids,
         },
     )
@@ -63,6 +66,7 @@ def admin_reapply(
     period_start: str | None = Form(default=None),
     period_end: str | None = Form(default=None),
     include_manual: bool = Form(False),
+    allow_degrade_to_uncategorized: bool = Form(False),
     run_analysis_after: bool = Form(False),
     selected_rule_ids: list[int] = Form(default=[]),
     selected_transaction_ids: list[int] = Form(default=[]),
@@ -77,6 +81,7 @@ def admin_reapply(
         period_start=parsed_period_start,
         period_end=parsed_period_end,
         include_manual=include_manual,
+        allow_degrade_to_uncategorized=allow_degrade_to_uncategorized,
         allowed_rule_ids=selected_rule_ids or None,
         selected_transaction_ids=selected_transaction_ids if selection_present else None,
     )
