@@ -1,19 +1,43 @@
 ﻿<div class="card stack">
-  <div><strong>{{ preview.total }}</strong> lançamento(s) serão avaliados.</div>
-  {% for tx in preview.examples %}
-    <div class="subtle">#{{ tx.id }} · {{ tx.transaction_date }} · {{ tx.description_raw }} · {{ tx.category }}</div>
-  {% else %}
-    <div class="subtle">Nenhum lançamento encontrado nesse período.</div>
-  {% endfor %}
-  <form method="post" action="/admin/reapply" class="actions" onsubmit="return confirm('Reaplicar regras para esse período?');">
-    <input type="hidden" name="period_start" value="{{ period_start }}">
-    <input type="hidden" name="period_end" value="{{ period_end }}">
+  <div><strong>{{ preview.total_changed }}</strong> lançamento(s) vão mudar de um total de <strong>{{ preview.total_evaluated }}</strong> avaliado(s).</div>
+  <div class="subtle">Só mostramos abaixo os lançamentos com mudança efetiva de categoria ou tipo.</div>
+  <form method="post" action="/admin/reapply" class="stack" onsubmit="return confirm('Reaplicar regras para os lançamentos selecionados?');">
+    <input type="hidden" name="selection_present" value="true">
+    {% if period_start %}<input type="hidden" name="period_start" value="{{ period_start }}">{% endif %}
+    {% if period_end %}<input type="hidden" name="period_end" value="{{ period_end }}">{% endif %}
     {% if include_manual %}<input type="hidden" name="include_manual" value="true">{% endif %}
-    <label class="inline">
-      <input type="checkbox" name="run_analysis_after" value="true" style="width:auto;">
-      Gerar nova análise após reaplicar
-    </label>
-    <button type="submit" class="button button-primary">Confirmar reaplicação</button>
+    {% for rule_id in selected_rule_ids %}
+      <input type="hidden" name="selected_rule_ids" value="{{ rule_id }}">
+    {% endfor %}
+
+    {% for item in preview.examples %}
+      <label class="stack" style="gap:4px; border-top:1px solid var(--line); padding-top:10px; background:rgba(217,243,239,0.25); border-radius:12px; padding:10px;">
+        <span class="inline" style="align-items:flex-start;">
+          <input type="checkbox" name="selected_transaction_ids" value="{{ item.transaction.id }}" checked style="width:auto; margin-top:3px;">
+          <span>
+            <strong>#{{ item.transaction.id }}</strong> · {{ item.transaction.transaction_date }} · {{ item.transaction.description_raw }}
+          </span>
+        </span>
+        <span class="subtle">
+          Categoria: <strong>{{ item.from_category or 'não classificada' }}</strong> → <strong>{{ item.to_category or 'não classificada' }}</strong>
+        </span>
+        <span class="subtle">
+          Tipo: <strong>{{ item.from_kind or 'não definido' }}</strong> → <strong>{{ item.to_kind or 'não definido' }}</strong>
+        </span>
+        <span class="subtle">
+          Regra aplicada: <strong>{{ item.rule_pattern or 'nenhuma regra manual selecionada / fallback atual' }}</strong>
+        </span>
+      </label>
+    {% else %}
+      <div class="subtle">Nenhum lançamento terá mudança efetiva com as regras e filtros selecionados.</div>
+    {% endfor %}
+
+    <div class="actions">
+      <label class="inline">
+        <input type="checkbox" name="run_analysis_after" value="true" style="width:auto;">
+        Gerar nova análise após reaplicar
+      </label>
+      <button type="submit" class="button button-primary">Confirmar reaplicação</button>
+    </div>
   </form>
 </div>
-

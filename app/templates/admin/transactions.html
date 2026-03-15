@@ -1,100 +1,112 @@
 ﻿{% extends "admin/base.html" %}
 {% block title %}Lançamentos{% endblock %}
 {% block content %}
+<details class="card accordion">
+  <summary>Revisar lançamentos</summary>
+  <div class="accordion-body stack">
+    <form method="get" action="/admin/transactions" class="grid grid-2">
+      <label>Mês fechado
+        <input type="month" name="month" value="{{ filters.period_start.strftime('%Y-%m') }}">
+      </label>
+      <label>Categoria
+        <select name="category">
+          <option value="">Todas</option>
+          {% for category in categories %}
+            <option value="{{ category.name }}" {% if filters.category == category.name %}selected{% endif %}>{{ category.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Data inicial
+        <input type="date" name="period_start" value="{{ filters.period_start }}">
+      </label>
+      <label>Data final
+        <input type="date" name="period_end" value="{{ filters.period_end }}">
+      </label>
+      <label>Buscar descrição
+        <input type="text" name="description" value="{{ filters.description or '' }}" placeholder="Ex.: pix, uber, aluguel">
+      </label>
+      <label>Tipo
+        <select name="transaction_kind">
+          <option value="">Todos</option>
+          {% for kind in ['income', 'expense', 'transfer', 'credit_card_payment', 'adjustment', 'tax'] %}
+            <option value="{{ kind }}" {% if filters.transaction_kind == kind %}selected{% endif %}>{{ kind }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Ordenação
+        <select name="sort">
+          <option value="recent" {% if filters.sort == 'recent' %}selected{% endif %}>Mais recentes</option>
+          <option value="amount_desc" {% if filters.sort == 'amount_desc' %}selected{% endif %}>Maior valor</option>
+        </select>
+      </label>
+      <label class="inline" style="margin-top:28px;">
+        <input type="checkbox" name="uncategorized_only" value="true" {% if filters.uncategorized_only %}checked{% endif %} style="width:auto;">
+        Somente não categorizados
+      </label>
+      <div class="actions">
+        <button type="submit" class="button button-primary">Aplicar filtros</button>
+      </div>
+    </form>
+  </div>
+</details>
+
 <div class="card stack">
-  <h1>Revisar lançamentos</h1>
-  <form method="get" action="/admin/transactions" class="grid grid-2">
-    <label>Mês fechado
-      <input type="month" name="month" value="{{ filters.period_start.strftime('%Y-%m') }}">
-    </label>
-    <label>Categoria
-      <select name="category">
-        <option value="">Todas</option>
-        {% for category in categories %}
-          <option value="{{ category.name }}" {% if filters.category == category.name %}selected{% endif %}>{{ category.name }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>Data inicial
-      <input type="date" name="period_start" value="{{ filters.period_start }}">
-    </label>
-    <label>Data final
-      <input type="date" name="period_end" value="{{ filters.period_end }}">
-    </label>
-    <label>Buscar descrição
-      <input type="text" name="description" value="{{ filters.description or '' }}" placeholder="Ex.: pix, uber, aluguel">
-    </label>
-    <label>Tipo
-      <select name="transaction_kind">
-        <option value="">Todos</option>
-        {% for kind in ['income', 'expense', 'transfer', 'credit_card_payment', 'adjustment', 'tax'] %}
-          <option value="{{ kind }}" {% if filters.transaction_kind == kind %}selected{% endif %}>{{ kind }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>Ordenação
-      <select name="sort">
-        <option value="recent" {% if filters.sort == 'recent' %}selected{% endif %}>Mais recentes</option>
-        <option value="amount_desc" {% if filters.sort == 'amount_desc' %}selected{% endif %}>Maior valor</option>
-      </select>
-    </label>
-    <label class="inline" style="margin-top:28px;">
-      <input type="checkbox" name="uncategorized_only" value="true" {% if filters.uncategorized_only %}checked{% endif %} style="width:auto;">
-      Somente não categorizados
-    </label>
-    <div class="actions">
-      <button type="submit" class="button button-primary">Aplicar filtros</button>
-    </div>
-  </form>
+  <div class="subtle">
+    Mostrando {{ pagination.total }} lançamento(s) de {{ filters.period_start }} até {{ filters.period_end }}.
+  </div>
 </div>
 
-<form method="post" action="/admin/transactions/bulk-apply" class="card stack">
-  <h2>Edição em massa</h2>
-  <div class="grid grid-2">
-    <label>Nova categoria
-      <select name="category" required>
-        <option value="">Selecione</option>
-        {% for category in categories if category.is_active %}
-          <option value="{{ category.name }}">{{ category.name }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>Novo tipo
-      <select name="transaction_kind" required>
-        <option value="expense">expense</option>
-        <option value="income">income</option>
-        <option value="transfer">transfer</option>
-      </select>
-    </label>
-    <label>Padrão opcional para salvar regra futura
-      <input type="text" name="rule_pattern" placeholder="Ex.: uber ou pix mercado pago">
-    </label>
-    <label>Modo do match da regra
-      <select name="rule_match_mode">
-        <option value="contains">contains</option>
-        <option value="exact_normalized">exact_normalized</option>
-      </select>
-    </label>
-  </div>
-  <label>Observação
-    <textarea name="notes" placeholder="Motivo da reclassificação"></textarea>
-  </label>
-  <label class="inline">
-    <input type="checkbox" name="save_rule" value="true" style="width:auto;">
-    Salvar regra para uso futuro
-  </label>
-  <input type="hidden" name="return_to" value="{{ current_url }}">
-  <div id="bulk-preview"></div>
-  <div class="actions">
-    <button
-      type="button"
-      class="button"
-      hx-post="/admin/transactions/bulk-preview"
-      hx-include="closest form"
-      hx-target="#bulk-preview"
-      hx-swap="innerHTML">Pré-visualizar seleção</button>
-    <button type="submit" class="button button-primary" onclick="return confirm('Aplicar reclassificação em massa?');">Aplicar aos selecionados</button>
-  </div>
+<form method="post" action="/admin/transactions/bulk-apply" class="stack">
+  <details class="card accordion">
+    <summary>Edição em massa</summary>
+    <div class="accordion-body stack">
+      <div class="grid grid-2">
+        <label>Nova categoria
+          <select name="category" required>
+            <option value="">Selecione</option>
+            {% for category in categories if category.is_active %}
+              <option value="{{ category.name }}">{{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Novo tipo
+          <select name="transaction_kind" required>
+            <option value="expense">expense</option>
+            <option value="income">income</option>
+            <option value="transfer">transfer</option>
+          </select>
+        </label>
+        <label>Padrão opcional para salvar regra futura
+          <input type="text" name="rule_pattern" placeholder="Ex.: uber ou pix mercado pago">
+        </label>
+        <label>Modo do match da regra
+          <select name="rule_match_mode">
+            <option value="contains">contains</option>
+            <option value="exact_normalized">exact_normalized</option>
+          </select>
+        </label>
+      </div>
+      <label>Observação
+        <textarea name="notes" placeholder="Motivo da reclassificação"></textarea>
+      </label>
+      <label class="inline">
+        <input type="checkbox" name="save_rule" value="true" style="width:auto;">
+        Salvar regra para uso futuro
+      </label>
+      <input type="hidden" name="return_to" value="{{ current_url }}">
+      <div id="bulk-preview"></div>
+      <div class="actions">
+        <button
+          type="button"
+          class="button"
+          hx-post="/admin/transactions/bulk-preview"
+          hx-include="closest form"
+          hx-target="#bulk-preview"
+          hx-swap="innerHTML">Pré-visualizar seleção</button>
+        <button type="submit" class="button button-primary" onclick="return confirm('Aplicar reclassificação em massa?');">Aplicar aos selecionados</button>
+      </div>
+    </div>
+  </details>
 
   <div class="card-list">
     {% for tx in transactions %}
@@ -108,26 +120,30 @@
                 <span class="badge warn">não categorizado</span>
               {% endif %}
             </div>
-            <div><strong>{{ tx.description_raw }}</strong></div>
+            <div>
+              <a href="/admin/transactions/{{ tx.id }}?return_to={{ encoded_current_url }}" style="text-decoration:none;">
+                <strong>{{ tx.description_raw }}</strong>
+              </a>
+            </div>
             <div class="subtle">{{ tx.source_type }} · {{ tx.category }} · {{ tx.transaction_kind }}</div>
+            {% if tx.manual_notes %}
+              <div class="subtle"><strong>Observação:</strong> {{ tx.manual_notes }}</div>
+            {% endif %}
           </div>
           <div class="{% if tx.amount < 0 %}amount-negative{% else %}amount-positive{% endif %}">{{ '%.2f'|format(tx.amount) }}</div>
         </header>
-        <div class="actions">
-          <a class="button" href="/admin/transactions/{{ tx.id }}?return_to={{ encoded_current_url }}">Editar rápido</a>
-        </div>
       </article>
     {% else %}
-      <div class="subtle">Nenhum lançamento encontrado para os filtros escolhidos.</div>
+      <div class="subtle">
+        Nenhum lançamento encontrado no período padrão ou com os filtros escolhidos. Ajuste os filtros acima para buscar outro intervalo.
+      </div>
     {% endfor %}
   </div>
 </form>
 
 {% if pagination.has_more %}
   <div class="actions">
-    <a class="button" href="{{ current_path }}?{{ current_query }}&offset={{ pagination.next_offset }}&limit={{ pagination.limit }}">Ver mais</a>
+    <a class="button" href="{{ current_path }}?{% if current_query %}{{ current_query }}&{% endif %}offset={{ pagination.next_offset }}&limit={{ pagination.limit }}">Ver mais</a>
   </div>
 {% endif %}
 {% endblock %}
-
-

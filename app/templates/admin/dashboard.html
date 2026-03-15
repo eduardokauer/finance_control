@@ -4,7 +4,7 @@
 <section class="grid grid-2">
   <div class="card">
     <div class="subtle">Período padrão</div>
-    <div class="metric-value">{{ metrics.period_start }} ? {{ metrics.period_end }}</div>
+    <div class="metric-value">{{ metrics.period_start.strftime('%m/%Y') }}</div>
     <div class="subtle">Último mês fechado</div>
   </div>
   <div class="card">
@@ -64,4 +64,3 @@
   </div>
 </section>
 {% endblock %}
-

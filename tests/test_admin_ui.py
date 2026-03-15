@@ -1,4 +1,4 @@
-from datetime import date
+﻿from datetime import date
 
 from sqlalchemy import select
 
@@ -12,11 +12,11 @@ def _login(client):
 
 def _seed_categories(db_session):
     for name, kind in [
-        ("NÃ£o Categorizado", "expense"),
+        ("NÃƒÂ£o Categorizado", "expense"),
         ("Transporte", "expense"),
         ("Outros", "expense"),
-        ("SalÃ¡rio", "income"),
-        ("TransferÃªncias", "transfer"),
+        ("SalÃƒÂ¡rio", "income"),
+        ("TransferÃƒÂªncias", "transfer"),
     ]:
         db_session.add(Category(name=name, transaction_kind=kind, is_active=True))
     db_session.commit()
@@ -27,7 +27,7 @@ def _seed_transaction(db_session, *, description: str = "UBER TRIP", normalized:
         source_type="bank_statement",
         file_name="manual.ofx",
         file_path="upload://manual.ofx",
-        file_hash="hash-admin-ui",
+        file_hash=f"hash-admin-ui-{normalized}",
         status="processed",
     )
     db_session.add(source_file)
@@ -45,7 +45,7 @@ def _seed_transaction(db_session, *, description: str = "UBER TRIP", normalized:
         amount=-25.0,
         direction="debit",
         transaction_kind="expense",
-        category="NÃ£o Categorizado",
+        category="NÃƒÂ£o Categorizado",
         categorization_method="fallback",
         categorization_confidence=0.3,
         applied_rule=None,
@@ -73,7 +73,7 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     home = client.get("/admin")
     assert home.status_code == 200
     assert "Finance Control Admin" in home.text
-    assert "NÃ£o categorizados" in home.text or "Não categorizados" in home.text
+    assert "Últimas alterações" in home.text or "ltimas altera" in home.text
 
 
 def test_admin_manual_edit_creates_audit_and_rule(client, db_session, monkeypatch):
@@ -132,7 +132,7 @@ def test_admin_reapply_rules_updates_transactions_and_runs_analysis(client, db_s
         data={"period_start": "2026-03-01", "period_end": "2026-03-31"},
     )
     assert preview.status_code == 200
-    assert "lançamento(s) serão avaliados" in preview.text
+    assert "vão mudar" in preview.text or "vÃ£o mudar" in preview.text
 
     resp = client.post(
         "/admin/reapply",
@@ -157,3 +157,161 @@ def test_admin_reapply_rules_updates_transactions_and_runs_analysis(client, db_s
 
     run = db_session.scalar(select(AnalysisRun))
     assert run is not None
+
+
+def test_admin_reapply_preview_and_apply_can_limit_selected_rules(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(db_session, description="UBER CABIFY", normalized="uber cabify")
+    uber_rule = CategorizationRule(
+        rule_type="contains",
+        pattern="uber",
+        category_name="Transporte",
+        transaction_kind="expense",
+        priority=0,
+        is_active=True,
+    )
+    cabify_rule = CategorizationRule(
+        rule_type="contains",
+        pattern="cabify",
+        category_name="Outros",
+        transaction_kind="expense",
+        priority=1,
+        is_active=True,
+    )
+    db_session.add_all([uber_rule, cabify_rule])
+    db_session.commit()
+    _login(client)
+
+    preview = client.post(
+        "/admin/reapply/preview",
+        data={
+            "period_start": "2026-03-01",
+            "period_end": "2026-03-31",
+            "selected_rule_ids": str(cabify_rule.id),
+        },
+    )
+    assert preview.status_code == 200
+    assert "NÃƒÆ’Ã‚Â£o Categorizado" in preview.text or "NÃƒÂ£o Categorizado" in preview.text
+    assert "Outros" in preview.text
+    assert "cabify" in preview.text
+
+    resp = client.post(
+        "/admin/reapply",
+        data={
+            "period_start": "2026-03-01",
+            "period_end": "2026-03-31",
+            "selected_rule_ids": str(cabify_rule.id),
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+
+    db_session.refresh(tx)
+    assert tx.category == "Outros"
+
+
+def test_admin_reapply_can_skip_specific_transactions(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    first_tx = _seed_transaction(db_session, description="CABIFY A", normalized="cabify a")
+    second_tx = _seed_transaction(db_session, description="CABIFY B", normalized="cabify b")
+    db_session.add(
+        CategorizationRule(
+            rule_type="contains",
+            pattern="cabify",
+            category_name="Outros",
+            transaction_kind="expense",
+            priority=0,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+    _login(client)
+
+    resp = client.post(
+        "/admin/reapply",
+        data={
+            "period_start": "2026-03-01",
+            "period_end": "2026-03-31",
+            "selected_transaction_ids": str(first_tx.id),
+            "selection_present": "true",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+
+    db_session.refresh(first_tx)
+    db_session.refresh(second_tx)
+    assert first_tx.category == "Outros"
+    assert second_tx.category != "Outros"
+
+
+def test_admin_transactions_first_load_shows_latest_closed_month_records(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    monkeypatch.setattr(
+        "app.web.routes.admin.latest_closed_month_with_transactions",
+        lambda db: (date(2026, 2, 1), date(2026, 2, 28)),
+    )
+    _seed_categories(db_session)
+    feb_tx = _seed_transaction(db_session, description="UBER FEVEREIRO", normalized="uber fevereiro")
+    feb_tx.transaction_date = date(2026, 2, 10)
+    feb_tx.competence_month = "2026-02"
+    march_tx = _seed_transaction(db_session, description="UBER MARCO", normalized="uber marco")
+    march_tx.transaction_date = date(2026, 3, 10)
+    march_tx.competence_month = "2026-03"
+    db_session.commit()
+
+    _login(client)
+    response = client.get("/admin/transactions")
+
+    assert response.status_code == 200
+    assert "UBER FEVEREIRO" in response.text
+    assert "UBER MARCO" not in response.text
+    assert "2026-02-01" in response.text
+    assert "2026-02-28" in response.text
+
+
+def test_admin_reapply_without_period_uses_whole_base(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    feb_tx = _seed_transaction(db_session, description="CABIFY FEV", normalized="cabify fev")
+    feb_tx.transaction_date = date(2026, 2, 10)
+    feb_tx.competence_month = "2026-02"
+    mar_tx = _seed_transaction(db_session, description="CABIFY MAR", normalized="cabify mar")
+    mar_tx.transaction_date = date(2026, 3, 10)
+    mar_tx.competence_month = "2026-03"
+    db_session.add(
+        CategorizationRule(
+            rule_type="contains",
+            pattern="cabify",
+            category_name="Outros",
+            transaction_kind="expense",
+            priority=0,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+    _login(client)
+
+    preview = client.post("/admin/reapply/preview", data={})
+    assert preview.status_code == 200
+    assert "CABIFY FEV" in preview.text
+    assert "CABIFY MAR" in preview.text
+
+    resp = client.post(
+        "/admin/reapply",
+        data={
+            "selected_transaction_ids": [str(feb_tx.id), str(mar_tx.id)],
+            "selection_present": "true",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+
+    db_session.refresh(feb_tx)
+    db_session.refresh(mar_tx)
+    assert feb_tx.category == "Outros"
+    assert mar_tx.category == "Outros"
+
+

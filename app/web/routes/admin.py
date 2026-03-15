@@ -17,6 +17,9 @@ from app.services.admin import (
     admin_dashboard_metrics,
     build_pagination,
     build_transaction_filters,
+    default_closed_month,
+    latest_closed_month_with_transactions,
+    list_active_rules,
     list_categories,
     list_rules,
     list_transactions_for_admin,
@@ -47,6 +50,18 @@ def _render(request: Request, template_name: str, context: dict, status_code: in
         },
         status_code=status_code,
     )
+
+
+def _parse_optional_date(value: str | None) -> date | None:
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Invalid date format") from exc
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -94,6 +109,7 @@ def admin_transactions(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
+    default_period = latest_closed_month_with_transactions(db) or default_closed_month()
     filters = build_transaction_filters(
         month=month,
         period_start=period_start,
@@ -103,6 +119,7 @@ def admin_transactions(
         uncategorized_only=uncategorized_only,
         transaction_kind=transaction_kind,
         sort=sort,
+        default_period=default_period,
     )
     transactions, total = list_transactions_for_admin(db, filters, limit=limit, offset=offset)
     current_url = str(request.url)
@@ -384,28 +401,42 @@ def admin_update_category(
 
 @router.get("/reapply", response_class=HTMLResponse)
 def admin_reapply_page(request: Request, db: Session = Depends(get_db), _: bool = Depends(require_admin_session)):
-    return _render(request, "admin/reapply.html", {"preview": None})
+    return _render(
+        request,
+        "admin/reapply.html",
+        {"preview": None, "rules": list_active_rules(db)},
+    )
 
 
 @router.post("/reapply/preview", response_class=HTMLResponse)
 def admin_reapply_preview(
     request: Request,
-    period_start: date = Form(...),
-    period_end: date = Form(...),
+    period_start: str | None = Form(default=None),
+    period_end: str | None = Form(default=None),
     include_manual: bool = Form(False),
+    selected_rule_ids: list[int] = Form(default=[]),
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    preview = preview_reapply_rules(db, period_start=period_start, period_end=period_end, include_manual=include_manual)
+    parsed_period_start = _parse_optional_date(period_start)
+    parsed_period_end = _parse_optional_date(period_end)
+    preview = preview_reapply_rules(
+        db,
+        period_start=parsed_period_start,
+        period_end=parsed_period_end,
+        include_manual=include_manual,
+        allowed_rule_ids=selected_rule_ids or None,
+    )
     return templates.TemplateResponse(
         request,
         "admin/partials/reapply_preview.html",
         {
             "request": request,
             "preview": preview,
-            "period_start": period_start,
-            "period_end": period_end,
+            "period_start": parsed_period_start,
+            "period_end": parsed_period_end,
             "include_manual": include_manual,
+            "selected_rule_ids": selected_rule_ids,
         },
     )
 
@@ -413,18 +444,34 @@ def admin_reapply_preview(
 @router.post("/reapply")
 def admin_reapply(
     request: Request,
-    period_start: date = Form(...),
-    period_end: date = Form(...),
+    period_start: str | None = Form(default=None),
+    period_end: str | None = Form(default=None),
     include_manual: bool = Form(False),
     run_analysis_after: bool = Form(False),
+    selected_rule_ids: list[int] = Form(default=[]),
+    selected_transaction_ids: list[int] = Form(default=[]),
+    selection_present: bool = Form(False),
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    result = reapply_rules_for_period(db, period_start=period_start, period_end=period_end, include_manual=include_manual)
-    if run_analysis_after:
-        run_analysis_for_period(db, period_start=period_start, period_end=period_end)
+    parsed_period_start = _parse_optional_date(period_start)
+    parsed_period_end = _parse_optional_date(period_end)
+    result = reapply_rules_for_period(
+        db,
+        period_start=parsed_period_start,
+        period_end=parsed_period_end,
+        include_manual=include_manual,
+        allowed_rule_ids=selected_rule_ids or None,
+        selected_transaction_ids=selected_transaction_ids if selection_present else None,
+    )
+    analysis_message = ""
+    if run_analysis_after and parsed_period_start and parsed_period_end:
+        run_analysis_for_period(db, period_start=parsed_period_start, period_end=parsed_period_end)
+        analysis_message = " Nova análise gerada para o período informado."
+    elif run_analysis_after:
+        analysis_message = " Nova análise não foi gerada porque aplicar na base toda não define um período único."
     request.session["flash"] = (
-        f"Reaplicação concluída: {result['updated_count']} alterados de {result['checked_count']} avaliados."
+        f"Reaplicação concluída: {result['updated_count']} alterados de {result['checked_count']} avaliados.{analysis_message}"
     )
     return RedirectResponse(url="/admin/reapply", status_code=303)
 

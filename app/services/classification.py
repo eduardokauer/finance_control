@@ -17,21 +17,36 @@ def _match_rule(rule: CategorizationRule, normalized_description: str) -> bool:
     return rule.pattern in normalized_description
 
 
-def find_matching_rule(db: Session, normalized_description: str) -> CategorizationRule | None:
-    rules = db.scalars(
+def find_matching_rule(
+    db: Session,
+    normalized_description: str,
+    *,
+    allowed_rule_ids: list[int] | None = None,
+) -> CategorizationRule | None:
+    query = (
         select(CategorizationRule)
         .where(CategorizationRule.is_active.is_(True))
         .order_by(CategorizationRule.priority.asc(), CategorizationRule.id.asc())
-    ).all()
+    )
+    if allowed_rule_ids:
+        query = query.where(CategorizationRule.id.in_(allowed_rule_ids))
+    rules = db.scalars(query).all()
     for rule in rules:
         if _match_rule(rule, normalized_description):
             return rule
     return None
 
 
-def classify_transaction(db: Session, source_type: str, description: str, amount: float) -> dict:
+def classify_transaction(
+    db: Session,
+    source_type: str,
+    description: str,
+    amount: float,
+    *,
+    allowed_rule_ids: list[int] | None = None,
+) -> dict:
     normalized = normalize_description(description)
-    rule = find_matching_rule(db, normalized)
+    rule = find_matching_rule(db, normalized, allowed_rule_ids=allowed_rule_ids)
     inferred_kind = infer_transaction_kind(source_type, description, amount)
 
     if rule:

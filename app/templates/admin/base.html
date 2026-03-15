@@ -26,7 +26,7 @@
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: Georgia, "Segoe UI", serif;
+      font-family: Calibri, "Segoe UI", Tahoma, sans-serif;
       background: linear-gradient(180deg, #f2ead8 0%, #f8f4ec 35%, #f3efe6 100%);
       color: var(--ink);
     }
@@ -159,6 +159,40 @@
     .tableish {
       display: grid;
       gap: 10px;
+    }
+    .accordion {
+      overflow: hidden;
+    }
+    .accordion summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+      list-style: none;
+      font-weight: 700;
+    }
+    .accordion summary::-webkit-details-marker {
+      display: none;
+    }
+    .accordion summary::after {
+      content: "+";
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+    .accordion[open] summary::after {
+      content: "-";
+    }
+    .accordion-body {
+      margin-top: 14px;
     }
     .rule-row, .category-row {
       border-top: 1px solid var(--line);

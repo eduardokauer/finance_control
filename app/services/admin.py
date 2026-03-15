@@ -35,6 +35,22 @@ def default_closed_month(today: date | None = None) -> tuple[date, date]:
     return previous_month_start, previous_month_end
 
 
+def latest_closed_month_with_transactions(db: Session, today: date | None = None) -> tuple[date, date] | None:
+    today = today or date.today()
+    current_month_start = today.replace(day=1)
+    latest_tx_date = db.scalar(
+        select(func.max(Transaction.transaction_date)).where(Transaction.transaction_date < current_month_start)
+    )
+    if latest_tx_date is None:
+        return None
+    start = latest_tx_date.replace(day=1)
+    if start.month == 12:
+        next_month = date(start.year + 1, 1, 1)
+    else:
+        next_month = date(start.year, start.month + 1, 1)
+    return start, next_month - timedelta(days=1)
+
+
 def build_transaction_filters(
     *,
     month: str | None,
@@ -45,6 +61,7 @@ def build_transaction_filters(
     uncategorized_only: bool,
     transaction_kind: str | None,
     sort: str | None,
+    default_period: tuple[date, date] | None = None,
 ) -> TransactionFilters:
     if month:
         year, month_value = [int(part) for part in month.split("-", 1)]
@@ -54,7 +71,7 @@ def build_transaction_filters(
     elif period_start and period_end:
         start, end = period_start, period_end
     else:
-        start, end = default_closed_month()
+        start, end = default_period or default_closed_month()
 
     return TransactionFilters(
         period_start=start,
@@ -135,6 +152,14 @@ def list_categories(db: Session) -> list[Category]:
 def list_rules(db: Session) -> list[CategorizationRule]:
     return db.scalars(
         select(CategorizationRule).order_by(CategorizationRule.is_active.desc(), CategorizationRule.priority.asc(), CategorizationRule.id.asc())
+    ).all()
+
+
+def list_active_rules(db: Session) -> list[CategorizationRule]:
+    return db.scalars(
+        select(CategorizationRule)
+        .where(CategorizationRule.is_active.is_(True))
+        .order_by(CategorizationRule.priority.asc(), CategorizationRule.id.asc())
     ).all()
 
 
@@ -263,20 +288,34 @@ def preview_bulk_reclassification(
 def reapply_rules_for_period(
     db: Session,
     *,
-    period_start: date,
-    period_end: date,
+    period_start: date | None,
+    period_end: date | None,
     include_manual: bool,
+    allowed_rule_ids: list[int] | None = None,
+    selected_transaction_ids: list[int] | None = None,
 ) -> dict:
-    query = select(Transaction).where(Transaction.transaction_date >= period_start, Transaction.transaction_date <= period_end)
+    query = select(Transaction)
+    if period_start:
+        query = query.where(Transaction.transaction_date >= period_start)
+    if period_end:
+        query = query.where(Transaction.transaction_date <= period_end)
     if not include_manual:
         query = query.where(Transaction.manual_override.is_(False))
+    if selected_transaction_ids is not None:
+        query = query.where(Transaction.id.in_(selected_transaction_ids))
     txs = db.scalars(query.order_by(Transaction.transaction_date.desc(), Transaction.id.desc())).all()
 
     updated = 0
     for tx in txs:
         previous_category = tx.category
         previous_kind = tx.transaction_kind
-        result = classify_transaction(db, tx.source_type, tx.description_raw, tx.amount)
+        result = classify_transaction(
+            db,
+            tx.source_type,
+            tx.description_raw,
+            tx.amount,
+            allowed_rule_ids=allowed_rule_ids,
+        )
         apply_transaction_classification(
             tx,
             category=result["category"],
@@ -309,16 +348,48 @@ def reapply_rules_for_period(
 def preview_reapply_rules(
     db: Session,
     *,
-    period_start: date,
-    period_end: date,
+    period_start: date | None,
+    period_end: date | None,
     include_manual: bool,
+    allowed_rule_ids: list[int] | None = None,
 ) -> dict:
-    query = select(Transaction).where(Transaction.transaction_date >= period_start, Transaction.transaction_date <= period_end)
+    query = select(Transaction)
+    if period_start:
+        query = query.where(Transaction.transaction_date >= period_start)
+    if period_end:
+        query = query.where(Transaction.transaction_date <= period_end)
     if not include_manual:
         query = query.where(Transaction.manual_override.is_(False))
-    txs = db.scalars(query.order_by(Transaction.transaction_date.desc(), Transaction.id.desc()).limit(10)).all()
-    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
-    return {"total": int(total), "examples": txs}
+    txs = db.scalars(query.order_by(Transaction.transaction_date.desc(), Transaction.id.desc())).all()
+    changed_items = []
+    for tx in txs:
+        result = classify_transaction(
+            db,
+            tx.source_type,
+            tx.description_raw,
+            tx.amount,
+            allowed_rule_ids=allowed_rule_ids,
+        )
+        will_change = tx.category != result["category"] or tx.transaction_kind != result["transaction_kind"]
+        if not will_change:
+            continue
+        changed_items.append(
+            {
+                "transaction": tx,
+                "from_category": tx.category,
+                "to_category": result["category"],
+                "from_kind": tx.transaction_kind,
+                "to_kind": result["transaction_kind"],
+                "rule_id": result["rule_id"],
+                "rule_pattern": result["rule"],
+                "will_change": will_change,
+            }
+        )
+    return {
+        "total_evaluated": len(txs),
+        "total_changed": len(changed_items),
+        "examples": changed_items,
+    }
 
 
 def run_analysis_for_period(db: Session, *, period_start: date, period_end: date) -> AnalysisRun:
