@@ -12,14 +12,17 @@ from app.services.ingestion import ingest_bytes, ingest_file
 router = APIRouter(dependencies=[Depends(bearer_auth)])
 
 
-def _run_default_analysis(db: Session, source_file_id: int):
-    period = db.execute(
+def _get_source_file_period(db: Session, source_file_id: int):
+    return db.execute(
         select(
             func.min(Transaction.transaction_date),
             func.max(Transaction.transaction_date),
         ).where(Transaction.source_file_id == source_file_id)
     ).one()
-    period_start, period_end = period
+
+
+def _run_default_analysis(db: Session, source_file_id: int):
+    period_start, period_end = _get_source_file_period(db, source_file_id)
     if period_start and period_end:
         return run_analysis(db, period_start=period_start, period_end=period_end, trigger_source_file_id=source_file_id)
     return None
@@ -52,6 +55,9 @@ async def ingest_bank_statement(
         )
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    period_start, period_end = _get_source_file_period(db, result["source_file_id"])
+    result["period_start"] = period_start
+    result["period_end"] = period_end
     if result['status'] == 'processed':
         analysis_run = _run_default_analysis(db, result['source_file_id'])
         result["analysis_run_id"] = analysis_run.id if analysis_run else None
@@ -66,6 +72,9 @@ def ingest_credit_card_bill(payload: IngestRequest, db: Session = Depends(get_db
         result = ingest_file(db, 'credit_card', payload.file_name, payload.file_path, payload.reference_id)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    period_start, period_end = _get_source_file_period(db, result["source_file_id"])
+    result["period_start"] = period_start
+    result["period_end"] = period_end
     if result['status'] == 'processed':
         analysis_run = _run_default_analysis(db, result['source_file_id'])
         result["analysis_run_id"] = analysis_run.id if analysis_run else None

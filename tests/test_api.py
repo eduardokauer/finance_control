@@ -18,6 +18,8 @@ def test_ingest_bank_statement_valid(client, auth_headers, sample_ofx_file):
     assert resp.status_code == 200
     assert resp.json()["status"] == "processed"
     assert resp.json()["analysis_run_id"] is not None
+    assert resp.json()["period_start"] == "2026-03-07"
+    assert resp.json()["period_end"] == "2026-03-07"
 
 
 def test_ingest_bank_statement_duplicate_upload(client, auth_headers, sample_ofx_file):
@@ -35,9 +37,13 @@ def test_ingest_bank_statement_duplicate_upload(client, auth_headers, sample_ofx
         )
     assert first.status_code == 200
     assert first.json()["status"] == "processed"
+    assert first.json()["period_start"] == "2026-03-07"
+    assert first.json()["period_end"] == "2026-03-07"
     assert second.status_code == 200
     assert second.json()["status"] == "duplicate"
     assert second.json()["analysis_run_id"] is None
+    assert second.json()["period_start"] == "2026-03-07"
+    assert second.json()["period_end"] == "2026-03-07"
 
 
 def test_ingest_bank_statement_invalid_extension(client, auth_headers, tmp_path):
