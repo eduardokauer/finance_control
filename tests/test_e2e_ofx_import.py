@@ -39,6 +39,8 @@ def test_e2e_ofx_import_and_manual_reclassification(client, db_session, auth_hea
     assert ingest_response.status_code == 200
     assert ingest_response.json()["status"] == "processed"
     assert ingest_response.json()["analysis_run_id"] is not None
+    assert ingest_response.json()["period_start"] == str(expected["first_date"])
+    assert ingest_response.json()["period_end"] == str(expected["last_date"])
     print(f"[e2e] ingest response: {ingest_response.json()}")
 
     db_session.expire_all()
