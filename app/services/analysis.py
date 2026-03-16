@@ -185,6 +185,8 @@ def _build_category_rows(txs: list[Transaction], *, expense_total: float) -> lis
                 "movement_total": movement_total,
                 "flow_label": flow_label,
                 "display_total": format_currency_br(movement_total),
+                "expense_display": format_currency_br(values["expense_total"]),
+                "income_display": format_currency_br(values["income_total"]),
                 "share_of_expense": share_of_expense,
                 "share_of_expense_display": format_percent_br(share_of_expense if values["expense_total"] else None),
                 "transaction_count": values["transaction_count"],
@@ -192,7 +194,7 @@ def _build_category_rows(txs: list[Transaction], *, expense_total: float) -> lis
                 "technical_label": technical_label,
             }
         )
-    rows.sort(key=lambda item: item["movement_total"], reverse=True)
+    rows.sort(key=lambda item: (item["expense_total"], item["movement_total"], item["income_total"]), reverse=True)
     return rows
 
 
@@ -408,7 +410,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
     )
     monthly_series = _build_monthly_series(db, anchor_month=anchor_month)
 
-    chart_categories = category_rows[:8]
+    top_expense_categories = [item for item in category_rows if item["expense_total"] > 0][:8]
     return {
         "period": {
             "start": period_start.isoformat(),
@@ -420,6 +422,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         "comparison": comparison,
         "monthly_series": monthly_series,
         "categories": category_rows,
+        "top_expense_categories": top_expense_categories,
         "technical_items": technical_items,
         "quality": quality,
         "alerts": alerts,
@@ -432,9 +435,9 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
                 "balance": [round(item["balance"], 2) for item in monthly_series],
             },
             "categories": {
-                "labels": [item["name"] for item in chart_categories],
-                "values": [round(item["movement_total"], 2) for item in chart_categories],
-                "technical": [item["is_technical"] for item in chart_categories],
+                "labels": [item["name"] for item in top_expense_categories],
+                "values": [round(item["expense_total"], 2) for item in top_expense_categories],
+                "technical": [item["is_technical"] for item in top_expense_categories],
             },
         },
     }
@@ -524,3 +527,5 @@ def run_analysis(db: Session, period_start: date, period_end: date, trigger_sour
     db.commit()
     db.refresh(run)
     return run
+
+

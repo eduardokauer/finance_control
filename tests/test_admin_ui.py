@@ -527,3 +527,4 @@ def test_admin_loading_buttons_are_exposed_in_reapply_and_analysis(client, db_se
     assert "Carregando análise..." in analysis_page.text
     assert "Gerando análise..." in analysis_page.text
 
+

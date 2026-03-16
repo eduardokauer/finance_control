@@ -191,8 +191,8 @@
       </div>
       <div class="card stack" style="margin-bottom:0;">
         <div>
-          <strong>Top categorias do mês-base</strong>
-          <div class="subtle">Referência: {{ analysis_data.period.month_reference_label }}</div>
+          <strong>Top categorias por peso nas despesas</strong>
+          <div class="subtle">Referência: {{ analysis_data.period.month_reference_label }} · ranking por despesas do mês</div>
         </div>
         <div class="chart-shell"><canvas id="categories-chart"></canvas></div>
       </div>
@@ -247,7 +247,7 @@
       <div class="card stack" style="margin-bottom:0;">
         <div>
           <strong>Categorias do mês-base</strong>
-          <div class="subtle">Todas as categorias do mês {{ analysis_data.period.month_reference_label }}, com destaque para itens técnicos.</div>
+          <div class="subtle">Todas as categorias do mês {{ analysis_data.period.month_reference_label }}, ordenadas por peso nas despesas e com destaque para itens técnicos.</div>
         </div>
         <div class="analysis-list">
           {% for category in analysis_data.categories %}
@@ -260,7 +260,7 @@
                   <span class="badge">{{ category.flow_label }}</span>
                 {% endif %}
               </div>
-              <p>Total movimentado: {{ category.display_total }} · {% if category.expense_total > 0 %}peso nas despesas: {{ category.share_of_expense_display }}{% else %}sem peso relevante nas despesas{% endif %} · {{ category.transaction_count }} lançamento(s)</p>
+              <p>Despesa do mês: {{ category.expense_display }} · {% if category.expense_total > 0 %}peso nas despesas: {{ category.share_of_expense_display }}{% else %}sem peso relevante nas despesas{% endif %} · {% if category.income_total > 0 %}entradas: {{ category.income_display }} · {% endif %}{{ category.transaction_count }} lançamento(s)</p>
             </div>
           {% else %}
             <div class="analysis-item">
@@ -516,4 +516,6 @@
 </script>
 {% endif %}
 {% endblock %}
+
+
 
