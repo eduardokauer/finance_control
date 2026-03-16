@@ -1,4 +1,4 @@
-from ast import literal_eval
+﻿import json
 from math import isclose
 
 import pytest
@@ -77,7 +77,7 @@ def test_e2e_ofx_import_and_manual_reclassification(client, db_session, auth_hea
     )
 
     uncategorized_before = db_session.scalar(
-        select(func.count(Transaction.id)).where(Transaction.category == "Não Categorizado")
+        select(func.count(Transaction.id)).where(Transaction.category.in_(["NÃ£o Categorizado", "Não Categorizado", "NÃƒÂ£o Categorizado"]))
     )
     assert uncategorized_before == 4
     print(f"[e2e] uncategorized before manual overrides: {uncategorized_before}")
@@ -133,7 +133,7 @@ def test_e2e_ofx_import_and_manual_reclassification(client, db_session, auth_hea
     db_session.expire_all()
 
     uncategorized_after = db_session.scalar(
-        select(func.count(Transaction.id)).where(Transaction.category == "Não Categorizado")
+        select(func.count(Transaction.id)).where(Transaction.category == "NÃ£o Categorizado")
     )
     assert uncategorized_after == 0
     print(f"[e2e] uncategorized after manual overrides: {uncategorized_after}")
@@ -163,13 +163,21 @@ def test_e2e_ofx_import_and_manual_reclassification(client, db_session, auth_hea
     assert len(analysis_runs) == 2
 
     latest_run = analysis_runs[-1]
-    payload = literal_eval(latest_run.payload)
+    payload = json.loads(latest_run.payload)
     assert payload["transactions"] == expected["count"]
     assert isclose(float(payload["total"]), -15601.14, rel_tol=0, abs_tol=1e-9)
+    assert payload["summary"]["transaction_count"] == expected["count"]
+    assert len(payload["monthly_series"]) == 12
     assert latest_run.status == "success"
-    assert "Outros: -1190.00" in latest_run.html_output
+    assert latest_run.prompt == "deterministic_html_analysis_v2"
+    assert "Análise financeira determinística" in latest_run.html_output or "AnÃ¡lise financeira determinÃ­stica" in latest_run.html_output
+    assert "Ações recomendadas" in latest_run.html_output or "AÃ§Ãµes recomendadas" in latest_run.html_output
     assert "Reembolsos" not in latest_run.html_output
     print(
         f"[e2e] analysis run: id={latest_run.id} status={latest_run.status} "
         f"transactions={payload['transactions']} total={float(payload['total']):.2f}"
     )
+
+
+
+

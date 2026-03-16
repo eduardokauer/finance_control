@@ -8,12 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
-from app.services.admin import (
-    analysis_summary_for_period,
-    latest_analysis_run_for_period,
-    renderable_analysis_html,
-    resolve_analysis_period,
-)
+from app.services.admin import latest_analysis_run_for_period, renderable_analysis_html, resolve_analysis_period
+from app.services.analysis import build_analysis_snapshot, parse_analysis_payload
 
 from .helpers import render_admin
 
@@ -58,7 +54,9 @@ def admin_analysis_page(
         resolved_start, resolved_end = latest_closed_start, latest_closed_end
 
     analysis_run = latest_analysis_run_for_period(db, period_start=resolved_start, period_end=resolved_end)
-    summary = analysis_summary_for_period(db, period_start=resolved_start, period_end=resolved_end)
+    live_snapshot = build_analysis_snapshot(db, period_start=resolved_start, period_end=resolved_end)
+    payload_snapshot = parse_analysis_payload(analysis_run.payload) if analysis_run else None
+    analysis_data = payload_snapshot or live_snapshot
     html_fragment = renderable_analysis_html(analysis_run.html_output) if analysis_run else None
     return render_admin(
         request,
@@ -72,10 +70,10 @@ def admin_analysis_page(
             "latest_closed_end": latest_closed_end,
             "month_preview_start": month_preview_start,
             "month_preview_end": month_preview_end,
-            "summary": summary,
+            "summary": analysis_data["summary"],
             "analysis_run": analysis_run,
+            "analysis_data": analysis_data,
             "analysis_html_fragment": html_fragment,
             "llm_html_available": False,
         },
     )
-

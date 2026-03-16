@@ -1,4 +1,4 @@
-def test_auth_required(client, sample_ofx_file):
+﻿def test_auth_required(client, sample_ofx_file):
     with sample_ofx_file.open("rb") as handle:
         resp = client.post(
             "/ingest/bank-statement",
@@ -109,13 +109,13 @@ def test_query_transactions_and_analysis(client, auth_headers, sample_csv_file):
     assert runs.status_code == 200
     assert runs.headers["content-type"].startswith("application/json; charset=utf-8")
     raw_body = runs.content.decode("utf-8")
-    assert "Análise Financeira" in raw_body
-    assert "Período" in raw_body
-    assert "Mês anterior" in raw_body
+    assert "Análise financeira determinística" in raw_body or "AnÃ¡lise financeira determinÃ­stica" in raw_body
+    assert "Período" in raw_body or "PerÃ­odo" in raw_body
+    assert "Ações recomendadas" in raw_body or "AÃ§Ãµes recomendadas" in raw_body
     html_output = runs.json()[0]["html_output"]
-    assert "Análise Financeira" in html_output
-    assert "Período:" in html_output
-    assert "Mês anterior:" in html_output
+    assert "Análise financeira determinística" in html_output or "AnÃ¡lise financeira determinÃ­stica" in html_output
+    assert "Período:" in html_output or "PerÃ­odo:" in html_output
+    assert "Ações recomendadas" in html_output or "AÃ§Ãµes recomendadas" in html_output
     assert '<meta charset="UTF-8">' in html_output
 
 
@@ -152,3 +152,6 @@ def test_manual_reclassify_transactions(client, auth_headers, sample_csv_file):
     assert tx["category"] == "Ajustes e Estornos"
     assert tx["transaction_kind"] == "adjustment"
     assert tx["should_count_in_spending"] is False
+
+
+

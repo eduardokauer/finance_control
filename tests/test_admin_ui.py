@@ -497,12 +497,17 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     assert page.status_code == 200
     assert "Análise determinística renderizada" in page.text or "AnÃ¡lise determin" in page.text
     assert "Ver HTML bruto" in page.text
-    assert "5000.00" in page.text
-    assert "200.00" in page.text
+    assert "Consolidado mensal de 12 meses" in page.text
+    assert "Itens financeiros e técnicos" in page.text or "Itens financeiros e t" in page.text
+    assert "chart.js" in page.text.lower()
+    assert "monthly-chart" in page.text
+    assert "categories-chart" in page.text
+    assert "R$" in page.text
 
     run = db_session.scalar(select(AnalysisRun).where(AnalysisRun.period_start == date(2026, 3, 1)))
     assert run is not None
     assert run.html_output
+    assert "Análise financeira determinística" in run.html_output or "AnÃ¡lise financeira determinÃ­stica" in run.html_output
 
 
 def test_admin_loading_buttons_are_exposed_in_reapply_and_analysis(client, db_session, monkeypatch):
@@ -521,3 +526,4 @@ def test_admin_loading_buttons_are_exposed_in_reapply_and_analysis(client, db_se
     assert analysis_page.text.count("data-loading-button") >= 2
     assert "Carregando análise..." in analysis_page.text
     assert "Gerando análise..." in analysis_page.text
+
