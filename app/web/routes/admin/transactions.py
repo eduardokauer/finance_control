@@ -14,6 +14,7 @@ from app.services.admin import (
     build_pagination,
     build_transaction_filters,
     default_closed_month,
+    kind_mode_from_transaction_kind,
     latest_closed_month_with_transactions,
     list_categories,
     list_transactions_for_admin,
@@ -147,7 +148,7 @@ def admin_update_transaction(
             pattern=rule_pattern,
             rule_type=rule_match_mode,
             category_name=category,
-            transaction_kind=transaction_kind,
+            kind_mode=kind_mode_from_transaction_kind(transaction_kind),
             priority=0,
             is_active=True,
         )
@@ -212,7 +213,7 @@ def admin_bulk_apply(
                 pattern=rule_pattern,
                 rule_type=rule_match_mode,
                 category_name=category,
-                transaction_kind=transaction_kind,
+                kind_mode=kind_mode_from_transaction_kind(transaction_kind),
                 priority=0,
                 is_active=True,
             )

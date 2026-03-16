@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 from uuid import uuid4
@@ -27,6 +27,10 @@ def _build_temp_database_url(base_url: str, database_name: str) -> str:
 
 def _postgres_available() -> bool:
     return settings.database_url.startswith("postgresql+psycopg://")
+
+
+def _migration_files() -> list[Path]:
+    return sorted((Path(__file__).resolve().parents[1] / "supabase" / "migrations").glob("*.sql"))
 
 
 @pytest.mark.skipif(not _postgres_available(), reason="requires postgres DATABASE_URL")
@@ -62,7 +66,7 @@ def test_sql_migrations_are_idempotent_in_postgres(monkeypatch):
                 cur.execute("select count(*) from categorization_rules")
                 first_rules = cur.fetchone()[0]
 
-                cur.execute("select count(*) from categorization_rules where transaction_kind is null")
+                cur.execute("select count(*) from categorization_rules where kind_mode is null")
                 null_rule_kinds = cur.fetchone()[0]
 
                 cur.execute("select count(*) from transaction_audit_logs")
@@ -71,7 +75,7 @@ def test_sql_migrations_are_idempotent_in_postgres(monkeypatch):
         second_applied = run_sql_migrations()
         assert second_applied == []
 
-        migration_files = list((Path(__file__).resolve().parents[1] / "supabase" / "migrations").glob("*.sql"))
+        migration_files = _migration_files()
         assert first_schema_migrations == len(migration_files)
         assert first_categories > 0
         assert first_rules > 0
@@ -93,7 +97,7 @@ def test_sql_migrations_are_idempotent_in_postgres(monkeypatch):
                 cur.execute("select count(*) from categories where transaction_kind is null")
                 assert cur.fetchone()[0] == 0
 
-                cur.execute("select count(*) from categorization_rules where transaction_kind is null")
+                cur.execute("select count(*) from categorization_rules where kind_mode is null")
                 assert cur.fetchone()[0] == 0
     finally:
         monkeypatch.setattr(settings, "database_url", base_url)
@@ -108,3 +112,91 @@ def test_sql_migrations_are_idempotent_in_postgres(monkeypatch):
                     (temp_db_name,),
                 )
                 cur.execute(f'drop database if exists "{temp_db_name}"')
+
+
+@pytest.mark.skipif(not _postgres_available(), reason="requires postgres DATABASE_URL")
+def test_rule_kind_mode_migration_converts_legacy_transaction_kind(monkeypatch):
+    base_url = settings.database_url
+    admin_dsn = _to_psycopg_dsn(base_url)
+    temp_db_name = f"fc_kind_mode_{uuid4().hex[:8]}"
+    temp_url = _build_temp_database_url(base_url, temp_db_name)
+    temp_dsn = _to_psycopg_dsn(temp_url)
+    migration_files = _migration_files()
+    legacy_files = [migration for migration in migration_files if migration.name < "007_rule_kind_mode.sql"]
+
+    with psycopg.connect(admin_dsn, autocommit=True) as conn:
+        with conn.cursor() as cur:
+            cur.execute(f'create database "{temp_db_name}"')
+
+    try:
+        with psycopg.connect(temp_dsn) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    create table if not exists schema_migrations (
+                        version text primary key,
+                        applied_at timestamptz not null default now()
+                    )
+                    """
+                )
+                conn.commit()
+                for migration_file in legacy_files:
+                    with conn.transaction():
+                        cur.execute(migration_file.read_text(encoding="utf-8"))
+                        cur.execute("insert into schema_migrations(version) values (%s)", (migration_file.name,))
+
+                cur.execute(
+                    "insert into categorization_rules(rule_type, pattern, category_name, transaction_kind, priority) values (%s, %s, %s, %s, %s)",
+                    ("contains", "regra-flow-legada", "Outros", "expense", 999),
+                )
+                cur.execute(
+                    "insert into categorization_rules(rule_type, pattern, category_name, transaction_kind, priority) values (%s, %s, %s, %s, %s)",
+                    ("contains", "regra-transfer-legada", "TransferÃªncias", "transfer", 998),
+                )
+                conn.commit()
+
+                cur.execute("select distinct transaction_kind from categorization_rules where pattern like %s", ("regra-%",))
+                legacy_kinds = {row[0] for row in cur.fetchall()}
+                assert legacy_kinds == {"expense", "transfer"}
+
+        monkeypatch.setattr(settings, "database_url", temp_url)
+        applied = run_sql_migrations()
+        assert applied == ["007_rule_kind_mode.sql"]
+
+        with psycopg.connect(temp_dsn) as conn:
+            with conn.cursor() as cur:
+                cur.execute("select count(*) from categorization_rules where kind_mode = 'flow'")
+                flow_count = cur.fetchone()[0]
+
+                cur.execute("select count(*) from categorization_rules where kind_mode = 'transfer'")
+                transfer_count = cur.fetchone()[0]
+
+                cur.execute("select count(*) from categorization_rules where kind_mode not in ('flow', 'transfer')")
+                invalid_count = cur.fetchone()[0]
+
+                cur.execute("select count(*) from information_schema.columns where table_name = 'categorization_rules' and column_name = 'kind_mode'")
+                has_kind_mode = cur.fetchone()[0]
+
+                cur.execute("select count(*) from information_schema.columns where table_name = 'categorization_rules' and column_name = 'transaction_kind'")
+                has_legacy_column = cur.fetchone()[0]
+
+        assert flow_count > 0
+        assert transfer_count > 0
+        assert invalid_count == 0
+        assert has_kind_mode == 1
+        assert has_legacy_column == 0
+    finally:
+        monkeypatch.setattr(settings, "database_url", base_url)
+        with psycopg.connect(admin_dsn, autocommit=True) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select pg_terminate_backend(pid)
+                    from pg_stat_activity
+                    where datname = %s and pid <> pg_backend_pid()
+                    """,
+                    (temp_db_name,),
+                )
+                cur.execute(f'drop database if exists "{temp_db_name}"')
+
+

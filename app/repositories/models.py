@@ -48,7 +48,7 @@ class CategorizationRule(Base):
     rule_type: Mapped[str] = mapped_column(String(30), nullable=False)
     pattern: Mapped[str] = mapped_column(String(255), nullable=False)
     category_name: Mapped[str] = mapped_column(String(120), nullable=False)
-    transaction_kind: Mapped[str] = mapped_column(String(40), nullable=False, default="expense")
+    kind_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="flow")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
     created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())

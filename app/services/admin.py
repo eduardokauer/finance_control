@@ -199,6 +199,10 @@ def list_active_rules(db: Session) -> list[CategorizationRule]:
     ).all()
 
 
+def kind_mode_from_transaction_kind(transaction_kind: str) -> str:
+    return "transfer" if transaction_kind == "transfer" else "flow"
+
+
 def upsert_category(db: Session, *, category_id: int | None, name: str, transaction_kind: str, is_active: bool = True) -> Category:
     category = db.get(Category, category_id) if category_id else None
     if category is None:
@@ -220,7 +224,7 @@ def upsert_rule(
     pattern: str,
     rule_type: str,
     category_name: str,
-    transaction_kind: str,
+    kind_mode: str,
     priority: int,
     is_active: bool = True,
 ) -> CategorizationRule:
@@ -231,7 +235,7 @@ def upsert_rule(
             pattern=normalized_pattern,
             rule_type=rule_type,
             category_name=category_name,
-            transaction_kind=transaction_kind,
+            kind_mode=kind_mode,
             priority=priority,
             is_active=is_active,
         )
@@ -240,7 +244,7 @@ def upsert_rule(
         rule.pattern = normalized_pattern
         rule.rule_type = rule_type
         rule.category_name = category_name
-        rule.transaction_kind = transaction_kind
+        rule.kind_mode = kind_mode
         rule.priority = priority
         rule.is_active = is_active
     db.commit()
