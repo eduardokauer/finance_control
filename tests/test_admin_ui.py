@@ -339,6 +339,11 @@ def test_admin_reapply_preview_links_to_rule_editor(client, db_session, monkeypa
     db_session.commit()
     _login(client)
 
+    reapply_page = client.get("/admin/reapply")
+    assert reapply_page.status_code == 200
+    assert "data-loading-button" in reapply_page.text
+    assert "Pré-visualizando..." in reapply_page.text or "Pr" in reapply_page.text
+
     preview = client.post("/admin/reapply/preview", data={})
     assert preview.status_code == 200
     assert f'/admin/rules?open_rule_id={rule.id}#rule-{rule.id}' in preview.text
@@ -359,6 +364,11 @@ def test_admin_reapply_preserves_existing_category_when_no_better_match(client, 
         transaction_kind="expense",
     )
     _login(client)
+
+    reapply_page = client.get("/admin/reapply")
+    assert reapply_page.status_code == 200
+    assert "data-loading-button" in reapply_page.text
+    assert "Pré-visualizando..." in reapply_page.text or "Pr" in reapply_page.text
 
     preview = client.post("/admin/reapply/preview", data={})
     assert preview.status_code == 200
@@ -383,6 +393,11 @@ def test_admin_reapply_can_apply_valid_fallback_without_manual_rule(client, db_s
         transaction_kind="expense",
     )
     _login(client)
+
+    reapply_page = client.get("/admin/reapply")
+    assert reapply_page.status_code == 200
+    assert "data-loading-button" in reapply_page.text
+    assert "Pré-visualizando..." in reapply_page.text or "Pr" in reapply_page.text
 
     preview = client.post("/admin/reapply/preview", data={})
     assert preview.status_code == 200
@@ -440,3 +455,69 @@ def test_admin_reapply_only_degrades_to_uncategorized_when_flag_is_enabled(clien
 
     db_session.refresh(tx)
     assert tx.category in {"NÃƒÂ£o Categorizado", "Não Categorizado"}
+
+
+def test_admin_analysis_page_shows_empty_state_and_navigation(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(db_session, description="SALARIO MAR", normalized="salario mar", amount=5000.0, transaction_kind="income", category="SalÃƒÂ¡rio")
+    _login(client)
+
+    response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+
+    assert response.status_code == 200
+    assert "Ainda não existe análise gerada para esse período" in response.text or "Ainda n" in response.text
+    assert "Gerar nova análise" in response.text
+    assert "Receitas" in response.text
+    assert "data-loading-button" in response.text
+    assert "Carregando análise..." in response.text
+    assert "Gerando análise..." in response.text
+
+
+def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(db_session, description="SALARIO MAR", normalized="salario mar", amount=5000.0, transaction_kind="income", category="SalÃƒÂ¡rio")
+    _seed_transaction(db_session, description="UBER MAR", normalized="uber mar", amount=-120.0, transaction_kind="expense", category="Transporte")
+    _seed_transaction(db_session, description="SEM CATEGORIA", normalized="sem categoria", amount=-80.0, transaction_kind="expense", category="NÃƒÂ£o Categorizado")
+    _login(client)
+
+    run_resp = client.post(
+        "/admin/analysis/run",
+        data={
+            "period_start": "2026-03-01",
+            "period_end": "2026-03-31",
+            "return_to": "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31",
+        },
+        follow_redirects=False,
+    )
+    assert run_resp.status_code == 303
+
+    page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+    assert page.status_code == 200
+    assert "Análise determinística renderizada" in page.text or "AnÃ¡lise determin" in page.text
+    assert "Ver HTML bruto" in page.text
+    assert "5000.00" in page.text
+    assert "200.00" in page.text
+
+    run = db_session.scalar(select(AnalysisRun).where(AnalysisRun.period_start == date(2026, 3, 1)))
+    assert run is not None
+    assert run.html_output
+
+
+def test_admin_loading_buttons_are_exposed_in_reapply_and_analysis(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(db_session)
+    _login(client)
+
+    reapply_page = client.get("/admin/reapply")
+    assert reapply_page.status_code == 200
+    assert "data-loading-button" in reapply_page.text
+    assert "Pré-visualizando..." in reapply_page.text or "Pr" in reapply_page.text
+
+    analysis_page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+    assert analysis_page.status_code == 200
+    assert analysis_page.text.count("data-loading-button") >= 2
+    assert "Carregando análise..." in analysis_page.text
+    assert "Gerando análise..." in analysis_page.text

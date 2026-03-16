@@ -46,11 +46,15 @@
         hx-post="/admin/reapply/preview"
         hx-include="closest form"
         hx-target="#reapply-preview"
-        hx-swap="innerHTML">Pré-visualizar impacto</button>
+        hx-swap="innerHTML"
+        data-loading-button
+        data-loading-label="Pré-visualizando...">Pré-visualizar impacto</button>
     </div>
   </form>
 </div>
 <div id="reapply-preview"></div>
 {% endblock %}
+
+
 
 
