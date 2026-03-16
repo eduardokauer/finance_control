@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse
 
 from app.services.admin import latest_closed_month_with_transactions
 
+from .analysis import router as analysis_router
 from .auth import router as auth_router
 from .categories import router as categories_router
 from .dashboard import admin_home
@@ -17,6 +18,7 @@ router = APIRouter(prefix="/admin", include_in_schema=False)
 router.add_api_route("", admin_home, methods=["GET"], response_class=HTMLResponse)
 router.add_api_route("/", admin_home, methods=["GET"], response_class=HTMLResponse)
 router.include_router(auth_router)
+router.include_router(analysis_router)
 router.include_router(transactions_router)
 router.include_router(rules_router)
 router.include_router(categories_router)

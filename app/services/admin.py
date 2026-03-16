@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from math import ceil
+import re
 
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session
@@ -49,6 +50,23 @@ def latest_closed_month_with_transactions(db: Session, today: date | None = None
     else:
         next_month = date(start.year, start.month + 1, 1)
     return start, next_month - timedelta(days=1)
+
+
+def resolve_analysis_period(
+    db: Session,
+    *,
+    month: str | None,
+    period_start: date | None,
+    period_end: date | None,
+) -> tuple[date, date]:
+    if month:
+        year, month_value = [int(part) for part in month.split("-", 1)]
+        start = date(year, month_value, 1)
+        next_month = date(year + (1 if month_value == 12 else 0), 1 if month_value == 12 else month_value + 1, 1)
+        return start, next_month - timedelta(days=1)
+    if period_start and period_end:
+        return period_start, period_end
+    return latest_closed_month_with_transactions(db) or default_closed_month()
 
 
 def build_transaction_filters(
@@ -179,6 +197,42 @@ def admin_dashboard_metrics(db: Session) -> dict:
         "latest_changes": latest_changes,
         "latest_rules": latest_rules,
     }
+
+
+def analysis_summary_for_period(db: Session, *, period_start: date, period_end: date) -> dict:
+    txs = db.scalars(
+        select(Transaction).where(Transaction.transaction_date >= period_start, Transaction.transaction_date <= period_end)
+    ).all()
+    income_total = sum(float(tx.amount) for tx in txs if float(tx.amount) > 0)
+    expense_total = sum(abs(float(tx.amount)) for tx in txs if float(tx.amount) < 0 and tx.should_count_in_spending)
+    uncategorized_total = sum(
+        abs(float(tx.amount))
+        for tx in txs
+        if float(tx.amount) < 0 and is_uncategorized_category(tx.category)
+    )
+    return {
+        "income_total": income_total,
+        "expense_total": expense_total,
+        "balance": income_total - expense_total,
+        "transaction_count": len(txs),
+        "uncategorized_total": uncategorized_total,
+    }
+
+
+def latest_analysis_run_for_period(db: Session, *, period_start: date, period_end: date) -> AnalysisRun | None:
+    return db.scalar(
+        select(AnalysisRun)
+        .where(AnalysisRun.period_start == period_start, AnalysisRun.period_end == period_end)
+        .order_by(AnalysisRun.created_at.desc(), AnalysisRun.id.desc())
+        .limit(1)
+    )
+
+
+def renderable_analysis_html(html_output: str) -> str:
+    match = re.search(r"<body[^>]*>(.*)</body>", html_output, flags=re.IGNORECASE | re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return html_output
 
 
 def list_categories(db: Session) -> list[Category]:

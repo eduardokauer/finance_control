@@ -74,6 +74,26 @@
       color: var(--danger);
       border-color: #f7b4ae;
     }
+    button[disabled], .button[aria-disabled="true"] {
+      opacity: 0.72;
+      cursor: wait;
+    }
+    .is-loading {
+      position: relative;
+      pointer-events: none;
+    }
+    .is-loading::after {
+      content: "";
+      width: 14px;
+      height: 14px;
+      margin-left: 8px;
+      display: inline-block;
+      vertical-align: -2px;
+      border-radius: 999px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      animation: button-spin 0.7s linear infinite;
+    }
     .card, .panel {
       background: rgba(255, 253, 247, 0.96);
       border: 1px solid rgba(219, 205, 179, 0.9);
@@ -213,6 +233,9 @@
       box-shadow: var(--shadow);
       padding: 24px;
     }
+    @keyframes button-spin {
+      to { transform: rotate(360deg); }
+    }
     @media (min-width: 860px) {
       .shell { padding: 28px 24px 80px; }
       .tx-card { padding: 18px 18px; }
@@ -232,6 +255,7 @@
       <a href="/admin">Home</a>
       <a href="/admin/transactions">Lançamentos</a>
       <a href="/admin/transactions?uncategorized_only=true">Não categorizados</a>
+      <a href="/admin/analysis">Análise</a>
       <a href="/admin/rules">Regras</a>
       <a href="/admin/categories">Categorias</a>
       <a href="/admin/reapply">Reaplicar regras</a>
@@ -240,6 +264,56 @@
     {% block content %}{% endblock %}
   </div>
   {% endblock %}
+  <script>
+    (() => {
+      function setLoadingState(button, enabled) {
+        if (!button) return;
+        if (enabled) {
+          if (button.dataset.loadingActive === "true") return;
+          button.dataset.loadingActive = "true";
+          button.dataset.originalLabel = button.textContent.trim();
+          button.textContent = button.dataset.loadingLabel || button.dataset.originalLabel || "Carregando...";
+          button.classList.add("is-loading");
+          if ("disabled" in button) button.disabled = true;
+          else button.setAttribute("aria-disabled", "true");
+          return;
+        }
+        if (button.dataset.loadingActive !== "true") return;
+        button.textContent = button.dataset.originalLabel || button.textContent;
+        button.classList.remove("is-loading");
+        if ("disabled" in button) button.disabled = false;
+        else button.removeAttribute("aria-disabled");
+        delete button.dataset.loadingActive;
+      }
+
+      document.addEventListener("submit", (event) => {
+        const button = event.submitter;
+        if (!button || !button.matches("[data-loading-button]")) return;
+        setLoadingState(button, true);
+      }, true);
+
+      document.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-loading-button]");
+        if (!button || button.type === "submit") return;
+        setLoadingState(button, true);
+      });
+
+      function clearHtmxLoading(event) {
+        const elt = event.detail.elt;
+        if (!elt) return;
+        const button = elt.matches?.("[data-loading-button]") ? elt : elt.closest?.("[data-loading-button]");
+        if (button && button.matches("[data-loading-button]")) {
+          setLoadingState(button, false);
+        }
+      }
+
+      document.body.addEventListener("htmx:afterRequest", clearHtmxLoading);
+      document.body.addEventListener("htmx:responseError", clearHtmxLoading);
+    })();
+  </script>
 </body>
 </html>
+
+
+
 
