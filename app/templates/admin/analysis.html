@@ -1,10 +1,85 @@
 ﻿{% extends "admin/base.html" %}
 {% block title %}Análise{% endblock %}
 {% block content %}
+<style>
+  .analysis-grid {
+    display: grid;
+    gap: 12px;
+  }
+  .analysis-grid-2 {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .kpi-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+  .comparison-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  .chart-shell {
+    min-height: 280px;
+  }
+  .chart-shell canvas {
+    width: 100% !important;
+    height: 280px !important;
+  }
+  .analysis-table-wrap {
+    overflow-x: auto;
+  }
+  .analysis-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 680px;
+  }
+  .analysis-table th,
+  .analysis-table td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.92rem;
+  }
+  .analysis-list {
+    display: grid;
+    gap: 10px;
+  }
+  .analysis-item {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px 14px;
+    background: var(--surface);
+  }
+  .analysis-item-title {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .analysis-item p {
+    margin: 6px 0 0;
+    color: var(--muted);
+  }
+  .trend-up {
+    color: var(--danger);
+  }
+  .trend-down {
+    color: var(--ok);
+  }
+  .trend-stable {
+    color: var(--muted);
+  }
+  .technical-note {
+    border-left: 4px solid var(--warn);
+    padding-left: 12px;
+  }
+</style>
+
 <div class="card stack">
   <div>
     <h1 style="margin:0;">Análise do período</h1>
-    <div class="subtle">Escolha como definir o período e consulte a análise determinística atual.</div>
+    <div class="subtle">Escolha como definir o período e consulte a leitura financeira determinística mais recente.</div>
   </div>
 
   <form method="get" action="/admin/analysis" class="stack" id="analysis-period-form">
@@ -43,35 +118,35 @@
   </form>
 </div>
 
-<section class="grid grid-2">
+<section class="kpi-grid">
   <div class="card">
     <div class="subtle">Receitas</div>
-    <div class="metric-value amount-positive">{{ '%.2f'|format(summary.income_total) }}</div>
+    <div class="metric-value amount-positive">{{ summary.income_display }}</div>
   </div>
   <div class="card">
     <div class="subtle">Despesas</div>
-    <div class="metric-value amount-negative">{{ '%.2f'|format(summary.expense_total) }}</div>
+    <div class="metric-value amount-negative">{{ summary.expense_display }}</div>
   </div>
   <div class="card">
     <div class="subtle">Saldo</div>
-    <div class="metric-value {% if summary.balance < 0 %}amount-negative{% else %}amount-positive{% endif %}">{{ '%.2f'|format(summary.balance) }}</div>
+    <div class="metric-value {% if summary.balance < 0 %}amount-negative{% else %}amount-positive{% endif %}">{{ summary.balance_display }}</div>
+  </div>
+  <div class="card">
+    <div class="subtle">Não categorizado</div>
+    <div class="metric-value">{{ summary.uncategorized_display }}</div>
   </div>
   <div class="card">
     <div class="subtle">Transações</div>
     <div class="metric-value">{{ summary.transaction_count }}</div>
-  </div>
-  <div class="card">
-    <div class="subtle">Não categorizado</div>
-    <div class="metric-value">{{ '%.2f'|format(summary.uncategorized_total) }}</div>
   </div>
 </section>
 
 <div class="card stack">
   <div class="inline" style="justify-content:space-between; align-items:flex-start;">
     <div>
-      <div><strong>Período:</strong> {{ period_start }} até {{ period_end }}</div>
+      <div><strong>Período:</strong> {{ analysis_data.period.label }}</div>
       {% if analysis_run %}
-        <div class="subtle">Gerada em {{ analysis_run.created_at }} · status {{ analysis_run.status }} · modo {{ analysis_run.prompt }}</div>
+        <div class="subtle">Gerada em {{ analysis_run.created_at.strftime('%d/%m/%Y %H:%M') }} · status {{ analysis_run.status }} · modo {{ analysis_run.prompt }}</div>
       {% else %}
         <div class="subtle">Ainda não existe análise gerada para esse período.</div>
       {% endif %}
@@ -85,7 +160,173 @@
   </div>
 
   {% if analysis_run %}
-    <div class="card" style="padding:0; overflow:hidden;">
+    <section class="comparison-grid">
+      <div class="card" style="margin-bottom:0;">
+        <div class="subtle">Receitas vs {{ analysis_data.comparison.reference_label }}</div>
+        <div style="font-weight:700; margin-top:6px;">{{ analysis_data.comparison.income.delta_display }}</div>
+        <div class="subtle {{ 'trend-up' if analysis_data.comparison.income.trend == 'up' else 'trend-down' if analysis_data.comparison.income.trend == 'down' else 'trend-stable' }}">{{ analysis_data.comparison.income.trend_label|capitalize }} · {{ analysis_data.comparison.income.percent_display }}</div>
+        <div class="subtle">Atual: {{ analysis_data.comparison.income.current_display }} · anterior: {{ analysis_data.comparison.income.previous_display }}</div>
+      </div>
+      <div class="card" style="margin-bottom:0;">
+        <div class="subtle">Despesas vs {{ analysis_data.comparison.reference_label }}</div>
+        <div style="font-weight:700; margin-top:6px;">{{ analysis_data.comparison.expense.delta_display }}</div>
+        <div class="subtle {{ 'trend-up' if analysis_data.comparison.expense.trend == 'up' else 'trend-down' if analysis_data.comparison.expense.trend == 'down' else 'trend-stable' }}">{{ analysis_data.comparison.expense.trend_label|capitalize }} · {{ analysis_data.comparison.expense.percent_display }}</div>
+        <div class="subtle">Atual: {{ analysis_data.comparison.expense.current_display }} · anterior: {{ analysis_data.comparison.expense.previous_display }}</div>
+      </div>
+      <div class="card" style="margin-bottom:0;">
+        <div class="subtle">Saldo vs {{ analysis_data.comparison.reference_label }}</div>
+        <div style="font-weight:700; margin-top:6px;">{{ analysis_data.comparison.balance.delta_display }}</div>
+        <div class="subtle {{ 'trend-up' if analysis_data.comparison.balance.trend == 'up' else 'trend-down' if analysis_data.comparison.balance.trend == 'down' else 'trend-stable' }}">{{ analysis_data.comparison.balance.trend_label|capitalize }} · {{ analysis_data.comparison.balance.percent_display }}</div>
+        <div class="subtle">Atual: {{ analysis_data.comparison.balance.current_display }} · anterior: {{ analysis_data.comparison.balance.previous_display }}</div>
+      </div>
+    </section>
+
+    <section class="analysis-grid analysis-grid-2">
+      <div class="card stack" style="margin-bottom:0;">
+        <div>
+          <strong>Receitas x despesas x saldo</strong>
+          <div class="subtle">Últimos 12 meses do calendário, com meses zerados incluídos.</div>
+        </div>
+        <div class="chart-shell"><canvas id="monthly-chart"></canvas></div>
+      </div>
+      <div class="card stack" style="margin-bottom:0;">
+        <div>
+          <strong>Top categorias por peso nas despesas</strong>
+          <div class="subtle">Referência: {{ analysis_data.period.month_reference_label }} · ranking por despesas do mês</div>
+        </div>
+        <div class="chart-shell"><canvas id="categories-chart"></canvas></div>
+      </div>
+    </section>
+
+    <section class="analysis-grid analysis-grid-2">
+      <div class="card stack" style="margin-bottom:0;">
+        <div>
+          <strong>Alertas determinísticos</strong>
+          <div class="subtle">Até 5 sinais mais relevantes para o período selecionado.</div>
+        </div>
+        <div class="analysis-list">
+          {% for alert in analysis_data.alerts %}
+            <div class="analysis-item">
+              <div class="analysis-item-title">
+                <strong>{{ alert.title }}</strong>
+                <span class="badge {% if alert.level == 'danger' %}danger{% elif alert.level == 'warn' %}warn{% endif %}">{{ alert.level }}</span>
+              </div>
+              <p>{{ alert.body }}</p>
+            </div>
+          {% else %}
+            <div class="analysis-item">
+              <strong>Nenhum alerta crítico</strong>
+              <p>O período não trouxe sinais determinísticos prioritários além do acompanhamento normal.</p>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="card stack" style="margin-bottom:0;">
+        <div>
+          <strong>Ações recomendadas</strong>
+          <div class="subtle">Próximos passos objetivos para melhorar leitura e decisão.</div>
+        </div>
+        <div class="analysis-list">
+          {% for action in analysis_data.actions %}
+            <div class="analysis-item">
+              <strong>{{ action.title }}</strong>
+              <p>{{ action.body }}</p>
+            </div>
+          {% else %}
+            <div class="analysis-item">
+              <strong>Nenhuma ação prioritária</strong>
+              <p>A análise atual não encontrou um ajuste imediato acima da linha de base do período.</p>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="analysis-grid analysis-grid-2">
+      <div class="card stack" style="margin-bottom:0;">
+        <div>
+          <strong>Categorias do mês-base</strong>
+          <div class="subtle">Todas as categorias do mês {{ analysis_data.period.month_reference_label }}, ordenadas por peso nas despesas e com destaque para itens técnicos.</div>
+        </div>
+        <div class="analysis-list">
+          {% for category in analysis_data.categories %}
+            <div class="analysis-item">
+              <div class="analysis-item-title">
+                <strong>{{ category.name }}</strong>
+                {% if category.is_technical %}
+                  <span class="badge warn">{{ category.technical_label }}</span>
+                {% else %}
+                  <span class="badge">{{ category.flow_label }}</span>
+                {% endif %}
+              </div>
+              <p>Despesa do mês: {{ category.expense_display }} · {% if category.expense_total > 0 %}peso nas despesas: {{ category.share_of_expense_display }}{% else %}sem peso relevante nas despesas{% endif %} · {% if category.income_total > 0 %}entradas: {{ category.income_display }} · {% endif %}{{ category.transaction_count }} lançamento(s)</p>
+            </div>
+          {% else %}
+            <div class="analysis-item">
+              <strong>Sem categorias no mês-base</strong>
+              <p>Não houve movimentação categorizada no mês de referência.</p>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="card stack technical-note" style="margin-bottom:0;">
+        <div>
+          <strong>Itens financeiros e técnicos</strong>
+          <div class="subtle">Eles continuam no consolidado principal, mas podem distorcer a leitura de consumo real.</div>
+        </div>
+        <div class="analysis-list">
+          <div class="analysis-item">
+            <strong>Transferências</strong>
+            <p>{{ analysis_data.technical_items.transfer_display }} · {{ analysis_data.technical_items.transfer_share_display }} do total de despesas</p>
+          </div>
+          <div class="analysis-item">
+            <strong>Pagamento de Fatura</strong>
+            <p>{{ analysis_data.technical_items.card_bill_display }} · {{ analysis_data.technical_items.card_bill_share_display }} do total de despesas</p>
+          </div>
+          <div class="analysis-item">
+            <strong>Leitura combinada</strong>
+            <p>{{ analysis_data.technical_items.combined_display }} · {{ analysis_data.technical_items.combined_share_display }} das despesas. {{ analysis_data.technical_items.note }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="card stack" style="margin-bottom:0;">
+      <div>
+        <strong>Consolidado mensal de 12 meses</strong>
+        <div class="subtle">Meses zerados incluídos para leitura de tendência e comparação.</div>
+      </div>
+      <div class="analysis-table-wrap">
+        <table class="analysis-table">
+          <thead>
+            <tr>
+              <th>Mês</th>
+              <th>Receitas</th>
+              <th>Despesas</th>
+              <th>Saldo</th>
+              <th>Não categorizado</th>
+              <th>Transações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for month in analysis_data.monthly_series %}
+              <tr>
+                <td>{{ month.label }}</td>
+                <td>{{ month.income_display }}</td>
+                <td>{{ month.expense_display }}</td>
+                <td>{{ month.balance_display }}</td>
+                <td>{{ month.uncategorized_display }}</td>
+                <td>{{ month.transaction_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0; overflow:hidden; margin-bottom:0;">
       <div style="padding:16px; border-bottom:1px solid var(--line); font-weight:700;">Análise determinística renderizada</div>
       <div style="padding:16px;">
         {{ analysis_html_fragment|safe }}
@@ -99,7 +340,10 @@
       </div>
     </details>
   {% else %}
-    <div class="subtle">Use o botão acima para gerar a análise determinística deste período.</div>
+    <div class="card stack" style="margin-bottom:0;">
+      <strong>Análise ainda não gerada</strong>
+      <div class="subtle">Os indicadores do topo já refletem o período selecionado. Use o botão acima para registrar e visualizar a análise determinística completa com gráficos, alertas e ações.</div>
+    </div>
   {% endif %}
 
   <details class="accordion card">
@@ -170,5 +414,108 @@
     setMode(modeInput.value || 'closed');
   })();
 </script>
+
+{% if analysis_run %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  (() => {
+    const monthlyCanvas = document.getElementById('monthly-chart');
+    const categoriesCanvas = document.getElementById('categories-chart');
+    if (!monthlyCanvas || !categoriesCanvas || typeof Chart === 'undefined') return;
+
+    function formatCurrency(value) {
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    }
+
+    const monthlyData = {{ analysis_data.charts.monthly | tojson }};
+    const categoriesData = {{ analysis_data.charts.categories | tojson }};
+
+    new Chart(monthlyCanvas, {
+      type: 'bar',
+      data: {
+        labels: monthlyData.labels,
+        datasets: [
+          {
+            label: 'Receitas',
+            data: monthlyData.income,
+            backgroundColor: '#5ca68d',
+            borderRadius: 10,
+          },
+          {
+            label: 'Despesas',
+            data: monthlyData.expense,
+            backgroundColor: '#d97757',
+            borderRadius: 10,
+          },
+          {
+            type: 'line',
+            label: 'Saldo',
+            data: monthlyData.balance,
+            borderColor: '#0f766e',
+            backgroundColor: '#0f766e',
+            tension: 0.28,
+            yAxisID: 'y',
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+              },
+            },
+          },
+        },
+        scales: {
+          y: {
+            ticks: {
+              callback(value) { return formatCurrency(value); },
+            },
+          },
+        },
+      },
+    });
+
+    new Chart(categoriesCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: categoriesData.labels,
+        datasets: [
+          {
+            data: categoriesData.values,
+            backgroundColor: categoriesData.technical.map((isTechnical, index) => {
+              if (isTechnical) return '#f0b45a';
+              const palette = ['#0f766e', '#5ca68d', '#9fc490', '#d97757', '#e8b96f', '#335c67', '#6c8ead', '#8b5e83'];
+              return palette[index % palette.length];
+            }),
+            borderWidth: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                return `${context.label}: ${formatCurrency(context.raw)}`;
+              },
+            },
+          },
+        },
+      },
+    });
+  })();
+</script>
+{% endif %}
 {% endblock %}
+
+
 
