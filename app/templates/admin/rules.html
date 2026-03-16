@@ -11,7 +11,7 @@
     <div class="accordion-body stack">
       <form method="post" action="/admin/rules" class="grid grid-2">
         <label>Padrão ou termo
-          <input type="text" name="pattern" placeholder="Ex.: uber" required>
+          <input type="text" name="pattern" placeholder="Ex.: guarida" required>
         </label>
         <label>Modo do match
           <select name="rule_type">
@@ -26,12 +26,12 @@
             {% endfor %}
           </select>
         </label>
-        <label>Tipo destino
-          <select name="transaction_kind">
-            <option value="expense">expense</option>
-            <option value="income">income</option>
-            <option value="transfer">transfer</option>
+        <label>Tipo da regra
+          <select name="kind_mode">
+            <option value="flow">Fluxo da transação</option>
+            <option value="transfer">Transferência</option>
           </select>
+          <div class="subtle">Fluxo da transação: entrada vira receita, saída vira despesa.</div>
         </label>
         <label>Prioridade
           <input type="number" name="priority" value="0">
@@ -48,7 +48,7 @@
     <details id="rule-{{ rule.id }}" class="rule-row accordion" {% if open_rule_id == rule.id %}open{% endif %}>
       <summary>
         <span>{{ rule.pattern }}</span>
-        <span class="subtle">{{ rule.category_name }} · {{ rule.transaction_kind }} · prioridade {{ rule.priority }} · {{ 'ativa' if rule.is_active else 'inativa' }}</span>
+        <span class="subtle">{{ rule.category_name }} · {{ 'Fluxo da transação' if rule.kind_mode == 'flow' else 'Transferência' }} · prioridade {{ rule.priority }} · {{ 'ativa' if rule.is_active else 'inativa' }}</span>
       </summary>
       <div class="accordion-body stack">
         <form method="post" action="/admin/rules/{{ rule.id }}/update" class="grid grid-2">
@@ -68,12 +68,12 @@
               {% endfor %}
             </select>
           </label>
-          <label>Tipo
-            <select name="transaction_kind">
-              {% for kind in ['expense', 'income', 'transfer'] %}
-                <option value="{{ kind }}" {% if kind == rule.transaction_kind %}selected{% endif %}>{{ kind }}</option>
-              {% endfor %}
+          <label>Tipo da regra
+            <select name="kind_mode">
+              <option value="flow" {% if rule.kind_mode == 'flow' %}selected{% endif %}>Fluxo da transação</option>
+              <option value="transfer" {% if rule.kind_mode == 'transfer' %}selected{% endif %}>Transferência</option>
             </select>
+            <div class="subtle">Fluxo da transação: entrada vira receita, saída vira despesa.</div>
           </label>
           <label>Prioridade
             <input type="number" name="priority" value="{{ rule.priority }}">
@@ -101,4 +101,3 @@
   {% endfor %}
 </div>
 {% endblock %}
-

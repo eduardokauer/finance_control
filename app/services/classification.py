@@ -37,6 +37,12 @@ def find_matching_rule(
     return None
 
 
+def _rule_transaction_kind(rule: CategorizationRule, amount: float) -> str:
+    if rule.kind_mode == "transfer":
+        return "transfer"
+    return "income" if amount > 0 else "expense"
+
+
 def classify_transaction(
     db: Session,
     source_type: str,
@@ -52,11 +58,12 @@ def classify_transaction(
     if rule:
         return {
             "category": rule.category_name,
-            "transaction_kind": rule.transaction_kind,
+            "transaction_kind": _rule_transaction_kind(rule, amount),
             "method": "rule",
             "confidence": 1.0,
             "rule": rule.pattern,
             "rule_id": rule.id,
+            "rule_kind_mode": rule.kind_mode,
             "normalized_description": normalized,
         }
 
@@ -68,6 +75,7 @@ def classify_transaction(
         "confidence": fallback["confidence"],
         "rule": fallback["rule"],
         "rule_id": None,
+        "rule_kind_mode": None,
         "normalized_description": normalized,
     }
 

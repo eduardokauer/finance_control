@@ -126,7 +126,7 @@ def test_admin_reapply_rules_updates_transactions_and_runs_analysis(client, db_s
             rule_type="contains",
             pattern="uber",
             category_name="Transporte",
-            transaction_kind="expense",
+            kind_mode="flow",
             priority=0,
             is_active=True,
         )
@@ -174,7 +174,7 @@ def test_admin_reapply_preview_and_apply_can_limit_selected_rules(client, db_ses
         rule_type="contains",
         pattern="uber",
         category_name="Transporte",
-        transaction_kind="expense",
+        kind_mode="flow",
         priority=0,
         is_active=True,
     )
@@ -182,7 +182,7 @@ def test_admin_reapply_preview_and_apply_can_limit_selected_rules(client, db_ses
         rule_type="contains",
         pattern="cabify",
         category_name="Outros",
-        transaction_kind="expense",
+        kind_mode="flow",
         priority=1,
         is_active=True,
     )
@@ -228,7 +228,7 @@ def test_admin_reapply_can_skip_specific_transactions(client, db_session, monkey
             rule_type="contains",
             pattern="cabify",
             category_name="Outros",
-            transaction_kind="expense",
+            kind_mode="flow",
             priority=0,
             is_active=True,
         )
@@ -293,7 +293,7 @@ def test_admin_reapply_without_period_uses_whole_base(client, db_session, monkey
             rule_type="contains",
             pattern="cabify",
             category_name="Outros",
-            transaction_kind="expense",
+            kind_mode="flow",
             priority=0,
             is_active=True,
         )
@@ -331,7 +331,7 @@ def test_admin_reapply_preview_links_to_rule_editor(client, db_session, monkeypa
         rule_type="contains",
         pattern="uber",
         category_name="Transporte",
-        transaction_kind="expense",
+        kind_mode="flow",
         priority=0,
         is_active=True,
     )
@@ -440,4 +440,3 @@ def test_admin_reapply_only_degrades_to_uncategorized_when_flag_is_enabled(clien
 
     db_session.refresh(tx)
     assert tx.category in {"NÃƒÂ£o Categorizado", "Não Categorizado"}
-

@@ -55,7 +55,7 @@
       {% for rule in metrics.latest_rules %}
         <div>
           <div><strong>{{ rule.pattern }}</strong> ? {{ rule.category_name }}</div>
-          <div class="subtle">{{ rule.rule_type }} · {{ rule.transaction_kind }} · prioridade {{ rule.priority }}</div>
+          <div class="subtle">{{ rule.rule_type }} · {{ "Fluxo da transação" if rule.kind_mode == "flow" else "Transferência" }} · prioridade {{ rule.priority }}</div>
         </div>
       {% endfor %}
     {% else %}
@@ -64,3 +64,4 @@
   </div>
 </section>
 {% endblock %}
+

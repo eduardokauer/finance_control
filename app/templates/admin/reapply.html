@@ -30,7 +30,7 @@
             <input type="checkbox" name="selected_rule_ids" value="{{ rule.id }}" checked style="width:auto; margin-top:3px;">
             <span>
               <strong>{{ rule.pattern }}</strong><br>
-              <span class="subtle">{{ rule.category_name }} · {{ rule.transaction_kind }} · prioridade {{ rule.priority }}</span>
+              <span class="subtle">{{ rule.category_name }} · {{ "Fluxo da transação" if rule.kind_mode == "flow" else "Transferência" }} · prioridade {{ rule.priority }}</span>
             </span>
           </label>
         {% else %}
@@ -52,4 +52,5 @@
 </div>
 <div id="reapply-preview"></div>
 {% endblock %}
+
 

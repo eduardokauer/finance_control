@@ -1,6 +1,8 @@
-from app.parsers.csv_parser import parse_csv
+﻿from app.parsers.csv_parser import parse_csv
 from app.parsers.ofx_parser import parse_ofx, validate_ofx_structure
+from app.repositories.models import CategorizationRule
 from app.services.categorization import categorize
+from app.services.classification import classify_transaction
 from app.services.reconciliation import infer_transaction_kind, reconciliation_flags
 from app.utils.bank_codes import bank_name_from_description, extract_bank_code
 from app.utils.hashing import canonical_hash, file_hash
@@ -25,7 +27,7 @@ def test_parse_csv_validation():
 
 
 def test_normalization():
-    assert normalize_description("Drogá-Raia #123") == "droga raia 123"
+    assert normalize_description("DrogÃ¡-Raia #123") == "droga raia 123"
 
 
 def test_hashing():
@@ -102,3 +104,58 @@ def test_parse_ofx_uses_memo_when_name_is_absent():
     ofx = "<OFX><BANKTRANLIST><STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260307<TRNAMT>-10<MEMO>PIX TRANSF TESTE<FITID>ABC</STMTTRN></BANKTRANLIST></OFX>"
     parsed = parse_ofx(ofx)
     assert parsed[0]["description"] == "PIX TRANSF TESTE"
+
+
+def test_manual_rule_flow_uses_income_for_positive_amount(db_session):
+    db_session.add(
+        CategorizationRule(
+            rule_type="contains",
+            pattern="guarida",
+            category_name="Moradia",
+            kind_mode="flow",
+            priority=0,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+
+    result = classify_transaction(db_session, "bank_statement", "PIX GUARIDA", 1500.0)
+    assert result["category"] == "Moradia"
+    assert result["transaction_kind"] == "income"
+
+
+def test_manual_rule_flow_uses_expense_for_negative_amount(db_session):
+    db_session.add(
+        CategorizationRule(
+            rule_type="contains",
+            pattern="guarida",
+            category_name="Moradia",
+            kind_mode="flow",
+            priority=0,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+
+    result = classify_transaction(db_session, "bank_statement", "PIX GUARIDA", -850.0)
+    assert result["category"] == "Moradia"
+    assert result["transaction_kind"] == "expense"
+
+
+def test_manual_rule_transfer_forces_transfer_kind(db_session):
+    db_session.add(
+        CategorizationRule(
+            rule_type="contains",
+            pattern="itau black",
+            category_name="Pagamento de Fatura",
+            kind_mode="transfer",
+            priority=0,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+
+    result = classify_transaction(db_session, "bank_statement", "ITAU BLACK 3101 1291", -10445.27)
+    assert result["category"] == "Pagamento de Fatura"
+    assert result["transaction_kind"] == "transfer"
+
