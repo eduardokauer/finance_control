@@ -38,6 +38,15 @@ def _validate_ofx_upload(file: UploadFile) -> None:
         raise HTTPException(status_code=422, detail="Only .ofx files are accepted")
 
 
+def _validate_credit_card_bill_upload(file: UploadFile, raw_content: bytes) -> None:
+    if not file.filename:
+        raise HTTPException(status_code=422, detail="File name is required")
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=422, detail="Only .csv files are accepted")
+    if not raw_content:
+        raise HTTPException(status_code=422, detail="Empty file")
+
+
 @router.post('/ingest/bank-statement', response_model=IngestResponse)
 async def ingest_bank_statement(
     file: UploadFile = File(...),
@@ -81,25 +90,23 @@ async def ingest_credit_card_bill(
     notes: str | None = Form(default=None),
     db: Session = Depends(get_db),
 ):
-    if not file.filename:
-        raise HTTPException(status_code=422, detail="File name is required")
-    if not file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=422, detail="Only .csv files are accepted")
     raw_content = await file.read()
+    _validate_credit_card_bill_upload(file, raw_content)
+    upload_input = CreditCardBillUploadInput(
+        card_id=card_id,
+        billing_year=billing_year,
+        billing_month=billing_month,
+        due_date=due_date,
+        total_amount_brl=total_amount_brl,
+        closing_date=closing_date,
+        notes=notes,
+    )
     try:
         result = import_credit_card_bill(
-            db,
+            db=db,
             file_name=file.filename,
             raw_content=raw_content,
-            payload=CreditCardBillUploadInput(
-                card_id=card_id,
-                billing_year=billing_year,
-                billing_month=billing_month,
-                due_date=due_date,
-                total_amount_brl=total_amount_brl,
-                closing_date=closing_date,
-                notes=notes,
-            ),
+            payload=upload_input,
         )
     except CreditCardBillError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

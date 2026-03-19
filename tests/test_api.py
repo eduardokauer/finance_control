@@ -1,4 +1,7 @@
-﻿def test_auth_required(client, sample_ofx_file):
+﻿from app.api.routes import ingest as ingest_routes
+
+
+def test_auth_required(client, sample_ofx_file):
     with sample_ofx_file.open("rb") as handle:
         resp = client.post(
             "/ingest/bank-statement",
@@ -139,3 +142,46 @@ def test_manual_reclassify_transactions(client, auth_headers, sample_ofx_file):
 
 
 
+def test_ingest_credit_card_bill_http_flow_does_not_trigger_analysis(
+    client,
+    db_session,
+    auth_headers,
+    sample_credit_card_csv_file,
+    monkeypatch,
+):
+    from app.services.credit_card_bills import create_credit_card
+
+    card = create_credit_card(
+        db_session,
+        issuer="itau",
+        card_label="Itau Visa final 1234",
+        card_final="1234",
+        brand="Visa",
+        is_active=True,
+    )
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("run_analysis should not be called for credit card bill upload")
+
+    monkeypatch.setattr(ingest_routes, "_run_default_analysis", fail_if_called)
+
+    with sample_credit_card_csv_file.open("rb") as handle:
+        response = client.post(
+            "/ingest/credit-card-bill",
+            headers=auth_headers,
+            data={
+                "billing_month": "3",
+                "billing_year": "2026",
+                "due_date": "2026-03-20",
+                "card_id": str(card.id),
+                "total_amount_brl": "130.45",
+            },
+            files={"file": (sample_credit_card_csv_file.name, handle, "text/csv")},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "processed"
+    assert body["analysis_run_id"] is None
+    assert body["period_start"] is None
+    assert body["period_end"] is None

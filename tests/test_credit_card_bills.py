@@ -68,6 +68,8 @@ def test_credit_card_invoice_upload_persists_invoice_and_items(
     body = response.json()
     assert body["status"] == "processed"
     assert body["analysis_run_id"] is None
+    assert body["period_start"] is None
+    assert body["period_end"] is None
     assert body["invoice_id"] is not None
     assert body["imported_items"] == 2
 
@@ -159,3 +161,19 @@ def test_credit_card_invoice_upload_preserves_negative_values_and_original_purch
     assert item is not None
     assert item.amount_brl == -10.0
     assert item.purchase_date == date(2026, 3, 6)
+
+
+def test_credit_card_invoice_upload_rejects_empty_file(
+    client,
+    db_session,
+    auth_headers,
+    tmp_path,
+):
+    card = _create_card(db_session)
+    empty_file = tmp_path / "fatura_vazia.csv"
+    empty_file.write_bytes(b"")
+
+    response = _upload_invoice(client, auth_headers, card.id, empty_file)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Empty file"
