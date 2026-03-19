@@ -38,12 +38,72 @@
 
 <section class="grid grid-2">
   <div class="card stack">
+    <h2>Cadastrar cartão</h2>
+    <form method="post" action="/admin/credit-cards" class="stack">
+      <label>Emissor
+        <select name="issuer" required>
+          <option value="itau">Itaú</option>
+        </select>
+      </label>
+      <label>Nome do cartão<input type="text" name="card_label" placeholder="Itaú Visa final 1234" required></label>
+      <label>Final do cartão<input type="text" name="card_final" inputmode="numeric" maxlength="4" placeholder="1234" required></label>
+      <label>Bandeira opcional<input type="text" name="brand" placeholder="Visa"></label>
+      <label class="inline"><input type="checkbox" name="is_active" value="true" checked> Ativo</label>
+      <button type="submit" class="button">Salvar cartão</button>
+    </form>
+
+    <div class="stack">
+      <div class="subtle">Cartões cadastrados</div>
+      {% if credit_cards %}
+        {% for card in credit_cards %}
+          <div>
+            <strong>{{ card.card_label }}</strong>
+            <div class="subtle">{{ card.issuer }} · final {{ card.card_final }}{% if card.brand %} · {{ card.brand }}{% endif %} · {{ 'ativo' if card.is_active else 'inativo' }}</div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="subtle">Nenhum cartão cadastrado ainda.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card stack">
+    <h2>Subir fatura Itaú</h2>
+    <p class="subtle">Upload manual do CSV oficial da fatura com metadados do formulário.</p>
+    {% if invoice_upload_error %}
+      <div class="flash" style="background: var(--danger-soft); color: var(--danger); border-color: #f7b4ae; margin-bottom: 0;">{{ invoice_upload_error }}</div>
+    {% endif %}
+    <form method="post" action="/admin/credit-card-bills/upload" enctype="multipart/form-data" class="stack">
+      <label>Cartão
+        <select name="card_id" required>
+          <option value="">Selecione</option>
+          {% for card in credit_cards if card.is_active %}
+            <option value="{{ card.id }}">{{ card.card_label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Arquivo CSV<input type="file" name="file" accept=".csv,text/csv" required></label>
+      <div class="grid grid-2">
+        <label>Mês<input type="number" name="billing_month" min="1" max="12" required></label>
+        <label>Ano<input type="number" name="billing_year" min="2000" max="2100" required></label>
+      </div>
+      <label>Vencimento<input type="date" name="due_date" required></label>
+      <label>Fechamento opcional<input type="date" name="closing_date"></label>
+      <label>Valor total da fatura<input type="text" name="total_amount_brl" inputmode="decimal" placeholder="1234,56" required></label>
+      <label>Observação opcional<textarea name="notes" placeholder="Observações da importação"></textarea></label>
+      <button type="submit" class="button button-primary">Importar fatura</button>
+    </form>
+  </div>
+</section>
+
+<section class="grid grid-2">
+  <div class="card stack">
     <h2>Últimas alterações manuais</h2>
     {% if metrics.latest_changes %}
       {% for item in metrics.latest_changes %}
         <div>
           <div><strong>#{{ item.transaction_id }}</strong> · {{ item.origin }}</div>
-          <div class="subtle">{{ item.previous_category }} ? {{ item.new_category }} | {{ item.previous_transaction_kind }} ? {{ item.new_transaction_kind }}</div>
+          <div class="subtle">{{ item.previous_category }} → {{ item.new_category }} | {{ item.previous_transaction_kind }} → {{ item.new_transaction_kind }}</div>
         </div>
       {% endfor %}
     {% else %}
@@ -55,7 +115,7 @@
     {% if metrics.latest_rules %}
       {% for rule in metrics.latest_rules %}
         <div>
-          <div><strong>{{ rule.pattern }}</strong> ? {{ rule.category_name }}</div>
+          <div><strong>{{ rule.pattern }}</strong> → {{ rule.category_name }}</div>
           <div class="subtle">{{ rule.rule_type }} · {{ "Fluxo da transação" if rule.kind_mode == "flow" else "Transferência" }} · prioridade {{ rule.priority }}</div>
         </div>
       {% endfor %}
@@ -65,6 +125,3 @@
   </div>
 </section>
 {% endblock %}
-
-
-

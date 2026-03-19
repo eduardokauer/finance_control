@@ -57,6 +57,22 @@ def sample_csv_file(tmp_path: Path):
 
 
 @pytest.fixture()
+def sample_credit_card_csv_file(tmp_path: Path):
+    content = "data;lançamento;valor\n05/03/2026;SUPERMERCADO EXTRA 06/08;-120,45\n06/03/2026;ESTORNO LOJA; -10,00\n"
+    f = tmp_path / "fatura_itau.csv"
+    f.write_text(content, encoding="utf-8")
+    return f
+
+
+@pytest.fixture()
+def invalid_credit_card_csv_file(tmp_path: Path):
+    content = "data;lançamento;valor\n05/03/2026;;-120,45\n"
+    f = tmp_path / "fatura_invalida.csv"
+    f.write_text(content, encoding="utf-8")
+    return f
+
+
+@pytest.fixture()
 def fixture_dir() -> Path:
     return Path(__file__).parent / "fixtures"
 

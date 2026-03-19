@@ -12,6 +12,8 @@ class IngestRequest(BaseModel):
 
 class IngestResponse(BaseModel):
     source_file_id: int | None = None
+    invoice_id: int | None = None
+    imported_items: int | None = None
     analysis_run_id: int | None = None
     period_start: date | None = None
     period_end: date | None = None

@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -5,9 +7,10 @@ from sqlalchemy.orm import Session
 from app.core.auth import bearer_auth
 from app.core.database import get_db
 from app.repositories.models import Transaction
-from app.schemas.common import IngestRequest, IngestResponse
+from app.schemas.common import IngestResponse
 from app.services.analysis import run_analysis
-from app.services.ingestion import ingest_bytes, ingest_file
+from app.services.credit_card_bills import CreditCardBillError, CreditCardBillUploadInput, import_credit_card_bill
+from app.services.ingestion import ingest_bytes
 
 router = APIRouter(dependencies=[Depends(bearer_auth)])
 
@@ -67,17 +70,42 @@ async def ingest_bank_statement(
 
 
 @router.post('/ingest/credit-card-bill', response_model=IngestResponse)
-def ingest_credit_card_bill(payload: IngestRequest, db: Session = Depends(get_db)):
+async def ingest_credit_card_bill(
+    file: UploadFile = File(...),
+    billing_month: int = Form(...),
+    billing_year: int = Form(...),
+    due_date: date = Form(...),
+    card_id: int = Form(...),
+    total_amount_brl: float = Form(...),
+    closing_date: date | None = Form(default=None),
+    notes: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+):
+    if not file.filename:
+        raise HTTPException(status_code=422, detail="File name is required")
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=422, detail="Only .csv files are accepted")
+    raw_content = await file.read()
     try:
-        result = ingest_file(db, 'credit_card', payload.file_name, payload.file_path, payload.reference_id)
+        result = import_credit_card_bill(
+            db,
+            file_name=file.filename,
+            raw_content=raw_content,
+            payload=CreditCardBillUploadInput(
+                card_id=card_id,
+                billing_year=billing_year,
+                billing_month=billing_month,
+                due_date=due_date,
+                total_amount_brl=total_amount_brl,
+                closing_date=closing_date,
+                notes=notes,
+            ),
+        )
+    except CreditCardBillError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    period_start, period_end = _get_source_file_period(db, result["source_file_id"])
-    result["period_start"] = period_start
-    result["period_end"] = period_end
-    if result['status'] == 'processed':
-        analysis_run = _run_default_analysis(db, result['source_file_id'])
-        result["analysis_run_id"] = analysis_run.id if analysis_run else None
-    else:
-        result["analysis_run_id"] = None
+    result["period_start"] = None
+    result["period_end"] = None
+    result["analysis_run_id"] = None
     return result

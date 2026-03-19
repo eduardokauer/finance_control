@@ -131,3 +131,64 @@ class TransactionAuditLog(Base):
     applied_rule_id: Mapped[int | None] = mapped_column(ForeignKey("categorization_rules.id"), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CreditCard(Base):
+    __tablename__ = "credit_cards"
+    __table_args__ = (
+        UniqueConstraint("issuer", "card_final", name="uq_credit_cards_issuer_final"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    issuer: Mapped[str] = mapped_column(String(40), nullable=False)
+    card_label: Mapped[str] = mapped_column(String(120), nullable=False)
+    card_final: Mapped[str] = mapped_column(String(4), nullable=False)
+    brand: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class CreditCardInvoice(Base):
+    __tablename__ = "credit_card_invoices"
+    __table_args__ = (
+        UniqueConstraint("card_id", "billing_year", "billing_month", name="uq_credit_card_invoices_card_period"),
+        UniqueConstraint("source_file_hash", name="uq_credit_card_invoices_file_hash"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_file_id: Mapped[int] = mapped_column(ForeignKey("source_files.id"), nullable=False)
+    card_id: Mapped[int] = mapped_column(ForeignKey("credit_cards.id"), nullable=False)
+    issuer: Mapped[str] = mapped_column(String(40), nullable=False)
+    card_final: Mapped[str] = mapped_column(String(4), nullable=False)
+    billing_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    billing_month: Mapped[int] = mapped_column(Integer, nullable=False)
+    due_date: Mapped[str] = mapped_column(Date, nullable=False)
+    closing_date: Mapped[str | None] = mapped_column(Date, nullable=True)
+    total_amount_brl: Mapped[float] = mapped_column(Float, nullable=False)
+    source_file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_file_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    import_status: Mapped[str] = mapped_column(String(30), default="imported", nullable=False)
+    imported_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CreditCardInvoiceItem(Base):
+    __tablename__ = "credit_card_invoice_items"
+    __table_args__ = (
+        UniqueConstraint("invoice_id", "external_row_hash", name="uq_credit_card_invoice_items_row_hash"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    invoice_id: Mapped[int] = mapped_column(ForeignKey("credit_card_invoices.id"), nullable=False)
+    purchase_date: Mapped[str] = mapped_column(Date, nullable=False)
+    description_raw: Mapped[str] = mapped_column(Text, nullable=False)
+    description_normalized: Mapped[str | None] = mapped_column(Text, nullable=True)
+    amount_brl: Mapped[float] = mapped_column(Float, nullable=False)
+    installment_current: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    installment_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_installment: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    derived_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    external_row_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
