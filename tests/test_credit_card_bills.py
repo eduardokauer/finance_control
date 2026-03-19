@@ -67,11 +67,12 @@ def test_credit_card_invoice_upload_persists_invoice_and_items(
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "processed"
-    assert body["analysis_run_id"] is None
-    assert body["period_start"] is None
-    assert body["period_end"] is None
     assert body["invoice_id"] is not None
     assert body["imported_items"] == 2
+    assert "analysis_run_id" not in body
+    assert "period_start" not in body
+    assert "period_end" not in body
+    assert "source_file_id" not in body
 
     invoice = db_session.scalar(select(CreditCardInvoice))
     assert invoice is not None

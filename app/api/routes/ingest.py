@@ -7,8 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import bearer_auth
 from app.core.database import get_db
 from app.repositories.models import Transaction
-from app.schemas.common import IngestResponse
-from app.services.analysis import run_analysis
+from app.schemas.common import CreditCardBillIngestResponse, IngestResponse
 from app.services.credit_card_bills import CreditCardBillError, CreditCardBillUploadInput, import_credit_card_bill
 from app.services.ingestion import ingest_bytes
 
@@ -22,13 +21,6 @@ def _get_source_file_period(db: Session, source_file_id: int):
             func.max(Transaction.transaction_date),
         ).where(Transaction.source_file_id == source_file_id)
     ).one()
-
-
-def _run_default_analysis(db: Session, source_file_id: int):
-    period_start, period_end = _get_source_file_period(db, source_file_id)
-    if period_start and period_end:
-        return run_analysis(db, period_start=period_start, period_end=period_end, trigger_source_file_id=source_file_id)
-    return None
 
 
 def _validate_ofx_upload(file: UploadFile) -> None:
@@ -71,14 +63,21 @@ async def ingest_bank_statement(
     result["period_start"] = period_start
     result["period_end"] = period_end
     if result['status'] == 'processed':
-        analysis_run = _run_default_analysis(db, result['source_file_id'])
+        from app.services.analysis import run_analysis
+
+        analysis_run = run_analysis(
+            db,
+            period_start=period_start,
+            period_end=period_end,
+            trigger_source_file_id=result["source_file_id"],
+        )
         result["analysis_run_id"] = analysis_run.id if analysis_run else None
     else:
         result["analysis_run_id"] = None
     return result
 
 
-@router.post('/ingest/credit-card-bill', response_model=IngestResponse)
+@router.post('/ingest/credit-card-bill', response_model=CreditCardBillIngestResponse)
 async def ingest_credit_card_bill(
     file: UploadFile = File(...),
     billing_month: int = Form(...),
@@ -106,13 +105,10 @@ async def ingest_credit_card_bill(
             db=db,
             file_name=file.filename,
             raw_content=raw_content,
-            payload=upload_input,
+            upload_input=upload_input,
         )
     except CreditCardBillError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    result["period_start"] = None
-    result["period_end"] = None
-    result["analysis_run_id"] = None
     return result

@@ -150,6 +150,7 @@ def test_ingest_credit_card_bill_http_flow_does_not_trigger_analysis(
     monkeypatch,
 ):
     from app.services.credit_card_bills import create_credit_card
+    from app.services import analysis as analysis_service
 
     card = create_credit_card(
         db_session,
@@ -163,7 +164,7 @@ def test_ingest_credit_card_bill_http_flow_does_not_trigger_analysis(
     def fail_if_called(*args, **kwargs):
         raise AssertionError("run_analysis should not be called for credit card bill upload")
 
-    monkeypatch.setattr(ingest_routes, "_run_default_analysis", fail_if_called)
+    monkeypatch.setattr(analysis_service, "run_analysis", fail_if_called)
 
     with sample_credit_card_csv_file.open("rb") as handle:
         response = client.post(
@@ -182,6 +183,75 @@ def test_ingest_credit_card_bill_http_flow_does_not_trigger_analysis(
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "processed"
-    assert body["analysis_run_id"] is None
-    assert body["period_start"] is None
-    assert body["period_end"] is None
+    assert "analysis_run_id" not in body
+    assert "period_start" not in body
+    assert "period_end" not in body
+    assert "source_file_id" not in body
+
+
+def test_ingest_credit_card_bill_http_flow_uses_only_multipart_contract(
+    client,
+    db_session,
+    auth_headers,
+    sample_credit_card_csv_file,
+    monkeypatch,
+):
+    from app.services.credit_card_bills import CreditCardBillUploadInput, create_credit_card
+
+    card = create_credit_card(
+        db_session,
+        issuer="itau",
+        card_label="Itau Visa final 1234",
+        card_final="1234",
+        brand="Visa",
+        is_active=True,
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_import_credit_card_bill(*, db, file_name, raw_content, upload_input):
+        captured["file_name"] = file_name
+        captured["raw_content"] = raw_content
+        captured["upload_input"] = upload_input
+        return {
+            "status": "processed",
+            "message": "ok",
+            "invoice_id": 123,
+            "imported_items": 2,
+        }
+
+    monkeypatch.setattr(ingest_routes, "import_credit_card_bill", fake_import_credit_card_bill)
+
+    with sample_credit_card_csv_file.open("rb") as handle:
+        response = client.post(
+            "/ingest/credit-card-bill",
+            headers=auth_headers,
+            data={
+                "billing_month": "3",
+                "billing_year": "2026",
+                "due_date": "2026-03-20",
+                "card_id": str(card.id),
+                "total_amount_brl": "130.45",
+                "closing_date": "2026-03-12",
+                "notes": "Teste",
+            },
+            files={"file": (sample_credit_card_csv_file.name, handle, "text/csv")},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "processed",
+        "message": "ok",
+        "invoice_id": 123,
+        "imported_items": 2,
+    }
+    assert captured["file_name"] == sample_credit_card_csv_file.name
+    assert captured["raw_content"]
+    assert isinstance(captured["upload_input"], CreditCardBillUploadInput)
+    assert captured["upload_input"].card_id == card.id
+    assert captured["upload_input"].billing_month == 3
+    assert captured["upload_input"].billing_year == 2026
+    assert str(captured["upload_input"].due_date) == "2026-03-20"
+    assert str(captured["upload_input"].closing_date) == "2026-03-12"
+    assert captured["upload_input"].total_amount_brl == 130.45
+    assert captured["upload_input"].notes == "Teste"

@@ -73,10 +73,10 @@ def create_credit_card(
     return card
 
 
-def _validate_upload_input(payload: CreditCardBillUploadInput) -> None:
-    if payload.billing_month < 1 or payload.billing_month > 12:
+def _validate_upload_input(upload_input: CreditCardBillUploadInput) -> None:
+    if upload_input.billing_month < 1 or upload_input.billing_month > 12:
         raise CreditCardBillError("Billing month must be between 1 and 12")
-    if payload.billing_year < 2000 or payload.billing_year > 2100:
+    if upload_input.billing_year < 2000 or upload_input.billing_year > 2100:
         raise CreditCardBillError("Billing year is out of allowed range")
 
 
@@ -112,16 +112,21 @@ def import_credit_card_bill(
     *,
     file_name: str,
     raw_content: bytes,
-    payload: CreditCardBillUploadInput,
+    upload_input: CreditCardBillUploadInput | None = None,
+    payload: CreditCardBillUploadInput | None = None,
 ) -> dict:
     if not file_name:
         raise CreditCardBillError("File name is required")
     if not raw_content:
         raise CreditCardBillError("Empty file")
 
-    _validate_upload_input(payload)
+    resolved_input = upload_input or payload
+    if resolved_input is None:
+        raise CreditCardBillError("Upload input is required")
 
-    card = db.get(CreditCard, payload.card_id)
+    _validate_upload_input(resolved_input)
+
+    card = db.get(CreditCard, resolved_input.card_id)
     if card is None:
         raise CreditCardBillError("Credit card not found")
 
@@ -134,9 +139,9 @@ def import_credit_card_bill(
 
     conflicting_invoice = db.scalar(
         select(CreditCardInvoice).where(
-            CreditCardInvoice.card_id == payload.card_id,
-            CreditCardInvoice.billing_year == payload.billing_year,
-            CreditCardInvoice.billing_month == payload.billing_month,
+            CreditCardInvoice.card_id == resolved_input.card_id,
+            CreditCardInvoice.billing_year == resolved_input.billing_year,
+            CreditCardInvoice.billing_month == resolved_input.billing_month,
         )
     )
     if conflicting_invoice is not None:
@@ -162,14 +167,14 @@ def import_credit_card_bill(
             card_id=card.id,
             issuer=card.issuer,
             card_final=card.card_final,
-            billing_year=payload.billing_year,
-            billing_month=payload.billing_month,
-            due_date=payload.due_date,
-            closing_date=payload.closing_date,
-            total_amount_brl=payload.total_amount_brl,
+            billing_year=resolved_input.billing_year,
+            billing_month=resolved_input.billing_month,
+            due_date=resolved_input.due_date,
+            closing_date=resolved_input.closing_date,
+            total_amount_brl=resolved_input.total_amount_brl,
             source_file_name=file_name,
             source_file_hash=current_file_hash,
-            notes=payload.notes.strip() if payload.notes and payload.notes.strip() else None,
+            notes=resolved_input.notes.strip() if resolved_input.notes and resolved_input.notes.strip() else None,
             import_status="imported",
         )
         db.add(invoice)
@@ -178,8 +183,8 @@ def import_credit_card_bill(
         for item in items:
             row_hash = _build_row_hash(
                 card_id=card.id,
-                billing_year=payload.billing_year,
-                billing_month=payload.billing_month,
+                billing_year=resolved_input.billing_year,
+                billing_month=resolved_input.billing_month,
                 purchase_date=item["purchase_date"],
                 description_raw=item["description_raw"],
                 amount_brl=item["amount_brl"],
@@ -208,7 +213,6 @@ def import_credit_card_bill(
         return {
             "status": "processed",
             "message": f"Fatura importada com {len(items)} lançamentos.",
-            "source_file_id": source_file.id,
             "invoice_id": invoice.id,
             "imported_items": len(items),
         }

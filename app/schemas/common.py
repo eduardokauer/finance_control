@@ -21,6 +21,13 @@ class IngestResponse(BaseModel):
     message: str
 
 
+class CreditCardBillIngestResponse(BaseModel):
+    invoice_id: int
+    imported_items: int
+    status: str
+    message: str
+
+
 class TransactionOut(BaseModel):
     id: int
     transaction_date: date
