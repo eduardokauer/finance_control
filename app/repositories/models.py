@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from decimal import Decimal
+
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -165,7 +167,7 @@ class CreditCardInvoice(Base):
     billing_month: Mapped[int] = mapped_column(Integer, nullable=False)
     due_date: Mapped[str] = mapped_column(Date, nullable=False)
     closing_date: Mapped[str | None] = mapped_column(Date, nullable=True)
-    total_amount_brl: Mapped[float] = mapped_column(Float, nullable=False)
+    total_amount_brl: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     source_file_name: Mapped[str] = mapped_column(String(255), nullable=False)
     source_file_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -185,7 +187,7 @@ class CreditCardInvoiceItem(Base):
     purchase_date: Mapped[str] = mapped_column(Date, nullable=False)
     description_raw: Mapped[str] = mapped_column(Text, nullable=False)
     description_normalized: Mapped[str | None] = mapped_column(Text, nullable=True)
-    amount_brl: Mapped[float] = mapped_column(Float, nullable=False)
+    amount_brl: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     installment_current: Mapped[int | None] = mapped_column(Integer, nullable=True)
     installment_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_installment: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

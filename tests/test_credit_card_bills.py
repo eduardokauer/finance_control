@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import func, select
 
@@ -81,18 +82,18 @@ def test_credit_card_invoice_upload_persists_invoice_and_items(
     assert invoice.billing_month == 3
     assert invoice.due_date == date(2026, 3, 20)
     assert invoice.closing_date == date(2026, 3, 12)
-    assert invoice.total_amount_brl == 130.45
+    assert invoice.total_amount_brl == Decimal("130.45")
     assert invoice.notes == "Fatura março"
 
     items = db_session.scalars(select(CreditCardInvoiceItem).order_by(CreditCardInvoiceItem.id)).all()
     assert len(items) == 2
     assert items[0].purchase_date == date(2026, 3, 5)
-    assert items[0].amount_brl == -120.45
+    assert items[0].amount_brl == Decimal("-120.45")
     assert items[0].is_installment is True
     assert items[0].installment_current == 6
     assert items[0].installment_total == 8
     assert items[0].derived_note == "Parcela 6/8"
-    assert items[1].amount_brl == -10.0
+    assert items[1].amount_brl == Decimal("-10.00")
 
 
 def test_credit_card_invoice_upload_blocks_duplicate_file(
@@ -160,7 +161,7 @@ def test_credit_card_invoice_upload_preserves_negative_values_and_original_purch
         select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.description_raw == "ESTORNO LOJA")
     )
     assert item is not None
-    assert item.amount_brl == -10.0
+    assert item.amount_brl == Decimal("-10.00")
     assert item.purchase_date == date(2026, 3, 6)
 
 
@@ -178,3 +179,5 @@ def test_credit_card_invoice_upload_rejects_empty_file(
 
     assert response.status_code == 422
     assert response.json()["detail"] == "Empty file"
+
+

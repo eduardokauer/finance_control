@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import func, select
@@ -84,7 +85,7 @@ async def ingest_credit_card_bill(
     billing_year: int = Form(...),
     due_date: date = Form(...),
     card_id: int = Form(...),
-    total_amount_brl: float = Form(...),
+    total_amount_brl: Decimal = Form(...),
     closing_date: date | None = Form(default=None),
     notes: str | None = Form(default=None),
     db: Session = Depends(get_db),

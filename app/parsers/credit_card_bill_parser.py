@@ -1,5 +1,6 @@
 import csv
 import re
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from datetime import datetime
 
 from app.utils.normalization import normalize_description
@@ -25,12 +26,18 @@ def _resolve_delimiter(sample: str) -> str:
     return ";" if sample.count(";") > sample.count(",") else ","
 
 
-def _parse_amount(raw_value: str) -> float:
+CENT_VALUE = Decimal("0.01")
+
+
+def _parse_amount(raw_value: str) -> Decimal:
     value = raw_value.strip().replace("R$", "").replace(" ", "")
     if not value:
         raise ValueError("Invalid bill amount")
     normalized = value.replace(".", "").replace(",", ".")
-    return float(normalized)
+    try:
+        return Decimal(normalized).quantize(CENT_VALUE, rounding=ROUND_HALF_UP)
+    except InvalidOperation as exc:
+        raise ValueError("Invalid bill amount") from exc
 
 
 def parse_itau_credit_card_csv(content: bytes) -> list[dict]:

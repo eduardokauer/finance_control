@@ -1,6 +1,7 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from fastapi import Depends, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
@@ -20,11 +21,17 @@ from app.services.admin import admin_dashboard_metrics
 from .helpers import render_admin
 
 
-def _parse_brl_amount(raw_value: str) -> float:
+CENT_VALUE = Decimal("0.01")
+
+
+def _parse_brl_amount(raw_value: str) -> Decimal:
     value = raw_value.strip().replace("R$", "").replace(" ", "")
     if not value:
         raise CreditCardBillError("Valor total da fatura e obrigatorio.")
-    return float(value.replace(".", "").replace(",", "."))
+    try:
+        return Decimal(value.replace(".", "").replace(",", ".")).quantize(CENT_VALUE, rounding=ROUND_HALF_UP)
+    except InvalidOperation as exc:
+        raise CreditCardBillError("Valor total da fatura e obrigatorio.") from exc
 
 
 def _dashboard_context(db: Session) -> dict:
@@ -87,7 +94,7 @@ async def admin_upload_credit_card_bill(
             db,
             file_name=file.filename or "",
             raw_content=raw_content,
-            payload=CreditCardBillUploadInput(
+            upload_input=CreditCardBillUploadInput(
                 card_id=card_id,
                 billing_year=billing_year,
                 billing_month=billing_month,
@@ -114,3 +121,5 @@ async def admin_upload_credit_card_bill(
 
     request.session["flash"] = result["message"]
     return RedirectResponse(url="/admin", status_code=303)
+
+

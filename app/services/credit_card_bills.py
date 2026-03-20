@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -30,7 +31,7 @@ class CreditCardBillUploadInput:
     billing_year: int
     billing_month: int
     due_date: date
-    total_amount_brl: float
+    total_amount_brl: Decimal
     closing_date: date | None = None
     notes: str | None = None
 
@@ -87,7 +88,7 @@ def _build_row_hash(
     billing_month: int,
     purchase_date: date,
     description_raw: str,
-    amount_brl: float,
+    amount_brl: Decimal,
     installment_current: int | None,
     installment_total: int | None,
 ) -> str:
@@ -112,21 +113,16 @@ def import_credit_card_bill(
     *,
     file_name: str,
     raw_content: bytes,
-    upload_input: CreditCardBillUploadInput | None = None,
-    payload: CreditCardBillUploadInput | None = None,
+    upload_input: CreditCardBillUploadInput,
 ) -> dict:
     if not file_name:
         raise CreditCardBillError("File name is required")
     if not raw_content:
         raise CreditCardBillError("Empty file")
 
-    resolved_input = upload_input or payload
-    if resolved_input is None:
-        raise CreditCardBillError("Upload input is required")
+    _validate_upload_input(upload_input)
 
-    _validate_upload_input(resolved_input)
-
-    card = db.get(CreditCard, resolved_input.card_id)
+    card = db.get(CreditCard, upload_input.card_id)
     if card is None:
         raise CreditCardBillError("Credit card not found")
 
@@ -139,9 +135,9 @@ def import_credit_card_bill(
 
     conflicting_invoice = db.scalar(
         select(CreditCardInvoice).where(
-            CreditCardInvoice.card_id == resolved_input.card_id,
-            CreditCardInvoice.billing_year == resolved_input.billing_year,
-            CreditCardInvoice.billing_month == resolved_input.billing_month,
+            CreditCardInvoice.card_id == upload_input.card_id,
+            CreditCardInvoice.billing_year == upload_input.billing_year,
+            CreditCardInvoice.billing_month == upload_input.billing_month,
         )
     )
     if conflicting_invoice is not None:
@@ -167,14 +163,14 @@ def import_credit_card_bill(
             card_id=card.id,
             issuer=card.issuer,
             card_final=card.card_final,
-            billing_year=resolved_input.billing_year,
-            billing_month=resolved_input.billing_month,
-            due_date=resolved_input.due_date,
-            closing_date=resolved_input.closing_date,
-            total_amount_brl=resolved_input.total_amount_brl,
+            billing_year=upload_input.billing_year,
+            billing_month=upload_input.billing_month,
+            due_date=upload_input.due_date,
+            closing_date=upload_input.closing_date,
+            total_amount_brl=upload_input.total_amount_brl,
             source_file_name=file_name,
             source_file_hash=current_file_hash,
-            notes=resolved_input.notes.strip() if resolved_input.notes and resolved_input.notes.strip() else None,
+            notes=upload_input.notes.strip() if upload_input.notes and upload_input.notes.strip() else None,
             import_status="imported",
         )
         db.add(invoice)
@@ -183,8 +179,8 @@ def import_credit_card_bill(
         for item in items:
             row_hash = _build_row_hash(
                 card_id=card.id,
-                billing_year=resolved_input.billing_year,
-                billing_month=resolved_input.billing_month,
+                billing_year=upload_input.billing_year,
+                billing_month=upload_input.billing_month,
                 purchase_date=item["purchase_date"],
                 description_raw=item["description_raw"],
                 amount_brl=item["amount_brl"],
