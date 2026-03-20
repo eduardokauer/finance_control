@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from app.api.routes import ingest as ingest_routes
+from app.api.routes import credit_card_bills as credit_card_bill_routes
 
 
 def test_auth_required(client, sample_ofx_file):
@@ -222,7 +222,7 @@ def test_ingest_credit_card_bill_http_flow_uses_only_multipart_contract(
             "imported_items": 2,
         }
 
-    monkeypatch.setattr(ingest_routes, "import_credit_card_bill", fake_import_credit_card_bill)
+    monkeypatch.setattr(credit_card_bill_routes, "import_credit_card_bill", fake_import_credit_card_bill)
 
     with sample_credit_card_csv_file.open("rb") as handle:
         response = client.post(
@@ -257,5 +257,6 @@ def test_ingest_credit_card_bill_http_flow_uses_only_multipart_contract(
     assert str(captured["upload_input"].closing_date) == "2026-03-12"
     assert captured["upload_input"].total_amount_brl == Decimal("130.45")
     assert captured["upload_input"].notes == "Teste"
+
 
 
