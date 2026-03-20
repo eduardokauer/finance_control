@@ -80,6 +80,23 @@ make logs
 make test
 ```
 
+## Faturas de Cartão no MVP
+- cadastre primeiro um cartão na home do admin em `/admin`
+- depois envie um arquivo CSV do Itaú junto com os campos obrigatórios:
+  - `card_id`
+  - `billing_month`
+  - `billing_year`
+  - `due_date`
+  - `total_amount_brl`
+- campos opcionais:
+  - `closing_date`
+  - `notes`
+- o upload da fatura é manual, um arquivo por vez, com `multipart/form-data`
+- o sistema bloqueia:
+  - reenvio do mesmo arquivo
+  - outra fatura para o mesmo cartão e competência
+  - estrutura inválida do CSV
+
 ## Desenvolvimento
 Parar a stack:
 

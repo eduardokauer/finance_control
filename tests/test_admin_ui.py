@@ -3,7 +3,17 @@
 from sqlalchemy import select
 
 from app.core.config import settings
-from app.repositories.models import AnalysisRun, CategorizationRule, Category, SourceFile, Transaction, TransactionAuditLog
+from app.repositories.models import (
+    AnalysisRun,
+    CategorizationRule,
+    Category,
+    CreditCard,
+    CreditCardInvoice,
+    CreditCardInvoiceItem,
+    SourceFile,
+    Transaction,
+    TransactionAuditLog,
+)
 
 
 def _login(client):
@@ -81,6 +91,50 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert home.status_code == 200
     assert "Finance Control Admin" in home.text
     assert "Últimas alterações" in home.text or "ltimas altera" in home.text
+    assert "Subir fatura Itaú" in home.text or "Subir fatura Ita" in home.text
+
+
+def test_admin_can_create_credit_card_and_upload_invoice(client, db_session, monkeypatch, sample_credit_card_csv_file):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _login(client)
+
+    create_card = client.post(
+        "/admin/credit-cards",
+        data={
+            "issuer": "itau",
+            "card_label": "Itaú Visa final 1234",
+            "card_final": "1234",
+            "brand": "Visa",
+            "is_active": "true",
+        },
+        follow_redirects=False,
+    )
+    assert create_card.status_code == 303
+
+    card = db_session.scalar(select(CreditCard))
+    assert card is not None
+
+    with sample_credit_card_csv_file.open("rb") as handle:
+        upload = client.post(
+            "/admin/credit-card-bills/upload",
+            data={
+                "billing_month": "3",
+                "billing_year": "2026",
+                "due_date": "2026-03-20",
+                "card_id": str(card.id),
+                "total_amount_brl": "130,45",
+                "closing_date": "2026-03-12",
+                "notes": "Upload admin",
+            },
+            files={"file": (sample_credit_card_csv_file.name, handle, "text/csv")},
+            follow_redirects=True,
+        )
+
+    assert upload.status_code == 200
+    assert "Fatura importada com 2 lançamentos." in upload.text
+    assert db_session.scalar(select(CreditCardInvoice)) is not None
+    assert db_session.scalar(select(CreditCardInvoiceItem)) is not None
 
 
 def test_admin_manual_edit_creates_audit_and_rule(client, db_session, monkeypatch):

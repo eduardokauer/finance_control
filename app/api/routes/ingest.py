@@ -5,9 +5,8 @@ from sqlalchemy.orm import Session
 from app.core.auth import bearer_auth
 from app.core.database import get_db
 from app.repositories.models import Transaction
-from app.schemas.common import IngestRequest, IngestResponse
-from app.services.analysis import run_analysis
-from app.services.ingestion import ingest_bytes, ingest_file
+from app.schemas.common import IngestResponse
+from app.services.ingestion import ingest_bytes
 
 router = APIRouter(dependencies=[Depends(bearer_auth)])
 
@@ -21,20 +20,11 @@ def _get_source_file_period(db: Session, source_file_id: int):
     ).one()
 
 
-def _run_default_analysis(db: Session, source_file_id: int):
-    period_start, period_end = _get_source_file_period(db, source_file_id)
-    if period_start and period_end:
-        return run_analysis(db, period_start=period_start, period_end=period_end, trigger_source_file_id=source_file_id)
-    return None
-
-
 def _validate_ofx_upload(file: UploadFile) -> None:
     if not file.filename:
         raise HTTPException(status_code=422, detail="File name is required")
     if not file.filename.lower().endswith(".ofx"):
         raise HTTPException(status_code=422, detail="Only .ofx files are accepted")
-
-
 @router.post('/ingest/bank-statement', response_model=IngestResponse)
 async def ingest_bank_statement(
     file: UploadFile = File(...),
@@ -59,24 +49,14 @@ async def ingest_bank_statement(
     result["period_start"] = period_start
     result["period_end"] = period_end
     if result['status'] == 'processed':
-        analysis_run = _run_default_analysis(db, result['source_file_id'])
-        result["analysis_run_id"] = analysis_run.id if analysis_run else None
-    else:
-        result["analysis_run_id"] = None
-    return result
+        from app.services.analysis import run_analysis
 
-
-@router.post('/ingest/credit-card-bill', response_model=IngestResponse)
-def ingest_credit_card_bill(payload: IngestRequest, db: Session = Depends(get_db)):
-    try:
-        result = ingest_file(db, 'credit_card', payload.file_name, payload.file_path, payload.reference_id)
-    except Exception as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    period_start, period_end = _get_source_file_period(db, result["source_file_id"])
-    result["period_start"] = period_start
-    result["period_end"] = period_end
-    if result['status'] == 'processed':
-        analysis_run = _run_default_analysis(db, result['source_file_id'])
+        analysis_run = run_analysis(
+            db,
+            period_start=period_start,
+            period_end=period_end,
+            trigger_source_file_id=result["source_file_id"],
+        )
         result["analysis_run_id"] = analysis_run.id if analysis_run else None
     else:
         result["analysis_run_id"] = None

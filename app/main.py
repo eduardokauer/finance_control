@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.routes.analysis import router as analysis_router
+from app.api.routes.credit_card_bills import router as credit_card_bills_router
 from app.api.routes.health import router as health_router
 from app.api.routes.ingest import router as ingest_router
 from app.api.routes.transactions import router as transactions_router
@@ -19,6 +20,7 @@ app.add_middleware(
 )
 app.include_router(health_router)
 app.include_router(ingest_router)
+app.include_router(credit_card_bills_router)
 app.include_router(transactions_router)
 app.include_router(analysis_router)
 app.include_router(admin_router)

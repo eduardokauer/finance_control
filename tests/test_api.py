@@ -1,4 +1,9 @@
-﻿def test_auth_required(client, sample_ofx_file):
+from decimal import Decimal
+
+from app.api.routes import credit_card_bills as credit_card_bill_routes
+
+
+def test_auth_required(client, sample_ofx_file):
     with sample_ofx_file.open("rb") as handle:
         resp = client.post(
             "/ingest/bank-statement",
@@ -70,30 +75,13 @@ def test_invalid_file(client, auth_headers, tmp_path):
     assert resp.status_code == 422
 
 
-def test_ingest_credit_card_valid(client, auth_headers, sample_csv_file):
-    resp = client.post(
-        "/ingest/credit-card-bill",
-        headers=auth_headers,
-        json={"file_name": "a.csv", "file_path": str(sample_csv_file)},
-    )
-    assert resp.status_code == 200
-    assert resp.json()["analysis_run_id"] is not None
-
-
-def test_duplicate_file(client, auth_headers, sample_csv_file):
-    payload = {"file_name": "a.csv", "file_path": str(sample_csv_file)}
-    client.post("/ingest/credit-card-bill", headers=auth_headers, json=payload)
-    resp = client.post("/ingest/credit-card-bill", headers=auth_headers, json=payload)
-    assert resp.json()["status"] == "duplicate"
-    assert resp.json()["analysis_run_id"] is None
-
-
-def test_query_transactions_and_analysis(client, auth_headers, sample_csv_file):
-    client.post(
-        "/ingest/credit-card-bill",
-        headers=auth_headers,
-        json={"file_name": "a.csv", "file_path": str(sample_csv_file)},
-    )
+def test_query_transactions_and_analysis(client, auth_headers, sample_ofx_file):
+    with sample_ofx_file.open("rb") as handle:
+        client.post(
+            "/ingest/bank-statement",
+            headers=auth_headers,
+            files={"file": (sample_ofx_file.name, handle, "application/octet-stream")},
+        )
     resp = client.get(
         "/transactions?period_start=2026-03-01&period_end=2026-03-31&limit=10&offset=0",
         headers=auth_headers,
@@ -109,22 +97,23 @@ def test_query_transactions_and_analysis(client, auth_headers, sample_csv_file):
     assert runs.status_code == 200
     assert runs.headers["content-type"].startswith("application/json; charset=utf-8")
     raw_body = runs.content.decode("utf-8")
-    assert "Análise financeira determinística" in raw_body or "AnÃ¡lise financeira determinÃ­stica" in raw_body
-    assert "Período" in raw_body or "PerÃ­odo" in raw_body
-    assert "Ações recomendadas" in raw_body or "AÃ§Ãµes recomendadas" in raw_body
+    assert "An�lise financeira determin�stica" in raw_body or "Análise financeira determinística" in raw_body
+    assert "Per�odo" in raw_body or "Período" in raw_body
+    assert "A��es recomendadas" in raw_body or "Ações recomendadas" in raw_body
     html_output = runs.json()[0]["html_output"]
-    assert "Análise financeira determinística" in html_output or "AnÃ¡lise financeira determinÃ­stica" in html_output
-    assert "Período:" in html_output or "PerÃ­odo:" in html_output
-    assert "Ações recomendadas" in html_output or "AÃ§Ãµes recomendadas" in html_output
+    assert "An�lise financeira determin�stica" in html_output or "Análise financeira determinística" in html_output
+    assert "Per�odo:" in html_output or "Período:" in html_output
+    assert "A��es recomendadas" in html_output or "Ações recomendadas" in html_output
     assert '<meta charset="UTF-8">' in html_output
 
 
-def test_manual_reclassify_transactions(client, auth_headers, sample_csv_file):
-    client.post(
-        "/ingest/credit-card-bill",
-        headers=auth_headers,
-        json={"file_name": "a.csv", "file_path": str(sample_csv_file)},
-    )
+def test_manual_reclassify_transactions(client, auth_headers, sample_ofx_file):
+    with sample_ofx_file.open("rb") as handle:
+        client.post(
+            "/ingest/bank-statement",
+            headers=auth_headers,
+            files={"file": (sample_ofx_file.name, handle, "application/octet-stream")},
+        )
     listed = client.get(
         "/transactions?period_start=2026-03-01&period_end=2026-03-31&limit=10&offset=0",
         headers=auth_headers,
@@ -152,6 +141,122 @@ def test_manual_reclassify_transactions(client, auth_headers, sample_csv_file):
     assert tx["category"] == "Ajustes e Estornos"
     assert tx["transaction_kind"] == "adjustment"
     assert tx["should_count_in_spending"] is False
+
+
+
+def test_ingest_credit_card_bill_http_flow_does_not_trigger_analysis(
+    client,
+    db_session,
+    auth_headers,
+    sample_credit_card_csv_file,
+    monkeypatch,
+):
+    from app.services.credit_card_bills import create_credit_card
+    from app.services import analysis as analysis_service
+
+    card = create_credit_card(
+        db_session,
+        issuer="itau",
+        card_label="Itau Visa final 1234",
+        card_final="1234",
+        brand="Visa",
+        is_active=True,
+    )
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("run_analysis should not be called for credit card bill upload")
+
+    monkeypatch.setattr(analysis_service, "run_analysis", fail_if_called)
+
+    with sample_credit_card_csv_file.open("rb") as handle:
+        response = client.post(
+            "/ingest/credit-card-bill",
+            headers=auth_headers,
+            data={
+                "billing_month": "3",
+                "billing_year": "2026",
+                "due_date": "2026-03-20",
+                "card_id": str(card.id),
+                "total_amount_brl": "130.45",
+            },
+            files={"file": (sample_credit_card_csv_file.name, handle, "text/csv")},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "processed"
+    assert "analysis_run_id" not in body
+    assert "period_start" not in body
+    assert "period_end" not in body
+    assert "source_file_id" not in body
+
+
+def test_ingest_credit_card_bill_http_flow_uses_only_multipart_contract(
+    client,
+    db_session,
+    auth_headers,
+    sample_credit_card_csv_file,
+    monkeypatch,
+):
+    from app.services.credit_card_bills import CreditCardBillUploadInput, create_credit_card
+
+    card = create_credit_card(
+        db_session,
+        issuer="itau",
+        card_label="Itau Visa final 1234",
+        card_final="1234",
+        brand="Visa",
+        is_active=True,
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_import_credit_card_bill(*, db, file_name, raw_content, upload_input):
+        captured["file_name"] = file_name
+        captured["raw_content"] = raw_content
+        captured["upload_input"] = upload_input
+        return {
+            "status": "processed",
+            "message": "ok",
+            "invoice_id": 123,
+            "imported_items": 2,
+        }
+
+    monkeypatch.setattr(credit_card_bill_routes, "import_credit_card_bill", fake_import_credit_card_bill)
+
+    with sample_credit_card_csv_file.open("rb") as handle:
+        response = client.post(
+            "/ingest/credit-card-bill",
+            headers=auth_headers,
+            data={
+                "billing_month": "3",
+                "billing_year": "2026",
+                "due_date": "2026-03-20",
+                "card_id": str(card.id),
+                "total_amount_brl": "130.45",
+                "closing_date": "2026-03-12",
+                "notes": "Teste",
+            },
+            files={"file": (sample_credit_card_csv_file.name, handle, "text/csv")},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "processed",
+        "message": "ok",
+        "invoice_id": 123,
+        "imported_items": 2,
+    }
+    assert captured["file_name"] == sample_credit_card_csv_file.name
+    assert captured["raw_content"]
+    assert isinstance(captured["upload_input"], CreditCardBillUploadInput)
+    assert captured["upload_input"].card_id == card.id
+    assert captured["upload_input"].billing_month == 3
+    assert captured["upload_input"].billing_year == 2026
+    assert str(captured["upload_input"].due_date) == "2026-03-20"
+    assert str(captured["upload_input"].closing_date) == "2026-03-12"
+    assert captured["upload_input"].total_amount_brl == Decimal("130.45")
+    assert captured["upload_input"].notes == "Teste"
 
 
 
