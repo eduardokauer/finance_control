@@ -1,4 +1,4 @@
-from decimal import Decimal
+﻿from decimal import Decimal
 
 from app.api.routes import credit_card_bills as credit_card_bill_routes
 
@@ -97,13 +97,13 @@ def test_query_transactions_and_analysis(client, auth_headers, sample_ofx_file):
     assert runs.status_code == 200
     assert runs.headers["content-type"].startswith("application/json; charset=utf-8")
     raw_body = runs.content.decode("utf-8")
-    assert "An�lise financeira determin�stica" in raw_body or "Análise financeira determinística" in raw_body
-    assert "Per�odo" in raw_body or "Período" in raw_body
-    assert "A��es recomendadas" in raw_body or "Ações recomendadas" in raw_body
+    assert "An\u00e1lise financeira determin\u00edstica" in raw_body or "AnÃ¡lise financeira determinÃ­stica" in raw_body
+    assert "Per\u00edodo" in raw_body or "PerÃ­odo" in raw_body
+    assert "A\u00e7\u00f5es recomendadas" in raw_body or "AÃ§Ãµes recomendadas" in raw_body
     html_output = runs.json()[0]["html_output"]
-    assert "An�lise financeira determin�stica" in html_output or "Análise financeira determinística" in html_output
-    assert "Per�odo:" in html_output or "Período:" in html_output
-    assert "A��es recomendadas" in html_output or "Ações recomendadas" in html_output
+    assert "An\u00e1lise financeira determin\u00edstica" in html_output or "AnÃ¡lise financeira determinÃ­stica" in html_output
+    assert "Per\u00edodo:" in html_output or "PerÃ­odo:" in html_output
+    assert "A\u00e7\u00f5es recomendadas" in html_output or "AÃ§Ãµes recomendadas" in html_output
     assert '<meta charset="UTF-8">' in html_output
 
 
@@ -257,6 +257,10 @@ def test_ingest_credit_card_bill_http_flow_uses_only_multipart_contract(
     assert str(captured["upload_input"].closing_date) == "2026-03-12"
     assert captured["upload_input"].total_amount_brl == Decimal("130.45")
     assert captured["upload_input"].notes == "Teste"
+
+
+
+
 
 
 
