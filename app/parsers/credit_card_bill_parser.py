@@ -29,11 +29,23 @@ def _resolve_delimiter(sample: str) -> str:
 CENT_VALUE = Decimal("0.01")
 
 
+def _parse_purchase_date(raw_value: str):
+    for date_format in ("%d/%m/%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(raw_value, date_format).date()
+        except ValueError:
+            continue
+    raise ValueError("Invalid purchase date")
+
+
 def _parse_amount(raw_value: str) -> Decimal:
     value = raw_value.strip().replace("R$", "").replace(" ", "")
     if not value:
         raise ValueError("Invalid bill amount")
-    normalized = value.replace(".", "").replace(",", ".")
+    if "," in value:
+        normalized = value.replace(".", "").replace(",", ".")
+    else:
+        normalized = value
     try:
         return Decimal(normalized).quantize(CENT_VALUE, rounding=ROUND_HALF_UP)
     except InvalidOperation as exc:
@@ -65,7 +77,7 @@ def parse_itau_credit_card_csv(content: bytes) -> list[dict]:
         if not description_raw:
             raise ValueError(f"Empty description at line {index}")
         try:
-            purchase_date = datetime.strptime(date_raw, "%d/%m/%Y").date()
+            purchase_date = _parse_purchase_date(date_raw)
         except ValueError as exc:
             raise ValueError(f"Invalid purchase date at line {index}") from exc
         try:

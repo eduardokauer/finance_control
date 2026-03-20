@@ -161,7 +161,8 @@ def test_rule_kind_mode_migration_converts_legacy_transaction_kind(monkeypatch):
 
         monkeypatch.setattr(settings, "database_url", temp_url)
         applied = run_sql_migrations()
-        assert applied == ["007_rule_kind_mode.sql"]
+        expected_applied = [migration.name for migration in migration_files if migration.name >= "007_rule_kind_mode.sql"]
+        assert applied == expected_applied
 
         with psycopg.connect(temp_dsn) as conn:
             with conn.cursor() as cur:

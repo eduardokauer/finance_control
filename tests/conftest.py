@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -80,3 +80,20 @@ def fixture_dir() -> Path:
 @pytest.fixture()
 def real_ofx_file(fixture_dir: Path) -> Path:
     return fixture_dir / "ofx" / "itau_statement_sample.ofx"
+
+
+@pytest.fixture()
+def real_credit_card_bill_file(fixture_dir: Path) -> Path:
+    return fixture_dir / "credit_card" / "fatura-20260307.csv"
+
+
+@pytest.fixture()
+def real_layout_credit_card_csv_file(tmp_path: Path):
+    content = (
+        "data,lançamento,valor\n"
+        "2026-02-27,KALUNGA-ALPH-CT LE,5.5\n"
+        "2026-02-22,DESCONTO NA FATURA - PO,-646.28\n"
+    )
+    f = tmp_path / "fatura_real_itau.csv"
+    f.write_text(content, encoding="utf-8")
+    return f

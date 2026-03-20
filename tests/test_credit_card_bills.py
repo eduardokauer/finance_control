@@ -181,3 +181,67 @@ def test_credit_card_invoice_upload_rejects_empty_file(
     assert response.json()["detail"] == "Empty file"
 
 
+def test_credit_card_invoice_upload_accepts_current_real_csv_layout(
+    client,
+    db_session,
+    auth_headers,
+    real_layout_credit_card_csv_file,
+):
+    card = _create_card(db_session)
+
+    response = _upload_invoice(
+        client,
+        auth_headers,
+        card.id,
+        real_layout_credit_card_csv_file,
+        total_amount_brl="640.78",
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "processed"
+    assert body["imported_items"] == 2
+
+    items = db_session.scalars(select(CreditCardInvoiceItem).order_by(CreditCardInvoiceItem.id)).all()
+    assert len(items) == 2
+    assert items[0].purchase_date == date(2026, 2, 27)
+    assert items[0].amount_brl == Decimal("5.50")
+    assert items[1].purchase_date == date(2026, 2, 22)
+    assert items[1].amount_brl == Decimal("-646.28")
+
+
+def test_credit_card_invoice_upload_accepts_real_fixture_file(
+    client,
+    db_session,
+    auth_headers,
+    real_credit_card_bill_file,
+):
+    card = _create_card(db_session)
+
+    response = _upload_invoice(
+        client,
+        auth_headers,
+        card.id,
+        real_credit_card_bill_file,
+        billing_month=3,
+        billing_year=2026,
+        due_date="2026-03-20",
+        closing_date="2026-03-07",
+        total_amount_brl="0.00",
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "processed"
+    assert body["imported_items"] == 69
+
+    items = db_session.scalars(select(CreditCardInvoiceItem).order_by(CreditCardInvoiceItem.id)).all()
+    assert len(items) == 69
+    assert items[0].purchase_date == date(2026, 2, 27)
+    assert items[0].description_raw == "KALUNGA-ALPH-CT LE"
+    assert items[0].amount_brl == Decimal("5.50")
+    assert items[-1].purchase_date == date(2025, 7, 15)
+    assert items[-1].description_raw == "MP *SAMSUNG       08/18"
+    assert items[-1].amount_brl == Decimal("214.23")
+
+
