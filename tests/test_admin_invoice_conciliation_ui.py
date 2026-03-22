@@ -173,6 +173,11 @@ def test_admin_invoice_detail_shows_conciliation_blocks(client, db_session, monk
     assert "Pagamentos candidatos do extrato" in response.text
     assert "invoice_credit" in response.text
     assert "PAGAMENTO FATURA ITAUCARD" in response.text
+    assert "Já conciliado" in response.text or "Ja conciliado" in response.text
+    assert "Falta antes da nova seleção" in response.text or "Falta antes da nova selecao" in response.text
+    assert "match_saldo" in response.text
+    assert "muito_forte" in response.text
+    assert "bate exatamente com o saldo restante" in response.text
     assert str(candidate.id) in response.text
 
 
@@ -240,3 +245,4 @@ def test_admin_blocks_linking_transaction_already_used_by_other_invoice(client, 
 
     assert second.status_code == 409
     assert "ja conciliada em outra fatura" in second.text
+

@@ -104,8 +104,8 @@ make test
 
 ## Conciliação manual assistida de faturas
 - a fonte oficial da liquidação é o extrato bancário, não o item `PAGAMENTO EFETUADO` dentro da própria fatura
-- a tela de detalhe da fatura mostra candidatos de pagamento do extrato em uma janela operacional de `due_date - 20 dias` até `due_date + 40 dias`
-- o usuário pode selecionar um ou mais pagamentos bancários para conciliar manualmente a fatura
+- a tela de detalhe da fatura mostra candidatos de pagamento do extrato em uma janela operacional de `due_date - 20 dias` até `due_date + 40 dias`, com sinais simples de aderência para apoiar a revisão
+- o usuário pode selecionar um ou mais pagamentos bancários para conciliar manualmente a fatura; a seleção continua manual e os sinais não substituem a decisão humana
 - descontos da própria fatura, como `DESCONTO NA FATURA`, entram automaticamente como `invoice_credit`
 - a tela mostra:
   - total bruto de cobranças
@@ -161,3 +161,4 @@ O container já sobe com migrations antes da aplicação:
 Após deploy:
 - API: `https://<seu-servico>.onrender.com`
 - Admin UI: `https://<seu-servico>.onrender.com/admin`
+
