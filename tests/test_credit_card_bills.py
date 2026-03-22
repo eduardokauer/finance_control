@@ -3,8 +3,8 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
-from app.repositories.models import CreditCard, CreditCardInvoice, CreditCardInvoiceItem
-from app.services.credit_card_bills import create_credit_card
+from app.repositories.models import CreditCard, CreditCardInvoice, CreditCardInvoiceItem, SourceFile
+from app.services.credit_card_bills import classify_credit_card_invoice_item, create_credit_card, get_credit_card_invoice_detail
 
 
 def _create_card(db_session) -> CreditCard:
@@ -16,6 +16,57 @@ def _create_card(db_session) -> CreditCard:
         brand="Visa",
         is_active=True,
     )
+
+
+def _create_invoice_with_items(db_session, *, descriptions_and_amounts: list[tuple[str, str]], total_amount_brl: str = "0.00") -> CreditCardInvoice:
+    card = _create_card(db_session)
+    source_file = SourceFile(
+        source_type="credit_card_bill",
+        file_name="invoice-test.csv",
+        file_path="upload://invoice-test.csv",
+        file_hash=f"invoice-test-{len(descriptions_and_amounts)}",
+        status="processed",
+    )
+    db_session.add(source_file)
+    db_session.flush()
+
+    invoice = CreditCardInvoice(
+        source_file_id=source_file.id,
+        card_id=card.id,
+        issuer=card.issuer,
+        card_final=card.card_final,
+        billing_year=2026,
+        billing_month=2,
+        due_date=date(2026, 2, 20),
+        closing_date=date(2026, 2, 7),
+        total_amount_brl=Decimal(total_amount_brl),
+        source_file_name=source_file.file_name,
+        source_file_hash=f"invoice-hash-{len(descriptions_and_amounts)}",
+        notes="invoice test",
+        import_status="imported",
+    )
+    db_session.add(invoice)
+    db_session.flush()
+
+    for index, (description_raw, amount_brl) in enumerate(descriptions_and_amounts, start=1):
+        db_session.add(
+            CreditCardInvoiceItem(
+                invoice_id=invoice.id,
+                purchase_date=date(2026, 2, min(index, 28)),
+                description_raw=description_raw,
+                description_normalized=description_raw.lower(),
+                amount_brl=Decimal(amount_brl),
+                installment_current=None,
+                installment_total=None,
+                is_installment=False,
+                derived_note=None,
+                external_row_hash=f"row-hash-{invoice.id}-{index}",
+            )
+        )
+
+    db_session.commit()
+    db_session.refresh(invoice)
+    return invoice
 
 
 def _upload_invoice(client, auth_headers, card_id: int, csv_file, **overrides):
@@ -243,5 +294,49 @@ def test_credit_card_invoice_upload_accepts_real_fixture_file(
     assert items[-1].purchase_date == date(2025, 7, 15)
     assert items[-1].description_raw == "MP *SAMSUNG       08/18"
     assert items[-1].amount_brl == Decimal("214.23")
+
+
+def test_credit_card_invoice_item_classifies_payment_and_credit(db_session):
+    invoice = _create_invoice_with_items(
+        db_session,
+        descriptions_and_amounts=[
+            ("PAGAMENTO EFETUADO", "-850.00"),
+            ("DESCONTO NA FATURA - PO", "-646.28"),
+            ("COMPRA MERCADO", "120.00"),
+        ],
+        total_amount_brl="-526.28",
+    )
+
+    items = db_session.scalars(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id).order_by(CreditCardInvoiceItem.id.asc())
+    ).all()
+
+    assert classify_credit_card_invoice_item(items[0]) == "payment"
+    assert classify_credit_card_invoice_item(items[1]) == "credit"
+    assert classify_credit_card_invoice_item(items[2]) == "charge"
+
+
+def test_credit_card_invoice_detail_summary_excludes_payments_from_composed_total(db_session):
+    invoice = _create_invoice_with_items(
+        db_session,
+        descriptions_and_amounts=[
+            ("PAGAMENTO EFETUADO", "-850.00"),
+            ("PAGAMENTO EFETUADO", "-10691.62"),
+            ("DESCONTO NA FATURA - PO", "-646.28"),
+            ("COMPRA MERCADO", "500.00"),
+            ("IOF COMPRA INTERNACIONAL", "12.50"),
+            ("ESTORNO LOJA", "-20.00"),
+        ],
+        total_amount_brl="-153.78",
+    )
+
+    detail = get_credit_card_invoice_detail(db_session, invoice_id=invoice.id)
+
+    assert detail is not None
+    assert detail.summary.charge_total_brl == Decimal("512.50")
+    assert detail.summary.credit_total_brl == Decimal("-666.28")
+    assert detail.summary.payment_total_brl == Decimal("-11541.62")
+    assert detail.summary.composed_total_brl == Decimal("-153.78")
+    assert detail.summary.difference_to_invoice_total_brl == Decimal("0.00")
 
 

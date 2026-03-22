@@ -37,6 +37,7 @@ class CreditCardBillUploadInput:
 
 
 INVOICE_IMPORT_STATUSES = ("imported", "pending_review", "conciliated", "conflict")
+INVOICE_ITEM_TYPES = ("charge", "credit", "payment", "unknown")
 
 
 @dataclass
@@ -47,13 +48,30 @@ class CreditCardInvoiceListEntry:
 
 
 @dataclass
+class CreditCardInvoiceItemDetail:
+    item: CreditCardInvoiceItem
+    item_type: str
+
+
+@dataclass
+class CreditCardInvoiceSummary:
+    charge_total_brl: Decimal
+    credit_total_brl: Decimal
+    payment_total_brl: Decimal
+    unknown_total_brl: Decimal
+    composed_total_brl: Decimal
+    difference_to_invoice_total_brl: Decimal
+    items_total_brl: Decimal
+
+
+@dataclass
 class CreditCardInvoiceDetail:
     invoice: CreditCardInvoice
     card: CreditCard
     source_file: SourceFile | None
-    items: list[CreditCardInvoiceItem]
+    items: list[CreditCardInvoiceItemDetail]
     item_count: int
-    items_total_brl: Decimal
+    summary: CreditCardInvoiceSummary
 
 
 def list_credit_cards(db: Session, *, active_only: bool = False) -> list[CreditCard]:
@@ -61,6 +79,19 @@ def list_credit_cards(db: Session, *, active_only: bool = False) -> list[CreditC
     if active_only:
         query = query.where(CreditCard.is_active.is_(True))
     return db.scalars(query.order_by(CreditCard.is_active.desc(), CreditCard.card_label.asc(), CreditCard.id.asc())).all()
+
+
+def classify_credit_card_invoice_item(item: CreditCardInvoiceItem) -> str:
+    description = (item.description_normalized or item.description_raw or "").strip().lower()
+    if not description:
+        return "unknown"
+    if "pagamento efetuado" in description:
+        return "payment"
+    if "desconto na fatura" in description:
+        return "credit"
+    if item.amount_brl < 0:
+        return "credit"
+    return "charge"
 
 
 def list_recent_credit_card_invoices(db: Session, *, limit: int = 10) -> list[dict]:
@@ -136,14 +167,44 @@ def get_credit_card_invoice_detail(db: Session, *, invoice_id: int) -> CreditCar
         .where(CreditCardInvoiceItem.invoice_id == invoice.id)
         .order_by(CreditCardInvoiceItem.purchase_date.asc(), CreditCardInvoiceItem.id.asc())
     ).all()
-    items_total_brl = sum((item.amount_brl for item in items), Decimal("0.00"))
+    item_details = [
+        CreditCardInvoiceItemDetail(item=item, item_type=classify_credit_card_invoice_item(item))
+        for item in items
+    ]
+    charge_total_brl = sum(
+        (item_detail.item.amount_brl for item_detail in item_details if item_detail.item_type == "charge"),
+        Decimal("0.00"),
+    )
+    credit_total_brl = sum(
+        (item_detail.item.amount_brl for item_detail in item_details if item_detail.item_type == "credit"),
+        Decimal("0.00"),
+    )
+    payment_total_brl = sum(
+        (item_detail.item.amount_brl for item_detail in item_details if item_detail.item_type == "payment"),
+        Decimal("0.00"),
+    )
+    unknown_total_brl = sum(
+        (item_detail.item.amount_brl for item_detail in item_details if item_detail.item_type == "unknown"),
+        Decimal("0.00"),
+    )
+    items_total_brl = sum((item_detail.item.amount_brl for item_detail in item_details), Decimal("0.00"))
+    composed_total_brl = charge_total_brl + credit_total_brl
+    difference_to_invoice_total_brl = (invoice.total_amount_brl - composed_total_brl).quantize(Decimal("0.01"))
     return CreditCardInvoiceDetail(
         invoice=invoice,
         card=card,
         source_file=source_file,
-        items=items,
-        item_count=len(items),
-        items_total_brl=items_total_brl,
+        items=item_details,
+        item_count=len(item_details),
+        summary=CreditCardInvoiceSummary(
+            charge_total_brl=charge_total_brl,
+            credit_total_brl=credit_total_brl,
+            payment_total_brl=payment_total_brl,
+            unknown_total_brl=unknown_total_brl,
+            composed_total_brl=composed_total_brl,
+            difference_to_invoice_total_brl=difference_to_invoice_total_brl,
+            items_total_brl=items_total_brl,
+        ),
     )
 
 

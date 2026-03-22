@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from decimal import Decimal
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -52,13 +50,11 @@ def admin_credit_card_invoice_detail(
     if detail is None:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    difference_brl = (detail.invoice.total_amount_brl - detail.items_total_brl).quantize(Decimal("0.01"))
     return render_admin(
         request,
         "admin/credit_card_invoice_detail.html",
         {
             "detail": detail,
-            "difference_brl": difference_brl,
             "status_variant": _status_variant,
         },
     )
