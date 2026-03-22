@@ -282,19 +282,34 @@ def _candidate_window(invoice: CreditCardInvoice) -> tuple[date, date]:
 def _payment_description_predicate() -> tuple:
     return (
         Transaction.is_card_bill_payment.is_(True),
+        Transaction.transaction_kind == "credit_card_payment",
+        Transaction.category == "Pagamento de Fatura",
         Transaction.description_normalized.contains("pagamento"),
         Transaction.description_normalized.contains("fatura"),
         Transaction.description_normalized.contains("cartao"),
         Transaction.description_normalized.contains("itaucard"),
+        Transaction.description_normalized.contains("itau black"),
         Transaction.description_normalized.contains("card"),
     )
 
 
 def _looks_like_invoice_payment(transaction: Transaction, invoice: CreditCardInvoice) -> bool:
     description = transaction.description_normalized or normalize_description(transaction.description_raw or "")
+    category = normalize_description(transaction.category or "")
+    transaction_kind = (transaction.transaction_kind or "").strip().lower()
+    card_label = normalize_description(getattr(invoice, "card_final", "") or "")
+    issuer = normalize_description(invoice.issuer or "")
+
+    if transaction.is_card_bill_payment or transaction_kind == "credit_card_payment":
+        return True
+    if category == "pagamento de fatura":
+        return True
     if any(token in description for token in ("pagamento", "fatura", "cartao", "itaucard", "card")):
         return True
-    issuer = normalize_description(invoice.issuer or "")
+    if issuer and issuer in description and any(token in description for token in ("black", "visa", "master", "mastercard", "platinum", "gold", "card")):
+        return True
+    if card_label and len(card_label) >= 4 and card_label in description and issuer and issuer in description:
+        return True
     return bool(issuer and issuer in description and ("cartao" in description or "fatura" in description))
 
 

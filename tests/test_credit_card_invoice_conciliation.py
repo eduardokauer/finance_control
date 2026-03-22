@@ -97,6 +97,8 @@ def _add_bank_transaction(
     normalized: str,
     amount: float,
     is_card_bill_payment: bool = False,
+    transaction_kind: str = "expense",
+    category: str = "Outros",
 ) -> Transaction:
     source_file = SourceFile(
         source_type="bank_statement",
@@ -120,8 +122,8 @@ def _add_bank_transaction(
         description_normalized=normalized,
         amount=amount,
         direction="credit" if amount > 0 else "debit",
-        transaction_kind="expense",
-        category="Outros",
+        transaction_kind=transaction_kind,
+        category=category,
         categorization_method="fallback",
         categorization_confidence=0.3,
         applied_rule=None,
@@ -237,6 +239,35 @@ def test_list_invoice_payment_candidates_filters_statement_transactions(db_sessi
     candidates = list_invoice_payment_candidates(db_session, invoice=detail.invoice, conciliation=conciliation)
 
     assert [candidate.transaction.id for candidate in candidates] == [good.id]
+
+
+def test_list_invoice_payment_candidates_accepts_itau_black_bill_payment_signal(db_session):
+    invoice = _create_invoice(
+        db_session,
+        card_final="1291",
+        due_date=date(2026, 2, 7),
+        item_specs=[
+            ("COMPRA MERCADO", "10691.62"),
+        ],
+    )
+    conciliation = ensure_credit_card_invoice_conciliation(db_session, invoice_id=invoice.id)
+
+    good = _add_bank_transaction(
+        db_session,
+        tx_key="itau-black-bill",
+        tx_date=date(2026, 2, 9),
+        description="ITAU BLACK 3101 1291",
+        normalized="itau black 3101 1291",
+        amount=-10691.62,
+        is_card_bill_payment=False,
+        transaction_kind="expense",
+        category="Pagamento de Fatura",
+    )
+
+    candidates = list_invoice_payment_candidates(db_session, invoice=invoice, conciliation=conciliation)
+
+    assert [candidate.transaction.id for candidate in candidates] == [good.id]
+    assert candidates[0].fit_label == "match_saldo"
 
 
 
