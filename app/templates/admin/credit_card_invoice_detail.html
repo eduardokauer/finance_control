@@ -1,0 +1,84 @@
+{% extends "admin/base.html" %}
+{% block title %}Detalhe da Fatura{% endblock %}
+{% block content %}
+<section class="card stack">
+  <div class="inline" style="justify-content: space-between; align-items: flex-start;">
+    <div>
+      <h1 style="margin:0 0 6px 0;">Fatura #{{ detail.invoice.id }}</h1>
+      <div class="subtle">{{ detail.card.card_label }} · {{ "%02d/%04d"|format(detail.invoice.billing_month, detail.invoice.billing_year) }}</div>
+    </div>
+    <div class="inline">
+      <a class="button" href="/admin/credit-card-invoices">Voltar para listagem</a>
+      <a class="button" href="/admin">Home</a>
+    </div>
+  </div>
+</section>
+
+<section class="grid grid-2">
+  <div class="card stack">
+    <h2>Dados da fatura</h2>
+    <div class="kv-grid">
+      <div class="subtle">ID</div><div>#{{ detail.invoice.id }}</div>
+      <div class="subtle">Cartao</div><div>{{ detail.card.card_label }}</div>
+      <div class="subtle">Issuer</div><div>{{ detail.invoice.issuer }}</div>
+      <div class="subtle">Competencia</div><div>{{ "%02d/%04d"|format(detail.invoice.billing_month, detail.invoice.billing_year) }}</div>
+      <div class="subtle">Vencimento</div><div>{{ detail.invoice.due_date }}</div>
+      <div class="subtle">Fechamento</div><div>{{ detail.invoice.closing_date or '-' }}</div>
+      <div class="subtle">Valor total</div><div>R$ {{ "%.2f"|format(detail.invoice.total_amount_brl) }}</div>
+      <div class="subtle">Status</div><div><span class="badge {{ status_variant(detail.invoice.import_status) }}">{{ detail.invoice.import_status }}</span></div>
+      <div class="subtle">Arquivo</div><div>{{ detail.invoice.source_file_name }}</div>
+      <div class="subtle">Hash</div><div><code>{{ detail.invoice.source_file_hash }}</code></div>
+      <div class="subtle">Observacao</div><div>{{ detail.invoice.notes or '-' }}</div>
+      <div class="subtle">Imported at</div><div>{{ detail.invoice.imported_at or '-' }}</div>
+      <div class="subtle">Created at</div><div>{{ detail.invoice.created_at or '-' }}</div>
+      <div class="subtle">Source file created</div><div>{{ detail.source_file.created_at if detail.source_file else '-' }}</div>
+    </div>
+  </div>
+
+  <div class="card stack">
+    <h2>Resumo</h2>
+    <div class="kv-grid">
+      <div class="subtle">Quantidade de lancamentos</div><div>{{ detail.item_count }}</div>
+      <div class="subtle">Soma dos itens</div><div>R$ {{ "%.2f"|format(detail.items_total_brl) }}</div>
+      <div class="subtle">Diferenca para total</div><div class="{{ 'amount-negative' if difference_brl < 0 else 'amount-positive' if difference_brl > 0 else '' }}">R$ {{ "%.2f"|format(difference_brl) }}</div>
+    </div>
+    <div class="subtle">Estrutura pronta para os status: imported, pending_review, conciliated e conflict.</div>
+  </div>
+</section>
+
+<section class="card stack">
+  <h2>Lancamentos da fatura</h2>
+  {% if detail.items %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>purchase_date</th>
+            <th>description_raw</th>
+            <th>amount_brl</th>
+            <th>is_installment</th>
+            <th>installment_current</th>
+            <th>installment_total</th>
+            <th>derived_note</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in detail.items %}
+            <tr>
+              <td>{{ item.purchase_date }}</td>
+              <td>{{ item.description_raw }}</td>
+              <td>R$ {{ "%.2f"|format(item.amount_brl) }}</td>
+              <td>{{ 'sim' if item.is_installment else 'nao' }}</td>
+              <td>{{ item.installment_current or '-' }}</td>
+              <td>{{ item.installment_total or '-' }}</td>
+              <td>{{ item.derived_note or '-' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="subtle">Esta fatura nao possui itens importados.</div>
+  {% endif %}
+</section>
+{% endblock %}

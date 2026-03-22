@@ -1,4 +1,4 @@
-﻿{% extends "admin/base.html" %}
+{% extends "admin/base.html" %}
 {% block title %}Admin Home{% endblock %}
 {% block content %}
 <section class="grid grid-2">
@@ -23,6 +23,7 @@
     <a class="button" href="/admin/rules">Gerenciar regras</a>
     <a class="button" href="/admin/categories">Gerenciar categorias</a>
     <a class="button" href="/admin/reapply">Reaplicar regras</a>
+    <a class="button" href="/admin/credit-card-invoices">Ver faturas importadas</a>
   </div>
   <div class="card stack">
     <h2>Nova análise</h2>
@@ -96,6 +97,22 @@
   </div>
 </section>
 
+<section class="card stack">
+  <h2>Faturas importadas</h2>
+  <p class="subtle">Visão operacional das últimas importações de fatura.</p>
+  {% if recent_credit_card_invoices %}
+    {% for invoice in recent_credit_card_invoices %}
+      <div>
+        <div><strong>{{ invoice.card_label }}</strong> · {{ "%02d/%04d"|format(invoice.billing_month, invoice.billing_year) }} · {{ "%.2f"|format(invoice.total_amount_brl) }}</div>
+        <div class="subtle">ID {{ invoice.invoice_id }} · {{ invoice.item_count }} lançamento(s) · vencimento {{ invoice.due_date }}{% if invoice.closing_date %} · fechamento {{ invoice.closing_date }}{% endif %} · status {{ invoice.import_status }}</div>
+        <div><a href="/admin/credit-card-invoices/{{ invoice.invoice_id }}">Abrir detalhe</a></div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="subtle">Nenhuma fatura importada ainda.</div>
+  {% endif %}
+</section>
+
 <section class="grid grid-2">
   <div class="card stack">
     <h2>Últimas alterações manuais</h2>
@@ -103,7 +120,7 @@
       {% for item in metrics.latest_changes %}
         <div>
           <div><strong>#{{ item.transaction_id }}</strong> · {{ item.origin }}</div>
-          <div class="subtle">{{ item.previous_category }} → {{ item.new_category }} | {{ item.previous_transaction_kind }} → {{ item.new_transaction_kind }}</div>
+          <div class="subtle">{{ item.previous_category }} ? {{ item.new_category }} | {{ item.previous_transaction_kind }} ? {{ item.new_transaction_kind }}</div>
         </div>
       {% endfor %}
     {% else %}
@@ -115,7 +132,7 @@
     {% if metrics.latest_rules %}
       {% for rule in metrics.latest_rules %}
         <div>
-          <div><strong>{{ rule.pattern }}</strong> → {{ rule.category_name }}</div>
+          <div><strong>{{ rule.pattern }}</strong> ? {{ rule.category_name }}</div>
           <div class="subtle">{{ rule.rule_type }} · {{ "Fluxo da transação" if rule.kind_mode == "flow" else "Transferência" }} · prioridade {{ rule.priority }}</div>
         </div>
       {% endfor %}

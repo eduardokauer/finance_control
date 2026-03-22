@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -36,11 +36,115 @@ class CreditCardBillUploadInput:
     notes: str | None = None
 
 
+INVOICE_IMPORT_STATUSES = ("imported", "pending_review", "conciliated", "conflict")
+
+
+@dataclass
+class CreditCardInvoiceListEntry:
+    invoice: CreditCardInvoice
+    card: CreditCard
+    item_count: int
+
+
+@dataclass
+class CreditCardInvoiceDetail:
+    invoice: CreditCardInvoice
+    card: CreditCard
+    source_file: SourceFile | None
+    items: list[CreditCardInvoiceItem]
+    item_count: int
+    items_total_brl: Decimal
+
+
 def list_credit_cards(db: Session, *, active_only: bool = False) -> list[CreditCard]:
     query = select(CreditCard)
     if active_only:
         query = query.where(CreditCard.is_active.is_(True))
     return db.scalars(query.order_by(CreditCard.is_active.desc(), CreditCard.card_label.asc(), CreditCard.id.asc())).all()
+
+
+def list_recent_credit_card_invoices(db: Session, *, limit: int = 10) -> list[dict]:
+    item_count = func.count(CreditCardInvoiceItem.id).label("item_count")
+    rows = db.execute(
+        select(CreditCardInvoice, CreditCard.card_label, item_count)
+        .join(CreditCard, CreditCard.id == CreditCardInvoice.card_id)
+        .outerjoin(CreditCardInvoiceItem, CreditCardInvoiceItem.invoice_id == CreditCardInvoice.id)
+        .group_by(CreditCardInvoice.id, CreditCard.card_label)
+        .order_by(CreditCardInvoice.imported_at.desc(), CreditCardInvoice.id.desc())
+        .limit(limit)
+    ).all()
+    return [
+        {
+            "invoice_id": invoice.id,
+            "card_label": card_label,
+            "billing_year": invoice.billing_year,
+            "billing_month": invoice.billing_month,
+            "due_date": invoice.due_date,
+            "closing_date": invoice.closing_date,
+            "total_amount_brl": invoice.total_amount_brl,
+            "import_status": invoice.import_status,
+            "item_count": int(item_count_value or 0),
+            "imported_at": invoice.imported_at,
+        }
+        for invoice, card_label, item_count_value in rows
+    ]
+
+
+def list_credit_card_invoices(db: Session) -> list[CreditCardInvoiceListEntry]:
+    item_counts = (
+        select(
+            CreditCardInvoiceItem.invoice_id.label("invoice_id"),
+            func.count(CreditCardInvoiceItem.id).label("item_count"),
+        )
+        .group_by(CreditCardInvoiceItem.invoice_id)
+        .subquery()
+    )
+    rows = db.execute(
+        select(
+            CreditCardInvoice,
+            CreditCard,
+            func.coalesce(item_counts.c.item_count, 0),
+        )
+        .join(CreditCard, CreditCard.id == CreditCardInvoice.card_id)
+        .outerjoin(item_counts, item_counts.c.invoice_id == CreditCardInvoice.id)
+        .order_by(
+            CreditCardInvoice.billing_year.desc(),
+            CreditCardInvoice.billing_month.desc(),
+            CreditCardInvoice.due_date.desc(),
+            CreditCardInvoice.id.desc(),
+        )
+    ).all()
+    return [
+        CreditCardInvoiceListEntry(invoice=invoice, card=card, item_count=int(item_count or 0))
+        for invoice, card, item_count in rows
+    ]
+
+
+def get_credit_card_invoice_detail(db: Session, *, invoice_id: int) -> CreditCardInvoiceDetail | None:
+    row = db.execute(
+        select(CreditCardInvoice, CreditCard, SourceFile)
+        .join(CreditCard, CreditCard.id == CreditCardInvoice.card_id)
+        .outerjoin(SourceFile, SourceFile.id == CreditCardInvoice.source_file_id)
+        .where(CreditCardInvoice.id == invoice_id)
+    ).one_or_none()
+    if row is None:
+        return None
+
+    invoice, card, source_file = row
+    items = db.scalars(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == invoice.id)
+        .order_by(CreditCardInvoiceItem.purchase_date.asc(), CreditCardInvoiceItem.id.asc())
+    ).all()
+    items_total_brl = sum((item.amount_brl for item in items), Decimal("0.00"))
+    return CreditCardInvoiceDetail(
+        invoice=invoice,
+        card=card,
+        source_file=source_file,
+        items=items,
+        item_count=len(items),
+        items_total_brl=items_total_brl,
+    )
 
 
 def create_credit_card(
