@@ -97,6 +97,11 @@ make test
   - outra fatura para o mesmo cartão e competência
   - estrutura inválida do CSV
 
+## Admin de Faturas
+- listagem operacional: `/admin/credit-card-invoices`
+- detalhe da fatura: `/admin/credit-card-invoices/<invoice_id>`
+- a home do admin em `/admin` também mostra as últimas faturas importadas com link para o detalhe
+
 ## Desenvolvimento
 Parar a stack:
 

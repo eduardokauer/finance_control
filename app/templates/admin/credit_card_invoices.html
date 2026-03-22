@@ -1,0 +1,50 @@
+{% extends "admin/base.html" %}
+{% block title %}Faturas de Cartão{% endblock %}
+{% block content %}
+<section class="card stack">
+  <div class="inline" style="justify-content: space-between; align-items: flex-start;">
+    <div>
+      <h1 style="margin: 0 0 6px 0;">Faturas importadas</h1>
+      <p class="subtle" style="margin: 0;">Visão operacional das faturas já importadas, com acesso rápido ao detalhe.</p>
+    </div>
+    <a class="button" href="/admin">Voltar para home</a>
+  </div>
+
+  {% if entries %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Cartão</th>
+            <th>Competência</th>
+            <th>Vencimento</th>
+            <th>Valor total</th>
+            <th>Status</th>
+            <th>Itens</th>
+            <th>Importação</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in entries %}
+            <tr>
+              <td>#{{ entry.invoice.id }}</td>
+              <td>{{ entry.card.card_label }}</td>
+              <td>{{ "%02d/%04d"|format(entry.invoice.billing_month, entry.invoice.billing_year) }}</td>
+              <td>{{ entry.invoice.due_date }}</td>
+              <td>R$ {{ "%.2f"|format(entry.invoice.total_amount_brl) }}</td>
+              <td><span class="badge {{ status_variant(entry.invoice.import_status) }}">{{ entry.invoice.import_status }}</span></td>
+              <td>{{ entry.item_count }}</td>
+              <td>{{ entry.invoice.imported_at.strftime('%Y-%m-%d %H:%M') if entry.invoice.imported_at else '-' }}</td>
+              <td><a href="/admin/credit-card-invoices/{{ entry.invoice.id }}">Ver detalhe</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="subtle">Nenhuma fatura importada ainda.</div>
+  {% endif %}
+</section>
+{% endblock %}

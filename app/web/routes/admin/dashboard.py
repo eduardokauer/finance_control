@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -15,6 +15,7 @@ from app.services.credit_card_bills import (
     create_credit_card,
     import_credit_card_bill,
     list_credit_cards,
+    list_recent_credit_card_invoices,
 )
 from app.services.admin import admin_dashboard_metrics
 
@@ -38,6 +39,7 @@ def _dashboard_context(db: Session) -> dict:
     return {
         "metrics": admin_dashboard_metrics(db),
         "credit_cards": list_credit_cards(db),
+        "recent_credit_card_invoices": list_recent_credit_card_invoices(db),
     }
 
 
@@ -121,5 +123,8 @@ async def admin_upload_credit_card_bill(
 
     request.session["flash"] = result["message"]
     return RedirectResponse(url="/admin", status_code=303)
+
+
+
 
 

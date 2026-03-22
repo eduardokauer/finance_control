@@ -1,4 +1,4 @@
-﻿{% extends "admin/base.html" %}
+{% extends "admin/base.html" %}
 {% block title %}Admin Home{% endblock %}
 {% block content %}
 <section class="grid grid-2">
@@ -23,6 +23,7 @@
     <a class="button" href="/admin/rules">Gerenciar regras</a>
     <a class="button" href="/admin/categories">Gerenciar categorias</a>
     <a class="button" href="/admin/reapply">Reaplicar regras</a>
+    <a class="button" href="/admin/credit-card-invoices">Ver faturas importadas</a>
   </div>
   <div class="card stack">
     <h2>Nova análise</h2>
@@ -94,6 +95,22 @@
       <button type="submit" class="button button-primary">Importar fatura</button>
     </form>
   </div>
+</section>
+
+<section class="card stack">
+  <h2>Faturas importadas</h2>
+  <p class="subtle">Visão operacional das últimas importações de fatura.</p>
+  {% if recent_credit_card_invoices %}
+    {% for invoice in recent_credit_card_invoices %}
+      <div>
+        <div><strong>{{ invoice.card_label }}</strong> · {{ "%02d/%04d"|format(invoice.billing_month, invoice.billing_year) }} · {{ "%.2f"|format(invoice.total_amount_brl) }}</div>
+        <div class="subtle">ID {{ invoice.invoice_id }} · {{ invoice.item_count }} lançamento(s) · vencimento {{ invoice.due_date }}{% if invoice.closing_date %} · fechamento {{ invoice.closing_date }}{% endif %} · status {{ invoice.import_status }}</div>
+        <div><a href="/admin/credit-card-invoices/{{ invoice.invoice_id }}">Abrir detalhe</a></div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="subtle">Nenhuma fatura importada ainda.</div>
+  {% endif %}
 </section>
 
 <section class="grid grid-2">
