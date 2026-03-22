@@ -194,3 +194,38 @@ class CreditCardInvoiceItem(Base):
     derived_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     external_row_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CreditCardInvoiceConciliation(Base):
+    __tablename__ = "credit_card_invoice_conciliations"
+    __table_args__ = (
+        UniqueConstraint("invoice_id", name="uq_credit_card_invoice_conciliations_invoice"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    invoice_id: Mapped[int] = mapped_column(ForeignKey("credit_card_invoices.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="pending_review", nullable=False)
+    gross_amount_brl: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
+    invoice_credit_total_brl: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
+    bank_payment_total_brl: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
+    conciliated_total_brl: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
+    remaining_balance_brl: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class CreditCardInvoiceConciliationItem(Base):
+    __tablename__ = "credit_card_invoice_conciliation_items"
+    __table_args__ = (
+        UniqueConstraint("bank_transaction_id", name="uq_credit_card_invoice_conciliation_items_bank_transaction"),
+        UniqueConstraint("invoice_item_id", name="uq_credit_card_invoice_conciliation_items_invoice_item"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    conciliation_id: Mapped[int] = mapped_column(ForeignKey("credit_card_invoice_conciliations.id"), nullable=False)
+    item_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    amount_brl: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    bank_transaction_id: Mapped[int | None] = mapped_column(ForeignKey("transactions.id"), nullable=True)
+    invoice_item_id: Mapped[int | None] = mapped_column(ForeignKey("credit_card_invoice_items.id"), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
