@@ -1,33 +1,62 @@
 {% extends "admin/base.html" %}
 {% block title %}Admin Home{% endblock %}
 {% block content %}
-<section class="grid grid-2">
-  <div class="card">
-    <div class="subtle">Período padrão</div>
-    <div class="metric-value">{{ metrics.period_start.strftime('%m/%Y') }}</div>
-    <div class="subtle">Último mês fechado</div>
+<section class="card stack">
+  <div>
+    <h1 class="section-title">Central operacional</h1>
+    <p class="section-intro">Acompanhe o mês padrão, revise lançamentos, importe faturas e acesse as áreas mais usadas sem precisar caçar links espalhados.</p>
   </div>
-  <div class="card">
-    <div class="subtle">Não categorizados</div>
-    <div class="metric-value">{{ metrics.uncategorized_count }}</div>
-    <div class="subtle">Total {{ '%.2f'|format(metrics.uncategorized_total) }}</div>
+  <div class="grid grid-3">
+    <div>
+      <div class="subtle">Período padrão</div>
+      <div class="metric-value">{{ metrics.period_start.strftime('%m/%Y') }}</div>
+      <div class="subtle">Último mês fechado</div>
+    </div>
+    <div>
+      <div class="subtle">Não categorizados</div>
+      <div class="metric-value">{{ metrics.uncategorized_count }}</div>
+      <div class="subtle">Total {{ '%.2f'|format(metrics.uncategorized_total) }}</div>
+    </div>
+    <div>
+      <div class="subtle">Faturas importadas</div>
+      <div class="metric-value">{{ recent_credit_card_invoices|length }}</div>
+      <div class="subtle">Últimas entradas visíveis na home</div>
+    </div>
   </div>
 </section>
 
 <section class="grid grid-2">
   <div class="card stack">
-    <h2>Atalhos</h2>
-    <a class="button button-primary" href="/admin/transactions">Revisar lançamentos</a>
-    <a class="button" href="/admin/transactions?uncategorized_only=true">Ver não categorizados</a>
-    <a class="button" href="/admin/analysis">Ver análise</a>
-    <a class="button" href="/admin/rules">Gerenciar regras</a>
-    <a class="button" href="/admin/categories">Gerenciar categorias</a>
-    <a class="button" href="/admin/reapply">Reaplicar regras</a>
-    <a class="button" href="/admin/credit-card-invoices">Ver faturas importadas</a>
+    <div>
+      <h2 class="section-title">Fluxos operacionais</h2>
+      <p class="section-intro">Entradas principais para revisão do dia a dia.</p>
+    </div>
+    <div class="actions">
+      <a class="button button-primary" href="/admin/transactions">Revisar lançamentos</a>
+      <a class="button" href="/admin/transactions?uncategorized_only=true">Não categorizados</a>
+      <a class="button" href="/admin/credit-card-invoices">Faturas</a>
+      <a class="button" href="/admin/reapply">Reaplicar regras</a>
+      <a class="button" href="/admin/analysis">Análise</a>
+    </div>
   </div>
   <div class="card stack">
-    <h2>Nova análise</h2>
-    <p class="subtle">Depois das correções, gere uma nova análise determinística para o período revisado.</p>
+    <div>
+      <h2 class="section-title">Configuração</h2>
+      <p class="section-intro">Mantenha a base de regras e categorias organizada conforme o projeto cresce.</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="/admin/rules">Gerenciar regras</a>
+      <a class="button" href="/admin/categories">Gerenciar categorias</a>
+    </div>
+  </div>
+</section>
+
+<section class="grid grid-2">
+  <div class="card stack">
+    <div>
+      <h2 class="section-title">Nova análise</h2>
+      <p class="section-intro">Depois das correções, gere uma nova análise determinística para o período revisado.</p>
+    </div>
     <form method="post" action="/admin/analysis/run" class="stack">
       <label>Início<input type="date" name="period_start" value="{{ metrics.period_start }}" required></label>
       <label>Fim<input type="date" name="period_end" value="{{ metrics.period_end }}" required></label>
@@ -35,11 +64,31 @@
       <button type="submit" class="button button-primary">Gerar análise</button>
     </form>
   </div>
+  <div class="card stack">
+    <div>
+      <h2 class="section-title">Últimas faturas</h2>
+      <p class="section-intro">Acesso rápido às importações mais recentes.</p>
+    </div>
+    {% if recent_credit_card_invoices %}
+      {% for invoice in recent_credit_card_invoices %}
+        <div class="rule-row" style="margin-top:0; padding-top:0; border-top:none;">
+          <div><strong>{{ invoice.card_label }}</strong> · {{ "%02d/%04d"|format(invoice.billing_month, invoice.billing_year) }}</div>
+          <div class="subtle">ID {{ invoice.invoice_id }} · {{ invoice.item_count }} lançamento(s) · vencimento {{ invoice.due_date }} · status {{ invoice.import_status }}</div>
+          <div><a href="/admin/credit-card-invoices/{{ invoice.invoice_id }}">Abrir detalhe</a></div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="subtle">Nenhuma fatura importada ainda.</div>
+    {% endif %}
+  </div>
 </section>
 
 <section class="grid grid-2">
   <div class="card stack">
-    <h2>Cadastrar cartão</h2>
+    <div>
+      <h2 class="section-title">Cartões</h2>
+      <p class="section-intro">Cadastre novos cartões e acompanhe os já existentes.</p>
+    </div>
     <form method="post" action="/admin/credit-cards" class="stack">
       <label>Emissor
         <select name="issuer" required>
@@ -49,7 +98,7 @@
       <label>Nome do cartão<input type="text" name="card_label" placeholder="Itaú Visa final 1234" required></label>
       <label>Final do cartão<input type="text" name="card_final" inputmode="numeric" maxlength="4" placeholder="1234" required></label>
       <label>Bandeira opcional<input type="text" name="brand" placeholder="Visa"></label>
-      <label class="inline"><input type="checkbox" name="is_active" value="true" checked> Ativo</label>
+      <label class="inline"><input type="checkbox" name="is_active" value="true" checked style="width:auto;"> Ativo</label>
       <button type="submit" class="button">Salvar cartão</button>
     </form>
 
@@ -69,8 +118,10 @@
   </div>
 
   <div class="card stack">
-    <h2>Subir fatura Itaú</h2>
-    <p class="subtle">Upload manual do CSV oficial da fatura com metadados do formulário.</p>
+    <div>
+      <h2 class="section-title">Importar fatura</h2>
+      <p class="section-intro">Upload manual do CSV oficial da fatura com os metadados necessários.</p>
+    </div>
     {% if invoice_upload_error %}
       <div class="flash" style="background: var(--danger-soft); color: var(--danger); border-color: #f7b4ae; margin-bottom: 0;">{{ invoice_upload_error }}</div>
     {% endif %}
@@ -97,25 +148,12 @@
   </div>
 </section>
 
-<section class="card stack">
-  <h2>Faturas importadas</h2>
-  <p class="subtle">Visão operacional das últimas importações de fatura.</p>
-  {% if recent_credit_card_invoices %}
-    {% for invoice in recent_credit_card_invoices %}
-      <div>
-        <div><strong>{{ invoice.card_label }}</strong> · {{ "%02d/%04d"|format(invoice.billing_month, invoice.billing_year) }} · {{ "%.2f"|format(invoice.total_amount_brl) }}</div>
-        <div class="subtle">ID {{ invoice.invoice_id }} · {{ invoice.item_count }} lançamento(s) · vencimento {{ invoice.due_date }}{% if invoice.closing_date %} · fechamento {{ invoice.closing_date }}{% endif %} · status {{ invoice.import_status }}</div>
-        <div><a href="/admin/credit-card-invoices/{{ invoice.invoice_id }}">Abrir detalhe</a></div>
-      </div>
-    {% endfor %}
-  {% else %}
-    <div class="subtle">Nenhuma fatura importada ainda.</div>
-  {% endif %}
-</section>
-
 <section class="grid grid-2">
   <div class="card stack">
-    <h2>Últimas alterações manuais</h2>
+    <div>
+      <h2 class="section-title">Últimas alterações manuais</h2>
+      <p class="section-intro">Mudanças recentes para auditoria rápida.</p>
+    </div>
     {% if metrics.latest_changes %}
       {% for item in metrics.latest_changes %}
         <div>
@@ -128,7 +166,10 @@
     {% endif %}
   </div>
   <div class="card stack">
-    <h2>Regras recentes</h2>
+    <div>
+      <h2 class="section-title">Regras recentes</h2>
+      <p class="section-intro">Últimas regras ativas atualizadas.</p>
+    </div>
     {% if metrics.latest_rules %}
       {% for rule in metrics.latest_rules %}
         <div>

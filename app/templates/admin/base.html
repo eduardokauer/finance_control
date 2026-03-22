@@ -32,7 +32,7 @@
     }
     a { color: inherit; }
     .shell {
-      max-width: 980px;
+      max-width: 1080px;
       margin: 0 auto;
       padding: 16px 14px 80px;
     }
@@ -49,12 +49,29 @@
       text-decoration: none;
     }
     .nav {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      background: rgba(255, 253, 247, 0.96);
+      border: 1px solid rgba(219, 205, 179, 0.9);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+    }
+    .nav-row {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-      margin-bottom: 18px;
+      align-items: center;
     }
-    .nav a, .nav button, .button {
+    .nav-section-label {
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      min-width: 106px;
+    }
+    .nav a, .nav button, .button, .nav-group summary {
       border: 1px solid var(--line);
       background: var(--surface);
       color: var(--ink);
@@ -63,6 +80,53 @@
       padding: 10px 14px;
       font-size: 0.95rem;
       cursor: pointer;
+    }
+    .nav-group {
+      position: relative;
+    }
+    .nav-group summary {
+      list-style: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-group summary::-webkit-details-marker {
+      display: none;
+    }
+    .nav-group summary::after {
+      content: "▾";
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .nav-group[open] summary {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: #a8dfd5;
+    }
+    .nav-submenu {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+      margin-left: 114px;
+      padding: 10px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255, 253, 247, 0.98);
+    }
+    .nav-submenu a {
+      border-radius: 14px;
+      padding: 10px 12px;
+      border: 1px solid transparent;
+    }
+    .nav-submenu a:hover {
+      border-color: var(--line);
+      background: var(--surface);
+    }
+    .nav-link-active {
+      background: var(--accent-soft) !important;
+      color: var(--accent) !important;
+      border-color: #a8dfd5 !important;
+      font-weight: 700;
     }
     .button-primary {
       background: var(--accent);
@@ -108,6 +172,9 @@
     }
     .grid-2 {
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .grid-3 {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     }
     .metric-value {
       font-size: 1.8rem;
@@ -246,6 +313,15 @@
       padding-top: 12px;
       margin-top: 12px;
     }
+    .section-title {
+      margin: 0 0 6px 0;
+      font-size: 1.15rem;
+    }
+    .section-intro {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
     .login-shell {
       min-height: 100vh;
       display: grid;
@@ -267,6 +343,10 @@
       .shell { padding: 28px 24px 80px; }
       .tx-card { padding: 18px 18px; }
     }
+    @media (max-width: 720px) {
+      .nav-submenu { margin-left: 0; }
+      .nav-section-label { min-width: auto; width: 100%; }
+    }
   </style>
 </head>
 <body>
@@ -279,14 +359,28 @@
       </form>
     </div>
     <nav class="nav">
-      <a href="/admin">Home</a>
-      <a href="/admin/transactions">Lançamentos</a>
-      <a href="/admin/transactions?uncategorized_only=true">Não categorizados</a>
-      <a href="/admin/analysis">Análise</a>
-      <a href="/admin/credit-card-invoices">Faturas</a>
-      <a href="/admin/rules">Regras</a>
-      <a href="/admin/categories">Categorias</a>
-      <a href="/admin/reapply">Reaplicar regras</a>
+      <div class="nav-row">
+        <span class="nav-section-label">Visão geral</span>
+        <a href="/admin" class="{% if request.url.path == '/admin' or request.url.path == '/admin/' %}nav-link-active{% endif %}">Home</a>
+        <a href="/admin/analysis" class="{% if request.url.path.startswith('/admin/analysis') %}nav-link-active{% endif %}">Análise</a>
+      </div>
+      <div class="nav-row">
+        <span class="nav-section-label">Operação</span>
+        <a href="/admin/transactions" class="{% if request.url.path.startswith('/admin/transactions') %}nav-link-active{% endif %}">Lançamentos</a>
+        <a href="/admin/transactions?uncategorized_only=true">Não categorizados</a>
+        <a href="/admin/reapply" class="{% if request.url.path.startswith('/admin/reapply') %}nav-link-active{% endif %}">Reaplicar regras</a>
+        <a href="/admin/credit-card-invoices" class="{% if request.url.path.startswith('/admin/credit-card-invoices') %}nav-link-active{% endif %}">Faturas</a>
+      </div>
+      <div class="nav-row">
+        <span class="nav-section-label">Configuração</span>
+        <details class="nav-group" {% if request.url.path.startswith('/admin/rules') or request.url.path.startswith('/admin/categories') %}open{% endif %}>
+          <summary>Regras e categorias</summary>
+          <div class="nav-submenu">
+            <a href="/admin/rules" class="{% if request.url.path.startswith('/admin/rules') %}nav-link-active{% endif %}">Regras</a>
+            <a href="/admin/categories" class="{% if request.url.path.startswith('/admin/categories') %}nav-link-active{% endif %}">Categorias</a>
+          </div>
+        </details>
+      </div>
     </nav>
     {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
     {% block content %}{% endblock %}
