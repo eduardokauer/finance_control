@@ -120,7 +120,7 @@
       {% for item in metrics.latest_changes %}
         <div>
           <div><strong>#{{ item.transaction_id }}</strong> · {{ item.origin }}</div>
-          <div class="subtle">{{ item.previous_category }} ? {{ item.new_category }} | {{ item.previous_transaction_kind }} ? {{ item.new_transaction_kind }}</div>
+          <div class="subtle">{{ item.previous_category }} → {{ item.new_category }} | {{ item.previous_transaction_kind }} → {{ item.new_transaction_kind }}</div>
         </div>
       {% endfor %}
     {% else %}
@@ -132,7 +132,7 @@
     {% if metrics.latest_rules %}
       {% for rule in metrics.latest_rules %}
         <div>
-          <div><strong>{{ rule.pattern }}</strong> ? {{ rule.category_name }}</div>
+          <div><strong>{{ rule.pattern }}</strong> → {{ rule.category_name }}</div>
           <div class="subtle">{{ rule.rule_type }} · {{ "Fluxo da transação" if rule.kind_mode == "flow" else "Transferência" }} · prioridade {{ rule.priority }}</div>
         </div>
       {% endfor %}

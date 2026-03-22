@@ -708,9 +708,9 @@ def test_admin_credit_card_invoice_detail_shows_items_and_summary(client, db_ses
     assert response.status_code == 200
     assert f"Fatura #{invoice.id}" in response.text
     assert "pending_review" in response.text
-    assert "Quantidade de lancamentos" in response.text
+    assert "Quantidade de lançamentos" in response.text or "Quantidade de lancamentos" in response.text
     assert "Soma dos itens" in response.text
-    assert "Diferenca para total" in response.text
+    assert "Diferença para total" in response.text or "Diferenca para total" in response.text
     assert "SUPERMERCADO TESTE" in response.text
     assert "CURSO PARCELADO" in response.text
     assert "parcela 2/3" in response.text

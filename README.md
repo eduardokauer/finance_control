@@ -1,12 +1,12 @@
 # Finance Control Backend
 
-Backend em FastAPI para controle financeiro pessoal: ingestÃ£o de extratos, categorizaÃ§Ã£o, anÃ¡lise determinÃ­stica e interface administrativa web para revisÃ£o e correÃ§Ã£o dos lanÃ§amentos.
+Backend em FastAPI para controle financeiro pessoal: ingestão de extratos, categorização, análise determinística e interface administrativa web para revisão e correção dos lançamentos.
 
-## PropÃ³sito
-- importar extratos bancÃ¡rios e faturas
-- categorizar transaÃ§Ãµes
-- permitir correÃ§Ãµes manuais via `/admin`
-- gerar anÃ¡lise financeira e payload para fluxo com Make/LLM
+## Propósito
+- importar extratos bancários e faturas
+- categorizar transações
+- permitir correções manuais via `/admin`
+- gerar análise financeira e payload para fluxo com Make/LLM
 
 ## Stack
 - Python 3.11
@@ -38,11 +38,11 @@ docker compose up --build -d
 - Admin UI: `http://localhost:8000/admin`
 - Health: `http://localhost:8000/health`
 
-ObservaÃ§Ãµes:
+Observações:
 - o app aplica migrations automaticamente no startup
-- o Bearer token da API Ã© separado do login por senha da interface admin
+- o Bearer token da API é separado do login por senha da interface admin
 
-## AutenticaÃ§Ã£o
+## Autenticação
 - API protegida: `Authorization: Bearer <API_TOKEN>`
 - Admin UI:
   - login em `/admin/login`
@@ -59,19 +59,19 @@ ObservaÃ§Ãµes:
 - `GET /health`
 
 ## Testes
-SuÃ­te completa:
+Suíte completa:
 
 ```bash
 docker compose exec app pytest -q
 ```
 
-ValidaÃ§Ã£o completa do zero, com reset local, boot, testes, login admin, ingestÃ£o OFX e `analysis/llm-email`:
+Validação completa do zero, com reset local, boot, testes, login admin, ingestão OFX e `analysis/llm-email`:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\validate_local_reset.ps1
 ```
 
-Atalhos Ãºteis:
+Atalhos úteis:
 
 ```bash
 make up
@@ -80,9 +80,9 @@ make logs
 make test
 ```
 
-## Faturas de CartÃ£o no MVP
-- cadastre primeiro um cartÃ£o na home do admin em `/admin`
-- depois envie um arquivo CSV do ItaÃº junto com os campos obrigatÃ³rios:
+## Faturas de Cartão no MVP
+- cadastre primeiro um cartão na home do admin em `/admin`
+- depois envie um arquivo CSV do Itaú junto com os campos obrigatórios:
   - `card_id`
   - `billing_month`
   - `billing_year`
@@ -91,16 +91,17 @@ make test
 - campos opcionais:
   - `closing_date`
   - `notes`
-- o upload da fatura Ã© manual, um arquivo por vez, com `multipart/form-data`
+- o upload da fatura é manual, um arquivo por vez, com `multipart/form-data`
 - o sistema bloqueia:
   - reenvio do mesmo arquivo
-  - outra fatura para o mesmo cartÃ£o e competÃªncia
-  - estrutura invÃ¡lida do CSV
+  - outra fatura para o mesmo cartão e competência
+  - estrutura inválida do CSV
 
 ## Admin de Faturas
 - listagem operacional: `/admin/credit-card-invoices`
 - detalhe da fatura: `/admin/credit-card-invoices/<invoice_id>`
 - a home do admin em `/admin` também mostra as últimas faturas importadas com link para o detalhe
+
 ## Desenvolvimento
 Parar a stack:
 
@@ -114,8 +115,8 @@ Parar e zerar o banco local:
 docker compose down -v
 ```
 
-## ProduÃ§Ã£o
-VariÃ¡veis recomendadas:
+## Produção
+Variáveis recomendadas:
 
 ```env
 ENVIRONMENT=prod
@@ -136,13 +137,12 @@ ADMIN_UI_SESSION_SECRET=segredo-longo-e-aleatorio
   - `ADMIN_UI_SESSION_SECRET`
   - `ENVIRONMENT=prod`
 
-O container jÃ¡ sobe com migrations antes da aplicaÃ§Ã£o:
+O container já sobe com migrations antes da aplicação:
 
 ```bash
 /bin/sh -c "python -m app.core.migrate && python -m app.run"
 ```
 
-ApÃ³s deploy:
+Após deploy:
 - API: `https://<seu-servico>.onrender.com`
 - Admin UI: `https://<seu-servico>.onrender.com/admin`
-
