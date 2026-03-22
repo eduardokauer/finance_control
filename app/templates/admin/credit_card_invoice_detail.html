@@ -24,7 +24,7 @@
       <div class="subtle">Competência</div><div>{{ "%02d/%04d"|format(detail.invoice.billing_month, detail.invoice.billing_year) }}</div>
       <div class="subtle">Vencimento</div><div>{{ detail.invoice.due_date }}</div>
       <div class="subtle">Fechamento</div><div>{{ detail.invoice.closing_date or '-' }}</div>
-      <div class="subtle">Valor total</div><div>R$ {{ "%.2f"|format(detail.invoice.total_amount_brl) }}</div>
+      <div class="subtle">Valor total informado</div><div>R$ {{ "%.2f"|format(detail.invoice.total_amount_brl) }}</div>
       <div class="subtle">Status</div><div><span class="badge {{ status_variant(detail.invoice.import_status) }}">{{ detail.invoice.import_status }}</span></div>
       <div class="subtle">Arquivo</div><div>{{ detail.invoice.source_file_name }}</div>
       <div class="subtle">Hash</div><div><code>{{ detail.invoice.source_file_hash }}</code></div>
@@ -39,10 +39,14 @@
     <h2>Resumo</h2>
     <div class="kv-grid">
       <div class="subtle">Quantidade de lançamentos</div><div>{{ detail.item_count }}</div>
-      <div class="subtle">Soma dos itens</div><div>R$ {{ "%.2f"|format(detail.items_total_brl) }}</div>
-      <div class="subtle">Diferença para total</div><div class="{{ 'amount-negative' if difference_brl < 0 else 'amount-positive' if difference_brl > 0 else '' }}">R$ {{ "%.2f"|format(difference_brl) }}</div>
+      <div class="subtle">Total de cobranças</div><div>R$ {{ "%.2f"|format(detail.summary.charge_total_brl) }}</div>
+      <div class="subtle">Total de créditos/descontos</div><div>R$ {{ "%.2f"|format(detail.summary.credit_total_brl) }}</div>
+      <div class="subtle">Total de pagamentos identificados</div><div>R$ {{ "%.2f"|format(detail.summary.payment_total_brl) }}</div>
+      <div class="subtle">Total composto da fatura</div><div>R$ {{ "%.2f"|format(detail.summary.composed_total_brl) }}</div>
+      <div class="subtle">Diferença para o total informado</div><div class="{{ 'amount-negative' if detail.summary.difference_to_invoice_total_brl < 0 else 'amount-positive' if detail.summary.difference_to_invoice_total_brl > 0 else '' }}">R$ {{ "%.2f"|format(detail.summary.difference_to_invoice_total_brl) }}</div>
+      <div class="subtle">Soma bruta de todos os itens</div><div>R$ {{ "%.2f"|format(detail.summary.items_total_brl) }}</div>
     </div>
-    <div class="subtle">Estrutura pronta para os status: imported, pending_review, conciliated e conflict.</div>
+    <div class="subtle">Itens classificados como <code>payment</code> são técnicos/financeiros e não entram no total composto da fatura.</div>
   </div>
 </section>
 
@@ -55,6 +59,7 @@
           <tr>
             <th>purchase_date</th>
             <th>description_raw</th>
+            <th>item_type</th>
             <th>amount_brl</th>
             <th>is_installment</th>
             <th>installment_current</th>
@@ -63,15 +68,16 @@
           </tr>
         </thead>
         <tbody>
-          {% for item in detail.items %}
+          {% for item_detail in detail.items %}
             <tr>
-              <td>{{ item.purchase_date }}</td>
-              <td>{{ item.description_raw }}</td>
-              <td>R$ {{ "%.2f"|format(item.amount_brl) }}</td>
-              <td>{{ 'sim' if item.is_installment else 'não' }}</td>
-              <td>{{ item.installment_current or '-' }}</td>
-              <td>{{ item.installment_total or '-' }}</td>
-              <td>{{ item.derived_note or '-' }}</td>
+              <td>{{ item_detail.item.purchase_date }}</td>
+              <td>{{ item_detail.item.description_raw }}</td>
+              <td><span class="badge">{{ item_detail.item_type }}</span></td>
+              <td>R$ {{ "%.2f"|format(item_detail.item.amount_brl) }}</td>
+              <td>{{ 'sim' if item_detail.item.is_installment else 'não' }}</td>
+              <td>{{ item_detail.item.installment_current or '-' }}</td>
+              <td>{{ item_detail.item.installment_total or '-' }}</td>
+              <td>{{ item_detail.item.derived_note or '-' }}</td>
             </tr>
           {% endfor %}
         </tbody>
