@@ -826,6 +826,7 @@ def _build_row_hash(
     card_id: int,
     billing_year: int,
     billing_month: int,
+    row_position: int,
     purchase_date: date,
     description_raw: str,
     amount_brl: Decimal,
@@ -838,6 +839,7 @@ def _build_row_hash(
                 str(card_id),
                 str(billing_year),
                 str(billing_month),
+                str(row_position),
                 purchase_date.isoformat(),
                 description_raw.strip(),
                 f"{amount_brl:.2f}",
@@ -884,7 +886,6 @@ def import_credit_card_bill(
         raise CreditCardBillConflictError("Conflito: ja existe uma fatura para este cartao e competencia.")
 
     items = parse_itau_credit_card_csv(raw_content)
-    seen_row_hashes: set[str] = set()
 
     try:
         source_file = SourceFile(
@@ -916,20 +917,18 @@ def import_credit_card_bill(
         db.add(invoice)
         db.flush()
 
-        for item in items:
+        for row_position, item in enumerate(items, start=1):
             row_hash = _build_row_hash(
                 card_id=card.id,
                 billing_year=upload_input.billing_year,
                 billing_month=upload_input.billing_month,
+                row_position=row_position,
                 purchase_date=item["purchase_date"],
                 description_raw=item["description_raw"],
                 amount_brl=item["amount_brl"],
                 installment_current=item["installment_current"],
                 installment_total=item["installment_total"],
             )
-            if row_hash in seen_row_hashes:
-                raise CreditCardBillError("Estrutura invalida: linha duplicada dentro da fatura.")
-            seen_row_hashes.add(row_hash)
             db.add(
                 CreditCardInvoiceItem(
                     invoice_id=invoice.id,
