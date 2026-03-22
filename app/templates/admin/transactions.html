@@ -1,4 +1,4 @@
-{% extends "admin/base.html" %}
+﻿{% extends "admin/base.html" %}
 {% block title %}Lançamentos{% endblock %}
 {% block content %}
 <details class="card accordion">
@@ -108,37 +108,60 @@
     </div>
   </details>
 
-  <div class="card-list">
-    {% for tx in transactions %}
-      <article class="card tx-card">
-        <header>
-          <div>
-            <div class="inline">
-              <input type="checkbox" name="selected_ids" value="{{ tx.id }}" style="width:auto;">
-              <strong>{{ tx.transaction_date }}</strong>
-              {% if tx.category == 'Não Categorizado' or tx.category == 'NÃ£o Categorizado' %}
-                <span class="badge warn">não categorizado</span>
-              {% endif %}
-            </div>
-            <div>
-              <a href="/admin/transactions/{{ tx.id }}?return_to={{ encoded_current_url }}" style="text-decoration:none;">
-                <strong>{{ tx.description_raw }}</strong>
-              </a>
-            </div>
-            <div class="subtle">{{ tx.source_type }} · {{ tx.category }} · {{ tx.transaction_kind }}</div>
-            {% if tx.manual_notes %}
-              <div class="subtle"><strong>Observação:</strong> {{ tx.manual_notes }}</div>
-            {% endif %}
-          </div>
-          <div class="{% if tx.amount < 0 %}amount-negative{% else %}amount-positive{% endif %}">{{ '%.2f'|format(tx.amount) }}</div>
-        </header>
-      </article>
-    {% else %}
+  {% if transactions %}
+    <div class="card stack">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>data</th>
+              <th>descrição</th>
+              <th>origem</th>
+              <th>categoria</th>
+              <th>tipo</th>
+              <th>valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for tx in transactions %}
+              <tr>
+                <td>
+                  <input type="checkbox" name="selected_ids" value="{{ tx.id }}" style="width:auto;">
+                </td>
+                <td>
+                  <strong>{{ tx.transaction_date }}</strong>
+                </td>
+                <td>
+                  <a href="/admin/transactions/{{ tx.id }}?return_to={{ encoded_current_url }}" style="text-decoration:none;">
+                    <strong>{{ tx.description_raw }}</strong>
+                  </a>
+                  {% if tx.category == 'Não Categorizado' or tx.category == 'NÃ£o Categorizado' or tx.category == 'NÃƒÂ£o Categorizado' %}
+                    <div style="margin-top:6px;"><span class="badge warn">não categorizado</span></div>
+                  {% endif %}
+                  {% if tx.manual_notes %}
+                    <div class="subtle" style="margin-top:6px;"><strong>Observação:</strong> {{ tx.manual_notes }}</div>
+                  {% endif %}
+                </td>
+                <td class="subtle">{{ tx.source_type }}</td>
+                <td>{{ tx.category }}</td>
+                <td><span class="badge">{{ tx.transaction_kind }}</span></td>
+                <td class="{% if tx.amount < 0 %}amount-negative{% else %}amount-positive{% endif %}">
+                  {{ '%.2f'|format(tx.amount) }}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    <div class="card">
       <div class="subtle">
         Nenhum lançamento encontrado no período padrão ou com os filtros escolhidos. Ajuste os filtros acima para buscar outro intervalo.
       </div>
-    {% endfor %}
-  </div>
+    </div>
+  {% endif %}
 </form>
 
 {% if pagination.has_more %}
@@ -147,4 +170,3 @@
   </div>
 {% endif %}
 {% endblock %}
-
