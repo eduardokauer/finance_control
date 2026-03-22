@@ -309,6 +309,64 @@ def test_list_invoice_payment_candidates_orders_strongest_signals_first(db_sessi
     assert candidates[3].fit_label == "candidato_fraco"
     assert candidates[3].strength_label == "fraca"
 
+
+def test_candidate_with_weak_value_and_very_close_date_stays_fraca(db_session):
+    invoice = _create_invoice(
+        db_session,
+        item_specs=[
+            ("COMPRA A", "180.00"),
+            ("COMPRA B", "100.00"),
+            ("DESCONTO NA FATURA - PO", "-30.00"),
+        ],
+    )
+    conciliation = ensure_credit_card_invoice_conciliation(db_session, invoice_id=invoice.id)
+
+    weak_close = _add_bank_transaction(
+        db_session,
+        tx_key="weak-close-date",
+        tx_date=date(2026, 3, 20),
+        description="PAGAMENTO CARTAO",
+        normalized="pagamento cartao",
+        amount=-180.0,
+        is_card_bill_payment=False,
+    )
+
+    candidates = list_invoice_payment_candidates(db_session, invoice=invoice, conciliation=conciliation)
+    candidate = next(candidate for candidate in candidates if candidate.transaction.id == weak_close.id)
+
+    assert candidate.fit_label == "candidato_fraco"
+    assert candidate.date_signal == "muito_proximo_vencimento"
+    assert candidate.strength_label == "fraca"
+
+
+def test_candidate_with_weak_value_and_strong_description_stays_fraca(db_session):
+    invoice = _create_invoice(
+        db_session,
+        item_specs=[
+            ("COMPRA A", "180.00"),
+            ("COMPRA B", "100.00"),
+            ("DESCONTO NA FATURA - PO", "-30.00"),
+        ],
+    )
+    conciliation = ensure_credit_card_invoice_conciliation(db_session, invoice_id=invoice.id)
+
+    weak_strong_description = _add_bank_transaction(
+        db_session,
+        tx_key="weak-strong-description",
+        tx_date=date(2026, 3, 24),
+        description="PAGAMENTO FATURA ITAUCARD",
+        normalized="pagamento fatura itaucard",
+        amount=-180.0,
+        is_card_bill_payment=True,
+    )
+
+    candidates = list_invoice_payment_candidates(db_session, invoice=invoice, conciliation=conciliation)
+    candidate = next(candidate for candidate in candidates if candidate.transaction.id == weak_strong_description.id)
+
+    assert candidate.fit_label == "candidato_fraco"
+    assert candidate.description_signal == "descricao_forte"
+    assert candidate.strength_label == "fraca"
+
 def test_reconcile_invoice_payments_supports_single_and_multiple_links(db_session):
     invoice = _create_invoice(
         db_session,

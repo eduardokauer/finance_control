@@ -470,9 +470,7 @@ def _candidate_strength_label(
         return "muito_forte"
     if fit_label == "match_total":
         return "forte"
-    if fit_label == "proximo_do_saldo" or description_signal == "descricao_forte":
-        return "boa"
-    if date_signal == "muito_proximo_vencimento":
+    if fit_label == "proximo_do_saldo":
         return "boa"
     return "fraca"
 
