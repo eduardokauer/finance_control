@@ -148,7 +148,7 @@ def test_ensure_invoice_conciliation_creates_header_and_auto_credit_items(db_ses
     conciliation = ensure_credit_card_invoice_conciliation(db_session, invoice_id=invoice.id)
 
     assert conciliation is not None
-    assert conciliation.status == "pending_review"
+    assert conciliation.status == "partially_conciliated"
     assert conciliation.gross_amount_brl == Decimal("200.00")
     assert conciliation.invoice_credit_total_brl == Decimal("50.00")
     assert conciliation.bank_payment_total_brl == Decimal("0.00")
@@ -164,6 +164,27 @@ def test_ensure_invoice_conciliation_creates_header_and_auto_credit_items(db_ses
     assert items[0].item_type == "invoice_credit"
     assert items[0].amount_brl == Decimal("50.00")
 
+
+
+def test_invoice_credit_only_marks_invoice_as_partially_conciliated(db_session):
+    invoice = _create_invoice(
+        db_session,
+        item_specs=[
+            ("COMPRA A", "180.00"),
+            ("COMPRA B", "100.00"),
+            ("DESCONTO NA FATURA - PO", "-30.00"),
+        ],
+    )
+
+    conciliation = ensure_credit_card_invoice_conciliation(db_session, invoice_id=invoice.id)
+
+    assert conciliation is not None
+    assert conciliation.gross_amount_brl == Decimal("280.00")
+    assert conciliation.invoice_credit_total_brl == Decimal("30.00")
+    assert conciliation.bank_payment_total_brl == Decimal("0.00")
+    assert conciliation.conciliated_total_brl == Decimal("30.00")
+    assert conciliation.remaining_balance_brl == Decimal("250.00")
+    assert conciliation.status == "partially_conciliated"
 
 def test_list_invoice_payment_candidates_filters_statement_transactions(db_session):
     invoice = _create_invoice(
@@ -317,7 +338,7 @@ def test_unlink_invoice_payment_recomputes_balance_and_status(db_session):
         conciliation_item_id=bank_item.id,
     )
 
-    assert updated.status == "pending_review"
+    assert updated.status == "partially_conciliated"
     assert updated.bank_payment_total_brl == Decimal("0.00")
     assert updated.invoice_credit_total_brl == Decimal("20.00")
     assert updated.conciliated_total_brl == Decimal("20.00")
@@ -341,3 +362,5 @@ def test_invoice_payment_items_are_not_used_as_official_conciliation_source(db_s
     assert detail.conciliation_summary.conciliated_total_brl == Decimal("0.00")
     assert detail.conciliation_summary.remaining_balance_brl == Decimal("300.00")
     assert all(item.conciliation_item.item_type != "bank_payment" for item in detail.conciliation_items)
+
+

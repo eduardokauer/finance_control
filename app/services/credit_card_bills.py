@@ -382,7 +382,7 @@ def _recalculate_conciliation(
         status = "conflict"
     elif remaining_balance_brl == Decimal("0.00") and conciliated_total_brl > Decimal("0.00"):
         status = "conciliated"
-    elif bank_payment_total_brl > Decimal("0.00") and remaining_balance_brl > Decimal("0.00"):
+    elif conciliated_total_brl > Decimal("0.00") and remaining_balance_brl > Decimal("0.00"):
         status = "partially_conciliated"
     else:
         status = "pending_review"
@@ -822,4 +822,5 @@ def import_credit_card_bill(
     except Exception:
         db.rollback()
         raise
+
 
