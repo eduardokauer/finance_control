@@ -261,6 +261,48 @@ def test_credit_card_invoice_upload_accepts_current_real_csv_layout(
     assert items[1].amount_brl == Decimal("-646.28")
 
 
+def test_credit_card_invoice_upload_allows_duplicate_rows_within_same_file(
+    client,
+    db_session,
+    auth_headers,
+    tmp_path,
+):
+    card = _create_card(db_session)
+    duplicate_rows_file = tmp_path / "fatura_com_linhas_iguais.csv"
+    duplicate_rows_file.write_text(
+        "data;lançamento;valor\n"
+        "11/08/2025;ZONA AZUL BARUERI;2,00\n"
+        "11/08/2025;ZONA AZUL BARUERI;2,00\n",
+        encoding="utf-8",
+    )
+
+    response = _upload_invoice(
+        client,
+        auth_headers,
+        card.id,
+        duplicate_rows_file,
+        billing_month=9,
+        billing_year=2025,
+        due_date="2025-09-07",
+        total_amount_brl="4.00",
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "processed"
+    assert body["imported_items"] == 2
+
+    items = db_session.scalars(select(CreditCardInvoiceItem).order_by(CreditCardInvoiceItem.id)).all()
+    assert len(items) == 2
+    assert items[0].purchase_date == date(2025, 8, 11)
+    assert items[1].purchase_date == date(2025, 8, 11)
+    assert items[0].description_raw == "ZONA AZUL BARUERI"
+    assert items[1].description_raw == "ZONA AZUL BARUERI"
+    assert items[0].amount_brl == Decimal("2.00")
+    assert items[1].amount_brl == Decimal("2.00")
+    assert items[0].external_row_hash != items[1].external_row_hash
+
+
 def test_credit_card_invoice_upload_accepts_real_fixture_file(
     client,
     db_session,
