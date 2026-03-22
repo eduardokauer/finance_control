@@ -1,4 +1,4 @@
-﻿from datetime import date
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -239,6 +239,76 @@ def test_list_invoice_payment_candidates_filters_statement_transactions(db_sessi
     assert [candidate.transaction.id for candidate in candidates] == [good.id]
 
 
+
+def test_list_invoice_payment_candidates_orders_strongest_signals_first(db_session):
+    invoice = _create_invoice(
+        db_session,
+        item_specs=[
+            ("COMPRA A", "180.00"),
+            ("COMPRA B", "100.00"),
+            ("DESCONTO NA FATURA - PO", "-30.00"),
+        ],
+    )
+    invoice.total_amount_brl = Decimal("220.00")
+    db_session.commit()
+    db_session.refresh(invoice)
+    conciliation = ensure_credit_card_invoice_conciliation(db_session, invoice_id=invoice.id)
+
+    exact_remaining = _add_bank_transaction(
+        db_session,
+        tx_key="rank-remaining",
+        tx_date=date(2026, 3, 20),
+        description="PAGAMENTO FATURA ITAUCARD",
+        normalized="pagamento fatura itaucard",
+        amount=-250.0,
+        is_card_bill_payment=True,
+    )
+    exact_total = _add_bank_transaction(
+        db_session,
+        tx_key="rank-total",
+        tx_date=date(2026, 3, 19),
+        description="PAGAMENTO FATURA CARTAO ITAU",
+        normalized="pagamento fatura cartao itau",
+        amount=-220.0,
+        is_card_bill_payment=True,
+    )
+    near_remaining = _add_bank_transaction(
+        db_session,
+        tx_key="rank-near",
+        tx_date=date(2026, 3, 18),
+        description="PAGAMENTO FATURA ITAUCARD",
+        normalized="pagamento fatura itaucard",
+        amount=-247.0,
+        is_card_bill_payment=True,
+    )
+    weak = _add_bank_transaction(
+        db_session,
+        tx_key="rank-weak",
+        tx_date=date(2026, 4, 18),
+        description="PAGAMENTO CARTAO",
+        normalized="pagamento cartao",
+        amount=-180.0,
+        is_card_bill_payment=False,
+    )
+
+    candidates = list_invoice_payment_candidates(db_session, invoice=invoice, conciliation=conciliation)
+
+    assert [candidate.transaction.id for candidate in candidates[:4]] == [
+        exact_remaining.id,
+        exact_total.id,
+        near_remaining.id,
+        weak.id,
+    ]
+    assert candidates[0].fit_label == "match_saldo"
+    assert candidates[0].strength_label == "muito_forte"
+    assert candidates[0].description_signal == "descricao_forte"
+    assert candidates[1].fit_label == "match_total"
+    assert candidates[1].strength_label == "forte"
+    assert candidates[2].fit_label == "proximo_do_saldo"
+    assert candidates[2].strength_label == "boa"
+    assert candidates[3].fit_label == "candidato_fraco"
+    assert candidates[3].strength_label == "fraca"
+
 def test_reconcile_invoice_payments_supports_single_and_multiple_links(db_session):
     invoice = _create_invoice(
         db_session,
@@ -362,5 +432,7 @@ def test_invoice_payment_items_are_not_used_as_official_conciliation_source(db_s
     assert detail.conciliation_summary.conciliated_total_brl == Decimal("0.00")
     assert detail.conciliation_summary.remaining_balance_brl == Decimal("300.00")
     assert all(item.conciliation_item.item_type != "bank_payment" for item in detail.conciliation_items)
+
+
 
 

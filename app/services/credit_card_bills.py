@@ -98,6 +98,19 @@ class CreditCardInvoicePaymentCandidate:
     amount_gap_brl: Decimal
     days_from_due_date: int
     fit_label: str
+    strength_label: str
+    description_signal: str
+    date_signal: str
+    sort_priority: int
+
+
+@dataclass
+class CreditCardInvoiceCandidateOverview:
+    available_count: int
+    linked_elsewhere_count: int
+    strong_count: int
+    weak_count: int
+    summary_text: str
 
 
 @dataclass
@@ -122,6 +135,7 @@ class CreditCardInvoiceDetail:
     conciliation_summary: CreditCardInvoiceConciliationSummary
     conciliation_items: list[CreditCardInvoiceConciliationItemDetail]
     payment_candidates: list[CreditCardInvoicePaymentCandidate]
+    candidate_overview: CreditCardInvoiceCandidateOverview
 
 
 def _quantize(value: Decimal) -> Decimal:
@@ -421,6 +435,98 @@ def _load_conciliation_item_details(
     ]
 
 
+def _candidate_description_signal(transaction: Transaction, invoice: CreditCardInvoice) -> str:
+    description = transaction.description_normalized or normalize_description(transaction.description_raw or "")
+    issuer = normalize_description(invoice.issuer or "")
+    if transaction.is_card_bill_payment or ("pagamento" in description and "fatura" in description):
+        return "descricao_forte"
+    if "itaucard" in description or ("pagamento" in description and ("cartao" in description or "card" in description)):
+        return "descricao_media"
+    if issuer and issuer in description:
+        return "descricao_media"
+    return "descricao_basica"
+
+
+
+def _candidate_date_signal(days_from_due_date: int) -> str:
+    if days_from_due_date <= 3:
+        return "muito_proximo_vencimento"
+    if days_from_due_date <= 7:
+        return "proximo_vencimento"
+    return "distante_vencimento"
+
+
+
+def _candidate_strength_label(
+    *,
+    fit_label: str,
+    description_signal: str,
+    date_signal: str,
+    linked_invoice_id: int | None,
+) -> str:
+    if linked_invoice_id is not None:
+        return "indisponivel"
+    if fit_label == "match_saldo":
+        return "muito_forte"
+    if fit_label == "match_total":
+        return "forte"
+    if fit_label == "proximo_do_saldo" or description_signal == "descricao_forte":
+        return "boa"
+    if date_signal == "muito_proximo_vencimento":
+        return "boa"
+    return "fraca"
+
+
+
+def _candidate_sort_priority(candidate: CreditCardInvoicePaymentCandidate) -> tuple:
+    fit_rank = {
+        "match_saldo": 0,
+        "match_total": 1,
+        "proximo_do_saldo": 2,
+        "candidato": 3,
+        "candidato_fraco": 4,
+    }.get(candidate.fit_label, 5)
+    description_rank = {
+        "descricao_forte": 0,
+        "descricao_media": 1,
+        "descricao_basica": 2,
+    }.get(candidate.description_signal, 3)
+    return (
+        1 if candidate.linked_invoice_id is not None else 0,
+        candidate.sort_priority,
+        fit_rank,
+        description_rank,
+        candidate.amount_gap_brl,
+        candidate.days_from_due_date,
+        -candidate.transaction.id,
+    )
+
+
+
+def build_invoice_candidate_overview(candidates: list[CreditCardInvoicePaymentCandidate]) -> CreditCardInvoiceCandidateOverview:
+    available_candidates = [candidate for candidate in candidates if candidate.linked_invoice_id is None]
+    linked_elsewhere_count = len([candidate for candidate in candidates if candidate.linked_invoice_id is not None])
+    strong_count = len([candidate for candidate in available_candidates if candidate.strength_label in {"muito_forte", "forte", "boa"}])
+    weak_count = len([candidate for candidate in available_candidates if candidate.strength_label == "fraca"])
+
+    summary_text = "Os sinais ajudam a revisão, mas a decisão continua manual."
+    if any(candidate.fit_label == "match_saldo" for candidate in available_candidates):
+        summary_text = "Existe candidato que bate exatamente com o saldo restante."
+    elif any(candidate.fit_label == "match_total" for candidate in available_candidates):
+        summary_text = "Existe candidato que bate com o total informado da fatura."
+    elif any(candidate.fit_label == "proximo_do_saldo" for candidate in available_candidates):
+        summary_text = "Existe candidato próximo do saldo restante, mas a decisão continua manual."
+
+    return CreditCardInvoiceCandidateOverview(
+        available_count=len(available_candidates),
+        linked_elsewhere_count=linked_elsewhere_count,
+        strong_count=strong_count,
+        weak_count=weak_count,
+        summary_text=summary_text,
+    )
+
+
+
 def list_invoice_payment_candidates(
     db: Session,
     *,
@@ -454,6 +560,7 @@ def list_invoice_payment_candidates(
     ).all()
 
     candidates: list[CreditCardInvoicePaymentCandidate] = []
+    invoice_total_brl = _quantize(invoice.total_amount_brl)
     for transaction, linked_invoice_id in rows:
         if not _looks_like_invoice_payment(transaction, invoice):
             continue
@@ -464,12 +571,28 @@ def list_invoice_payment_candidates(
         days_from_due_date = abs((transaction.transaction_date - invoice.due_date).days)
         if amount_brl == conciliation.remaining_balance_brl:
             fit_label = "match_saldo"
-        elif amount_brl == _quantize(invoice.total_amount_brl):
+        elif amount_brl == invoice_total_brl:
             fit_label = "match_total"
         elif amount_gap_brl <= Decimal("5.00"):
             fit_label = "proximo_do_saldo"
         else:
-            fit_label = "candidato"
+            fit_label = "candidato_fraco" if amount_gap_brl > Decimal("25.00") else "candidato"
+
+        description_signal = _candidate_description_signal(transaction, invoice)
+        date_signal = _candidate_date_signal(days_from_due_date)
+        strength_label = _candidate_strength_label(
+            fit_label=fit_label,
+            description_signal=description_signal,
+            date_signal=date_signal,
+            linked_invoice_id=linked_invoice_id,
+        )
+        sort_priority = {
+            "muito_forte": 0,
+            "forte": 1,
+            "boa": 2,
+            "fraca": 3,
+            "indisponivel": 4,
+        }[strength_label]
         candidates.append(
             CreditCardInvoicePaymentCandidate(
                 transaction=transaction,
@@ -477,18 +600,16 @@ def list_invoice_payment_candidates(
                 amount_gap_brl=amount_gap_brl,
                 days_from_due_date=days_from_due_date,
                 fit_label=fit_label,
+                strength_label=strength_label,
+                description_signal=description_signal,
+                date_signal=date_signal,
+                sort_priority=sort_priority,
             )
         )
 
-    candidates.sort(
-        key=lambda candidate: (
-            1 if candidate.linked_invoice_id is not None else 0,
-            candidate.amount_gap_brl,
-            candidate.days_from_due_date,
-            -candidate.transaction.id,
-        )
-    )
+    candidates.sort(key=_candidate_sort_priority)
     return candidates
+
 
 
 def ensure_credit_card_invoice_conciliation(
@@ -521,6 +642,7 @@ def get_credit_card_invoice_detail(db: Session, *, invoice_id: int) -> CreditCar
     summary = _build_invoice_summary(item_details=item_details, invoice_total_brl=invoice.total_amount_brl)
     conciliation_items = _load_conciliation_item_details(db, conciliation_id=conciliation.id)
     payment_candidates = list_invoice_payment_candidates(db, invoice=invoice, conciliation=conciliation)
+    candidate_overview = build_invoice_candidate_overview(payment_candidates)
 
     return CreditCardInvoiceDetail(
         invoice=invoice,
@@ -540,6 +662,7 @@ def get_credit_card_invoice_detail(db: Session, *, invoice_id: int) -> CreditCar
         ),
         conciliation_items=conciliation_items,
         payment_candidates=payment_candidates,
+        candidate_overview=candidate_overview,
     )
 
 
@@ -822,5 +945,8 @@ def import_credit_card_bill(
     except Exception:
         db.rollback()
         raise
+
+
+
 
 
