@@ -1,4 +1,4 @@
-# Finance Control Backend
+﻿# Finance Control Backend
 
 Backend em FastAPI para controle financeiro pessoal: ingestão de extratos, categorização, análise determinística e interface administrativa web para revisão e correção dos lançamentos.
 
@@ -17,7 +17,7 @@ Backend em FastAPI para controle financeiro pessoal: ingestão de extratos, cate
 - Pytest
 - Docker
 
-## Ambiente Local
+## Ambiente local
 1. Copie `.env.example` para `.env`
 2. Ajuste pelo menos:
 
@@ -48,7 +48,7 @@ Observações:
   - login em `/admin/login`
   - senha definida por `ADMIN_UI_PASSWORD`
 
-## Endpoints Principais
+## Endpoints principais
 - `POST /ingest/bank-statement`
 - `POST /ingest/credit-card-bill`
 - `GET /transactions`
@@ -80,7 +80,7 @@ make logs
 make test
 ```
 
-## Faturas de Cartão no MVP
+## Faturas de cartão no MVP
 - cadastre primeiro um cartão na home do admin em `/admin`
 - depois envie um arquivo CSV do Itaú junto com os campos obrigatórios:
   - `card_id`
@@ -97,10 +97,25 @@ make test
   - outra fatura para o mesmo cartão e competência
   - estrutura inválida do CSV
 
-## Admin de Faturas
+## Admin de faturas
 - listagem operacional: `/admin/credit-card-invoices`
 - detalhe da fatura: `/admin/credit-card-invoices/<invoice_id>`
 - a home do admin em `/admin` também mostra as últimas faturas importadas com link para o detalhe
+
+## Conciliação manual assistida de faturas
+- a fonte oficial da liquidação é o extrato bancário, não o item `PAGAMENTO EFETUADO` dentro da própria fatura
+- a tela de detalhe da fatura mostra candidatos de pagamento do extrato em uma janela operacional de `due_date - 20 dias` até `due_date + 40 dias`
+- o usuário pode selecionar um ou mais pagamentos bancários para conciliar manualmente a fatura
+- descontos da própria fatura, como `DESCONTO NA FATURA`, entram automaticamente como `invoice_credit`
+- a tela mostra:
+  - total bruto de cobranças
+  - créditos técnicos da fatura
+  - pagamentos bancários conciliados
+  - total conciliado
+  - saldo restante
+  - status da conciliação
+- vínculos ativos podem ser desfeitos na própria tela de detalhe da fatura
+- uma transação bancária não pode ser conciliada em duas faturas diferentes
 
 ## Desenvolvimento
 Parar a stack:

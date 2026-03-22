@@ -1,12 +1,18 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
-from app.services.credit_card_bills import get_credit_card_invoice_detail, list_credit_card_invoices
+from app.services.credit_card_bills import (
+    CreditCardInvoiceConciliationError,
+    get_credit_card_invoice_detail,
+    list_credit_card_invoices,
+    reconcile_credit_card_invoice_bank_payments,
+    unlink_credit_card_invoice_bank_payment,
+)
 
 from .helpers import render_admin
 
@@ -17,6 +23,7 @@ def _status_variant(status: str) -> str:
     return {
         "imported": "ok",
         "pending_review": "warn",
+        "partially_conciliated": "warn",
         "conciliated": "ok",
         "conflict": "danger",
     }.get(status, "")
@@ -58,3 +65,69 @@ def admin_credit_card_invoice_detail(
             "status_variant": _status_variant,
         },
     )
+
+
+@router.post("/credit-card-invoices/{invoice_id}/conciliation")
+def admin_credit_card_invoice_reconcile(
+    invoice_id: int,
+    request: Request,
+    selected_transaction_ids: list[int] = Form(default=[]),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    try:
+        reconcile_credit_card_invoice_bank_payments(
+            db,
+            invoice_id=invoice_id,
+            bank_transaction_ids=selected_transaction_ids,
+        )
+    except CreditCardInvoiceConciliationError as exc:
+        detail = get_credit_card_invoice_detail(db, invoice_id=invoice_id)
+        if detail is None:
+            raise HTTPException(status_code=404, detail="Invoice not found") from exc
+        return render_admin(
+            request,
+            "admin/credit_card_invoice_detail.html",
+            {
+                "detail": detail,
+                "status_variant": _status_variant,
+                "conciliation_error": str(exc),
+            },
+            status_code=exc.status_code,
+        )
+
+    request.session["flash"] = "Conciliacao atualizada."
+    return RedirectResponse(url=f"/admin/credit-card-invoices/{invoice_id}", status_code=303)
+
+
+@router.post("/credit-card-invoices/{invoice_id}/conciliation/items/{conciliation_item_id}/unlink")
+def admin_credit_card_invoice_unlink_payment(
+    invoice_id: int,
+    conciliation_item_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    try:
+        unlink_credit_card_invoice_bank_payment(
+            db,
+            invoice_id=invoice_id,
+            conciliation_item_id=conciliation_item_id,
+        )
+    except CreditCardInvoiceConciliationError as exc:
+        detail = get_credit_card_invoice_detail(db, invoice_id=invoice_id)
+        if detail is None:
+            raise HTTPException(status_code=404, detail="Invoice not found") from exc
+        return render_admin(
+            request,
+            "admin/credit_card_invoice_detail.html",
+            {
+                "detail": detail,
+                "status_variant": _status_variant,
+                "conciliation_error": str(exc),
+            },
+            status_code=exc.status_code,
+        )
+
+    request.session["flash"] = "Vinculo de pagamento removido."
+    return RedirectResponse(url=f"/admin/credit-card-invoices/{invoice_id}", status_code=303)
