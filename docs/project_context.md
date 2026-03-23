@@ -1,26 +1,37 @@
 # Project Context: finance_control
 
+## Papel deste arquivo
+
+`docs/project_context.md` é a fonte de verdade viva do projeto. Este arquivo registra o contexto do produto, o estado atual do sistema, as decisões já fechadas, a operação atual, os próximos passos recomendados e as limitações reais.
+
+Arquivos complementares:
+- `docs/pm_workflow.md`: regras da LLM que atua como PM/guia.
+- `docs/codex_workflow.md`: regras do Codex como executor técnico.
+
+Ordem de leitura recomendada:
+- PM: ler `docs/project_context.md` e depois `docs/pm_workflow.md`.
+- Codex: ler `docs/project_context.md` e depois `docs/codex_workflow.md`.
+
 ## 1. Visão Geral do Projeto
 
 - **Nome:** `finance_control`
 - **Objetivo principal:** centralizar ingestão, categorização, operação assistida e análise mensal de finanças pessoais.
-- **Contexto de uso:** projeto pessoal para controle financeiro com foco em conta corrente, faturas de cartão e leitura mensal confiável.
+- **Contexto de uso:** projeto pessoal de controle financeiro com foco em conta corrente, faturas de cartão e leitura mensal confiável.
 - **Princípio do MVP:** priorizar fluxo operacional confiável, auditável e manualmente revisável antes de automações mais amplas.
 - **Premissas fixas já tomadas:**
   - OFX do Itaú é a fonte oficial do extrato da conta corrente no MVP.
   - CSV de fatura Itaú é o formato oficial de fatura no MVP.
-  - Extrato e fatura não têm o mesmo papel: extrato representa liquidação; fatura representa composição do gasto.
-  - Leitura bruta deve continuar disponível para auditoria.
-  - Leitura conciliada deve evoluir sem reclassificar fisicamente o domínio bruto.
+  - Extrato representa liquidação; fatura representa composição do gasto.
+  - Leitura bruta continua disponível para apoio e auditoria.
+  - Leitura conciliada evolui sem reclassificar fisicamente o domínio bruto.
   - Deduplicação precisa ser forte em ingestão e reprocessamento.
-  - `docs/project_context.md` passa a ser a fonte de verdade viva para continuidade do projeto.
 
 ## 2. Stack e Infraestrutura
 
 - **Backend:** Python 3.11+, FastAPI, SQLAlchemy, Jinja2 e HTMX.
-- **Banco:** PostgreSQL. Em produção, Supabase é usado como Postgres gerenciado. Em desenvolvimento local, a stack sobe Postgres via Docker Compose.
+- **Banco:** PostgreSQL. Em produção, Supabase é usado como Postgres gerenciado. Em desenvolvimento local, o banco sobe via Docker Compose.
 - **Deploy:** Render é a referência de deploy do backend.
-- **Automação externa do MVP:** Make, Google Forms e Google Drive fazem parte do contexto operacional do projeto para alimentar fluxos de ingestão, especialmente OFX.
+- **Automação externa do MVP:** Make, Google Forms e Google Drive fazem parte do contexto operacional do projeto para suportar fluxos do MVP, especialmente em torno de ingestão OFX.
 - **Ingestão:**
   - OFX via endpoint autenticado por bearer token.
   - Fatura CSV Itaú via endpoint autenticado por bearer token e também via admin.
@@ -32,13 +43,6 @@
   - `docker compose up --build -d` sobe `app` e `db`.
   - `Makefile` expõe atalhos básicos para subir stack e rodar testes.
 - **Testes:** `pytest`, com execução principal dentro do container.
-- **Serviços e componentes relevantes hoje:**
-  - FastAPI
-  - PostgreSQL / Supabase
-  - Render
-  - Docker Compose
-  - Makefile
-  - Google Forms / Google Drive / Make no contexto operacional do MVP
 
 ## 3. Estado Atual do Sistema
 
@@ -60,8 +64,8 @@
 - Exibição operacional da categoria dos itens de fatura no detalhe da fatura implementada.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
 - Deduplicação forte implementada:
-  - OFX usa controle por arquivo e transação canônica;
-  - fatura usa hash de arquivo e hash de linha por item importado.
+  - OFX usa controle por arquivo e transação canônica.
+  - Fatura usa hash de arquivo e hash de linha por item importado.
 
 ### Ainda não implementado
 
@@ -155,13 +159,6 @@
 - Alertas e ações recomendadas ainda não foram refeitos sobre a base categorial nova.
 - A análise LLM continua separada da análise determinística e não é a leitura principal do admin.
 
-### Riscos e limitações analíticas atuais
-
-- A visão categorial ainda é parcialmente ancorada no domínio bruto.
-- A nova base de categorias de itens de fatura ainda não alimenta toda a análise histórica.
-- A competência mensal continua conservadora e centrada na operação atual do MVP.
-- A visão bruta ainda é necessária para explicar diferenças entre liquidação e composição do gasto.
-
 ### Dependências para próximas evoluções
 
 - Operação manual segura de categoria dos itens de fatura.
@@ -210,7 +207,13 @@
 - A decisão de conciliação ainda é manual.
 - A leitura por categoria baseada em faturas ainda não foi promovida para o centro da análise.
 
-## 7. Próximos Passos Recomendados
+## 7. Próximo Passo Atual e Sequência Recomendada
+
+### Próximo passo atual do projeto
+
+- Implementar operação manual de categoria dos itens de fatura com preview de impacto e confirmação explícita antes de ampliar a leitura analítica por categoria.
+
+### Sequência recomendada a partir daqui
 
 1. Implementar operação manual de categoria dos itens de fatura com preview de impacto.
 2. Permitir aplicação de regra em itens de fatura com confirmação explícita.
@@ -226,39 +229,3 @@
 - A visão bruta ainda é necessária para auditoria.
 - A UI de faturas ainda não oferece edição manual pontual de categoria por item.
 - O MVP continua dependente do layout oficial de OFX Itaú e CSV Itaú já suportados.
-
-## 9. Regras de Trabalho Obrigatórias
-
-Estas regras devem ser seguidas em toda nova interação com Codex/LLM neste projeto.
-
-1. Antes de executar qualquer nova tarefa, ler `docs/project_context.md`.
-2. Preservar decisões já tomadas neste arquivo.
-3. Não reabrir discussões já fechadas sem motivo explícito do usuário.
-4. Sempre trabalhar com objetivo claro do PR e com fora de escopo explícito.
-5. Sempre definir DoD objetivo antes de concluir uma entrega.
-6. Sempre transformar itens relevantes do DoD em testes quando fizer sentido.
-7. Sempre atualizar `docs/project_context.md` ao final de cada PR que altere estado, decisão, operação ou fluxo relevante.
-8. Sempre revisar encoding, mojibake, BOM e formatação dos arquivos alterados.
-9. Sempre executar a suíte completa antes de considerar a entrega concluída.
-10. Só commitar e abrir PR depois de:
-    - DoD cumprido;
-    - contexto atualizado;
-    - suíte completa verde.
-11. Não abrir escopo sem alinhamento explícito.
-12. Não inventar funcionalidades como se já existissem.
-13. Manter a distinção entre domínio bruto, operação assistida e leitura analítica conciliada.
-
-## 10. Template Operacional para Futuros PRs
-
-Use este checklist mínimo em qualquer novo trabalho:
-
-1. Ler `docs/project_context.md`.
-2. Entender objetivo, restrições e fora de escopo do PR.
-3. Confirmar decisões já fechadas que não podem ser quebradas.
-4. Definir DoD explícito.
-5. Implementar somente o necessário.
-6. Atualizar ou adicionar testes coerentes com o DoD.
-7. Atualizar `docs/project_context.md` se o PR alterar contexto relevante.
-8. Revisar mojibake, BOM e formatação.
-9. Rodar a suíte completa.
-10. Só então fazer commit e abrir PR.
