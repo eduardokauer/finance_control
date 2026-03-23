@@ -97,14 +97,14 @@ def test_query_transactions_and_analysis(client, auth_headers, sample_ofx_file):
     assert runs.status_code == 200
     assert runs.headers["content-type"].startswith("application/json; charset=utf-8")
     raw_body = runs.content.decode("utf-8")
-    assert "determin" in raw_body
+    assert "Análise financeira determinística" in raw_body
     assert "01/03/2026 a 31/03/2026" in raw_body
-    assert "recomendadas" in raw_body
+    assert "Ações recomendadas" in raw_body
     html_output = runs.json()[0]["html_output"]
-    assert "determin" in html_output
+    assert "Análise financeira determinística" in html_output
     assert "<h1>" in html_output
     assert "</body></html>" in html_output
-    assert "recomendadas" in html_output
+    assert "Ações recomendadas" in html_output
     assert '<meta charset="UTF-8">' in html_output
 
 
@@ -258,6 +258,7 @@ def test_ingest_credit_card_bill_http_flow_uses_only_multipart_contract(
     assert str(captured["upload_input"].closing_date) == "2026-03-12"
     assert captured["upload_input"].total_amount_brl == Decimal("130.45")
     assert captured["upload_input"].notes == "Teste"
+
 
 
 

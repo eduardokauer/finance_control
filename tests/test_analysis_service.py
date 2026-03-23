@@ -137,8 +137,8 @@ def test_run_analysis_persists_snapshot_payload_and_html(db_session):
     assert payload["period"]["label"] == "01/03/2026 a 31/03/2026"
     assert payload["summary"]["transaction_count"] == 3
     assert len(payload["charts"]["monthly"]["labels"]) == 12
-    assert "determin" in run.html_output
-    assert "A" in run.html_output and "recomendadas" in run.html_output
+    assert "Análise financeira determinística" in run.html_output
+    assert "Ações recomendadas" in run.html_output
 
 
 def test_top_categories_of_month_are_ranked_by_expense_total(db_session):
@@ -192,3 +192,4 @@ def test_analysis_snapshot_exposes_conciliation_signals_without_changing_main_to
     assert snapshot["conciliation_signals"]["invoice_credit_total_brl"] == 100.0
     assert snapshot["conciliation_signals"]["invoices_by_status"]["conciliated"] == 1
     assert snapshot["technical_items"]["card_bill_total"] == 1300.0
+

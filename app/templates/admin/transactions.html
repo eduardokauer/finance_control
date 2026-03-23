@@ -1,11 +1,11 @@
-{% extends "admin/base.html" %}
-{% block title %}LanÃ§amentos{% endblock %}
+﻿{% extends "admin/base.html" %}
+{% block title %}Lançamentos{% endblock %}
 {% block content %}
 <details class="card accordion">
-  <summary>Revisar lanÃ§amentos</summary>
+  <summary>Revisar lançamentos</summary>
   <div class="accordion-body stack">
     <form method="get" action="/admin/transactions" class="grid grid-2">
-      <label>MÃªs fechado
+      <label>Mês fechado
         <input type="month" name="month" value="{{ filters.period_start.strftime('%Y-%m') }}">
       </label>
       <label>Categoria
@@ -22,7 +22,7 @@
       <label>Data final
         <input type="date" name="period_end" value="{{ filters.period_end }}">
       </label>
-      <label>Buscar descriÃ§Ã£o
+      <label>Buscar descrição
         <input type="text" name="description" value="{{ filters.description or '' }}" placeholder="Ex.: pix, uber, aluguel">
       </label>
       <label>Tipo
@@ -33,7 +33,7 @@
           {% endfor %}
         </select>
       </label>
-      <label>OrdenaÃ§Ã£o
+      <label>Ordenação
         <select name="sort">
           <option value="recent" {% if filters.sort == 'recent' %}selected{% endif %}>Mais recentes</option>
           <option value="amount_desc" {% if filters.sort == 'amount_desc' %}selected{% endif %}>Maior valor</option>
@@ -41,7 +41,7 @@
       </label>
       <label class="inline" style="margin-top:28px;">
         <input type="checkbox" name="uncategorized_only" value="true" {% if filters.uncategorized_only %}checked{% endif %} style="width:auto;">
-        Somente nÃ£o categorizados
+        Somente não categorizados
       </label>
       <div class="actions">
         <button type="submit" class="button button-primary">Aplicar filtros</button>
@@ -52,13 +52,13 @@
 
 <div class="card stack">
   <div class="subtle">
-    Mostrando {{ pagination.total }} lanÃ§amento(s) de {{ filters.period_start }} atÃ© {{ filters.period_end }}.
+    Mostrando {{ pagination.total }} lançamento(s) de {{ filters.period_start }} até {{ filters.period_end }}.
   </div>
 </div>
 
 <form method="post" action="/admin/transactions/bulk-apply" class="stack">
   <details class="card accordion">
-    <summary>EdiÃ§Ã£o em massa</summary>
+    <summary>Edição em massa</summary>
     <div class="accordion-body stack">
       <div class="grid grid-2">
         <label>Nova categoria
@@ -76,7 +76,7 @@
             <option value="transfer">transfer</option>
           </select>
         </label>
-        <label>PadrÃ£o opcional para salvar regra futura
+        <label>Padrão opcional para salvar regra futura
           <input type="text" name="rule_pattern" placeholder="Ex.: uber ou pix mercado pago">
         </label>
         <label>Modo do match da regra
@@ -86,8 +86,8 @@
           </select>
         </label>
       </div>
-      <label>ObservaÃ§Ã£o
-        <textarea name="notes" placeholder="Motivo da reclassificaÃ§Ã£o"></textarea>
+      <label>Observação
+        <textarea name="notes" placeholder="Motivo da reclassificação"></textarea>
       </label>
       <label class="inline">
         <input type="checkbox" name="save_rule" value="true" style="width:auto;">
@@ -102,8 +102,8 @@
           hx-post="/admin/transactions/bulk-preview"
           hx-include="closest form"
           hx-target="#bulk-preview"
-          hx-swap="innerHTML">PrÃ©-visualizar seleÃ§Ã£o</button>
-        <button type="submit" class="button button-primary" onclick="return confirm('Aplicar reclassificaÃ§Ã£o em massa?');">Aplicar aos selecionados</button>
+          hx-swap="innerHTML">Pré-visualizar seleção</button>
+        <button type="submit" class="button button-primary" onclick="return confirm('Aplicar reclassificação em massa?');">Aplicar aos selecionados</button>
       </div>
     </div>
   </details>
@@ -116,7 +116,7 @@
             <tr>
               <th></th>
               <th>data</th>
-              <th>descriÃ§Ã£o</th>
+              <th>descrição</th>
               <th>origem</th>
               <th>categoria</th>
               <th>tipo</th>
@@ -137,11 +137,11 @@
                   <a href="/admin/transactions/{{ tx.id }}?return_to={{ encoded_current_url }}" style="text-decoration:none;">
                     <strong>{{ tx.description_raw }}</strong>
                   </a>
-                  {% if tx.category == 'NÃ£o Categorizado' or tx.category == 'NÃƒÂ£o Categorizado' or tx.category == 'NÃƒÆ’Ã‚Â£o Categorizado' %}
-                    <div style="margin-top:6px;"><span class="badge warn">nÃ£o categorizado</span></div>
+                  {% if tx.category == 'Não Categorizado' or tx.category == 'Nao Categorizado' %}
+                    <div style="margin-top:6px;"><span class="badge warn">não categorizado</span></div>
                   {% endif %}
                   {% if tx.manual_notes %}
-                    <div class="subtle" style="margin-top:6px;"><strong>ObservaÃ§Ã£o:</strong> {{ tx.manual_notes }}</div>
+                    <div class="subtle" style="margin-top:6px;"><strong>Observação:</strong> {{ tx.manual_notes }}</div>
                   {% endif %}
                 </td>
                 <td class="subtle">{{ tx.source_type }}</td>
@@ -150,7 +150,7 @@
                 <td>
                   {% if tx.is_conciliated_bank_payment %}
                     <span class="badge warn">bank_payment conciliado</span>
-                    <div class="subtle" style="margin-top:6px;">{{ tx.conciliation_signal.card_label }} Â· {{ "%02d/%04d"|format(tx.conciliation_signal.billing_month, tx.conciliation_signal.billing_year) }} Â· status {{ tx.conciliation_signal.conciliation_status }}</div>
+                    <div class="subtle" style="margin-top:6px;">{{ tx.conciliation_signal.card_label }} · {{ "%02d/%04d"|format(tx.conciliation_signal.billing_month, tx.conciliation_signal.billing_year) }} · status {{ tx.conciliation_signal.conciliation_status }}</div>
                   {% else %}
                     <span class="subtle">-</span>
                   {% endif %}
@@ -167,7 +167,7 @@
   {% else %}
     <div class="card">
       <div class="subtle">
-        Nenhum lanÃ§amento encontrado no perÃ­odo padrÃ£o ou com os filtros escolhidos. Ajuste os filtros acima para buscar outro intervalo.
+        Nenhum lançamento encontrado no período padrão ou com os filtros escolhidos. Ajuste os filtros acima para buscar outro intervalo.
       </div>
     </div>
   {% endif %}

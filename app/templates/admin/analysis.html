@@ -1,5 +1,5 @@
-{% extends "admin/base.html" %}
-{% block title %}AnÃ¡lise{% endblock %}
+﻿{% extends "admin/base.html" %}
+{% block title %}Análise{% endblock %}
 {% block content %}
 <style>
   .analysis-grid {
@@ -78,25 +78,25 @@
 
 <div class="card stack">
   <div>
-    <h1 style="margin:0;">AnÃ¡lise do perÃ­odo</h1>
-    <div class="subtle">Escolha como definir o perÃ­odo e consulte a leitura financeira determinÃ­stica mais recente.</div>
+    <h1 style="margin:0;">Análise do período</h1>
+    <div class="subtle">Escolha como definir o período e consulte a leitura financeira determinística mais recente.</div>
   </div>
 
   <form method="get" action="/admin/analysis" class="stack" id="analysis-period-form">
     <input type="hidden" name="selection_mode" id="selection-mode-input" value="{{ selection_mode }}">
 
     <div class="inline" style="gap:8px;">
-      <button type="button" class="button period-tab {% if selection_mode == 'closed' %}button-primary{% endif %}" data-mode="closed">Ãšltimo mÃªs fechado</button>
-      <button type="button" class="button period-tab {% if selection_mode == 'month' %}button-primary{% endif %}" data-mode="month">MÃªs/ano</button>
+      <button type="button" class="button period-tab {% if selection_mode == 'closed' %}button-primary{% endif %}" data-mode="closed">Último mês fechado</button>
+      <button type="button" class="button period-tab {% if selection_mode == 'month' %}button-primary{% endif %}" data-mode="month">Mês/ano</button>
       <button type="button" class="button period-tab {% if selection_mode == 'custom' %}button-primary{% endif %}" data-mode="custom">Intervalo customizado</button>
     </div>
 
     <div id="panel-closed" class="period-panel stack" {% if selection_mode != 'closed' %}style="display:none;"{% endif %}>
-      <div class="subtle">PerÃ­odo selecionado: {{ latest_closed_start.strftime('%d/%m/%Y') }} a {{ latest_closed_end.strftime('%d/%m/%Y') }}</div>
+      <div class="subtle">Período selecionado: {{ latest_closed_start.strftime('%d/%m/%Y') }} a {{ latest_closed_end.strftime('%d/%m/%Y') }}</div>
     </div>
 
     <div id="panel-month" class="period-panel stack" {% if selection_mode != 'month' %}style="display:none;"{% endif %}>
-      <label>MÃªs/ano
+      <label>Mês/ano
         <input type="month" name="month" id="analysis-month-input" value="{{ month_value }}" {% if selection_mode != 'month' %}disabled{% endif %}>
       </label>
       <div class="subtle">Data inicial: <span id="month-start-text">{{ month_preview_start.strftime('%d/%m/%Y') }}</span></div>
@@ -113,7 +113,7 @@
     </div>
 
     <div class="actions">
-      <button type="submit" class="button button-primary" data-loading-button data-loading-label="Carregando anÃ¡lise...">Ver anÃ¡lise</button>
+      <button type="submit" class="button button-primary" data-loading-button data-loading-label="Carregando análise...">Ver análise</button>
     </div>
   </form>
 </div>
@@ -132,11 +132,11 @@
     <div class="metric-value {% if summary.balance < 0 %}amount-negative{% else %}amount-positive{% endif %}">{{ summary.balance_display }}</div>
   </div>
   <div class="card">
-    <div class="subtle">NÃ£o categorizado</div>
+    <div class="subtle">Não categorizado</div>
     <div class="metric-value">{{ summary.uncategorized_display }}</div>
   </div>
   <div class="card">
-    <div class="subtle">TransaÃ§Ãµes</div>
+    <div class="subtle">Transações</div>
     <div class="metric-value">{{ summary.transaction_count }}</div>
   </div>
 </section>
@@ -163,18 +163,18 @@
 <div class="card stack">
   <div class="inline" style="justify-content:space-between; align-items:flex-start;">
     <div>
-      <div><strong>PerÃ­odo:</strong> {{ analysis_data.period.label }}</div>
+      <div><strong>Período:</strong> {{ analysis_data.period.label }}</div>
       {% if analysis_run %}
-        <div class="subtle">Gerada em {{ analysis_run.created_at.strftime('%d/%m/%Y %H:%M') }} Â· status {{ analysis_run.status }} Â· modo {{ analysis_run.prompt }}</div>
+        <div class="subtle">Gerada em {{ analysis_run.created_at.strftime('%d/%m/%Y %H:%M') }} · status {{ analysis_run.status }} · modo {{ analysis_run.prompt }}</div>
       {% else %}
-        <div class="subtle">Ainda nÃ£o existe anÃ¡lise gerada para esse perÃ­odo.</div>
+        <div class="subtle">Ainda não existe análise gerada para esse período.</div>
       {% endif %}
     </div>
     <form method="post" action="/admin/analysis/run">
       <input type="hidden" name="period_start" value="{{ period_start }}">
       <input type="hidden" name="period_end" value="{{ period_end }}">
       <input type="hidden" name="return_to" value="/admin/analysis?period_start={{ period_start }}&period_end={{ period_end }}">
-      <button type="submit" class="button button-primary" data-loading-button data-loading-label="Gerando anÃ¡lise...">Gerar nova anÃ¡lise</button>
+      <button type="submit" class="button button-primary" data-loading-button data-loading-label="Gerando análise...">Gerar nova análise</button>
     </form>
   </div>
 
@@ -183,20 +183,20 @@
       <div class="card" style="margin-bottom:0;">
         <div class="subtle">Receitas vs {{ analysis_data.comparison.reference_label }}</div>
         <div style="font-weight:700; margin-top:6px;">{{ analysis_data.comparison.income.delta_display }}</div>
-        <div class="subtle {{ 'trend-up' if analysis_data.comparison.income.trend == 'up' else 'trend-down' if analysis_data.comparison.income.trend == 'down' else 'trend-stable' }}">{{ analysis_data.comparison.income.trend_label|capitalize }} Â· {{ analysis_data.comparison.income.percent_display }}</div>
-        <div class="subtle">Atual: {{ analysis_data.comparison.income.current_display }} Â· anterior: {{ analysis_data.comparison.income.previous_display }}</div>
+        <div class="subtle {{ 'trend-up' if analysis_data.comparison.income.trend == 'up' else 'trend-down' if analysis_data.comparison.income.trend == 'down' else 'trend-stable' }}">{{ analysis_data.comparison.income.trend_label|capitalize }} · {{ analysis_data.comparison.income.percent_display }}</div>
+        <div class="subtle">Atual: {{ analysis_data.comparison.income.current_display }} · anterior: {{ analysis_data.comparison.income.previous_display }}</div>
       </div>
       <div class="card" style="margin-bottom:0;">
         <div class="subtle">Despesas vs {{ analysis_data.comparison.reference_label }}</div>
         <div style="font-weight:700; margin-top:6px;">{{ analysis_data.comparison.expense.delta_display }}</div>
-        <div class="subtle {{ 'trend-up' if analysis_data.comparison.expense.trend == 'up' else 'trend-down' if analysis_data.comparison.expense.trend == 'down' else 'trend-stable' }}">{{ analysis_data.comparison.expense.trend_label|capitalize }} Â· {{ analysis_data.comparison.expense.percent_display }}</div>
-        <div class="subtle">Atual: {{ analysis_data.comparison.expense.current_display }} Â· anterior: {{ analysis_data.comparison.expense.previous_display }}</div>
+        <div class="subtle {{ 'trend-up' if analysis_data.comparison.expense.trend == 'up' else 'trend-down' if analysis_data.comparison.expense.trend == 'down' else 'trend-stable' }}">{{ analysis_data.comparison.expense.trend_label|capitalize }} · {{ analysis_data.comparison.expense.percent_display }}</div>
+        <div class="subtle">Atual: {{ analysis_data.comparison.expense.current_display }} · anterior: {{ analysis_data.comparison.expense.previous_display }}</div>
       </div>
       <div class="card" style="margin-bottom:0;">
         <div class="subtle">Saldo vs {{ analysis_data.comparison.reference_label }}</div>
         <div style="font-weight:700; margin-top:6px;">{{ analysis_data.comparison.balance.delta_display }}</div>
-        <div class="subtle {{ 'trend-up' if analysis_data.comparison.balance.trend == 'up' else 'trend-down' if analysis_data.comparison.balance.trend == 'down' else 'trend-stable' }}">{{ analysis_data.comparison.balance.trend_label|capitalize }} Â· {{ analysis_data.comparison.balance.percent_display }}</div>
-        <div class="subtle">Atual: {{ analysis_data.comparison.balance.current_display }} Â· anterior: {{ analysis_data.comparison.balance.previous_display }}</div>
+        <div class="subtle {{ 'trend-up' if analysis_data.comparison.balance.trend == 'up' else 'trend-down' if analysis_data.comparison.balance.trend == 'down' else 'trend-stable' }}">{{ analysis_data.comparison.balance.trend_label|capitalize }} · {{ analysis_data.comparison.balance.percent_display }}</div>
+        <div class="subtle">Atual: {{ analysis_data.comparison.balance.current_display }} · anterior: {{ analysis_data.comparison.balance.previous_display }}</div>
       </div>
     </section>
 
@@ -204,14 +204,14 @@
       <div class="card stack" style="margin-bottom:0;">
         <div>
           <strong>Receitas x despesas x saldo</strong>
-          <div class="subtle">Ãšltimos 12 meses do calendÃ¡rio, com meses zerados incluÃ­dos.</div>
+          <div class="subtle">Últimos 12 meses do calendário, com meses zerados incluídos.</div>
         </div>
         <div class="chart-shell"><canvas id="monthly-chart"></canvas></div>
       </div>
       <div class="card stack" style="margin-bottom:0;">
         <div>
           <strong>Top categorias por peso nas despesas</strong>
-          <div class="subtle">ReferÃªncia: {{ analysis_data.period.month_reference_label }} Â· ranking por despesas do mÃªs</div>
+          <div class="subtle">Referência: {{ analysis_data.period.month_reference_label }} · ranking por despesas do mês</div>
         </div>
         <div class="chart-shell"><canvas id="categories-chart"></canvas></div>
       </div>
@@ -220,8 +220,8 @@
     <section class="analysis-grid analysis-grid-2">
       <div class="card stack" style="margin-bottom:0;">
         <div>
-          <strong>Alertas determinÃ­sticos</strong>
-          <div class="subtle">AtÃ© 5 sinais mais relevantes para o perÃ­odo selecionado.</div>
+          <strong>Alertas determinísticos</strong>
+          <div class="subtle">Até 5 sinais mais relevantes para o período selecionado.</div>
         </div>
         <div class="analysis-list">
           {% for alert in analysis_data.alerts %}
@@ -234,8 +234,8 @@
             </div>
           {% else %}
             <div class="analysis-item">
-              <strong>Nenhum alerta crÃ­tico</strong>
-              <p>O perÃ­odo nÃ£o trouxe sinais determinÃ­sticos prioritÃ¡rios alÃ©m do acompanhamento normal.</p>
+              <strong>Nenhum alerta crítico</strong>
+              <p>O período não trouxe sinais determinísticos prioritários além do acompanhamento normal.</p>
             </div>
           {% endfor %}
         </div>
@@ -243,8 +243,8 @@
 
       <div class="card stack" style="margin-bottom:0;">
         <div>
-          <strong>AÃ§Ãµes recomendadas</strong>
-          <div class="subtle">PrÃ³ximos passos objetivos para melhorar leitura e decisÃ£o.</div>
+          <strong>Ações recomendadas</strong>
+          <div class="subtle">Próximos passos objetivos para melhorar leitura e decisão.</div>
         </div>
         <div class="analysis-list">
           {% for action in analysis_data.actions %}
@@ -254,8 +254,8 @@
             </div>
           {% else %}
             <div class="analysis-item">
-              <strong>Nenhuma aÃ§Ã£o prioritÃ¡ria</strong>
-              <p>A anÃ¡lise atual nÃ£o encontrou um ajuste imediato acima da linha de base do perÃ­odo.</p>
+              <strong>Nenhuma ação prioritária</strong>
+              <p>A análise atual não encontrou um ajuste imediato acima da linha de base do período.</p>
             </div>
           {% endfor %}
         </div>
@@ -265,8 +265,8 @@
     <section class="analysis-grid analysis-grid-2">
       <div class="card stack" style="margin-bottom:0;">
         <div>
-          <strong>Categorias do mÃªs-base</strong>
-          <div class="subtle">Todas as categorias do mÃªs {{ analysis_data.period.month_reference_label }}, ordenadas por peso nas despesas e com destaque para itens tÃ©cnicos.</div>
+          <strong>Categorias do mês-base</strong>
+          <div class="subtle">Todas as categorias do mês {{ analysis_data.period.month_reference_label }}, ordenadas por peso nas despesas e com destaque para itens técnicos.</div>
         </div>
         <div class="analysis-list">
           {% for category in analysis_data.categories %}
@@ -279,12 +279,12 @@
                   <span class="badge">{{ category.flow_label }}</span>
                 {% endif %}
               </div>
-              <p>Despesa do mÃªs: {{ category.expense_display }} Â· {% if category.expense_total > 0 %}peso nas despesas: {{ category.share_of_expense_display }}{% else %}sem peso relevante nas despesas{% endif %} Â· {% if category.income_total > 0 %}entradas: {{ category.income_display }} Â· {% endif %}{{ category.transaction_count }} lanÃ§amento(s)</p>
+              <p>Despesa do mês: {{ category.expense_display }} · {% if category.expense_total > 0 %}peso nas despesas: {{ category.share_of_expense_display }}{% else %}sem peso relevante nas despesas{% endif %} · {% if category.income_total > 0 %}entradas: {{ category.income_display }} · {% endif %}{{ category.transaction_count }} lançamento(s)</p>
             </div>
           {% else %}
             <div class="analysis-item">
-              <strong>Sem categorias no mÃªs-base</strong>
-              <p>NÃ£o houve movimentaÃ§Ã£o categorizada no mÃªs de referÃªncia.</p>
+              <strong>Sem categorias no mês-base</strong>
+              <p>Não houve movimentação categorizada no mês de referência.</p>
             </div>
           {% endfor %}
         </div>
@@ -292,21 +292,21 @@
 
       <div class="card stack technical-note" style="margin-bottom:0;">
         <div>
-          <strong>Itens financeiros e tÃ©cnicos</strong>
+          <strong>Itens financeiros e técnicos</strong>
           <div class="subtle">Eles continuam no consolidado principal, mas podem distorcer a leitura de consumo real.</div>
         </div>
         <div class="analysis-list">
           <div class="analysis-item">
-            <strong>TransferÃªncias</strong>
-            <p>{{ analysis_data.technical_items.transfer_display }} Â· {{ analysis_data.technical_items.transfer_share_display }} do total de despesas</p>
+            <strong>Transferências</strong>
+            <p>{{ analysis_data.technical_items.transfer_display }} · {{ analysis_data.technical_items.transfer_share_display }} do total de despesas</p>
           </div>
           <div class="analysis-item">
             <strong>Pagamento de Fatura</strong>
-            <p>{{ analysis_data.technical_items.card_bill_display }} Â· {{ analysis_data.technical_items.card_bill_share_display }} do total de despesas</p>
+            <p>{{ analysis_data.technical_items.card_bill_display }} · {{ analysis_data.technical_items.card_bill_share_display }} do total de despesas</p>
           </div>
           <div class="analysis-item">
             <strong>Leitura combinada</strong>
-            <p>{{ analysis_data.technical_items.combined_display }} Â· {{ analysis_data.technical_items.combined_share_display }} das despesas. {{ analysis_data.technical_items.note }}</p>
+            <p>{{ analysis_data.technical_items.combined_display }} · {{ analysis_data.technical_items.combined_share_display }} das despesas. {{ analysis_data.technical_items.note }}</p>
           </div>
         </div>
       </div>
@@ -315,18 +315,18 @@
     <div class="card stack" style="margin-bottom:0;">
       <div>
         <strong>Consolidado mensal de 12 meses</strong>
-        <div class="subtle">Meses zerados incluÃ­dos para leitura de tendÃªncia e comparaÃ§Ã£o.</div>
+        <div class="subtle">Meses zerados incluídos para leitura de tendência e comparação.</div>
       </div>
       <div class="analysis-table-wrap">
         <table class="analysis-table">
           <thead>
             <tr>
-              <th>MÃªs</th>
+              <th>Mês</th>
               <th>Receitas</th>
               <th>Despesas</th>
               <th>Saldo</th>
-              <th>NÃ£o categorizado</th>
-              <th>TransaÃ§Ãµes</th>
+              <th>Não categorizado</th>
+              <th>Transações</th>
             </tr>
           </thead>
           <tbody>
@@ -346,7 +346,7 @@
     </div>
 
     <div class="card" style="padding:0; overflow:hidden; margin-bottom:0;">
-      <div style="padding:16px; border-bottom:1px solid var(--line); font-weight:700;">AnÃ¡lise determinÃ­stica renderizada</div>
+      <div style="padding:16px; border-bottom:1px solid var(--line); font-weight:700;">Análise determinística renderizada</div>
       <div style="padding:16px;">
         {{ analysis_html_fragment|safe }}
       </div>
@@ -360,15 +360,15 @@
     </details>
   {% else %}
     <div class="card stack" style="margin-bottom:0;">
-      <strong>AnÃ¡lise ainda nÃ£o gerada</strong>
-      <div class="subtle">Os indicadores do topo jÃ¡ refletem o perÃ­odo selecionado. Use o botÃ£o acima para registrar e visualizar a anÃ¡lise determinÃ­stica completa com grÃ¡ficos, alertas e aÃ§Ãµes.</div>
+      <strong>Análise ainda não gerada</strong>
+      <div class="subtle">Os indicadores do topo já refletem o período selecionado. Use o botão acima para registrar e visualizar a análise determinística completa com gráficos, alertas e ações.</div>
     </div>
   {% endif %}
 
   <details class="accordion card">
     <summary>HTML final / LLM</summary>
     <div class="accordion-body subtle">
-      O sistema nÃ£o persiste hoje o HTML final do email/LLM por perÃ­odo. Esta tela mostra apenas a anÃ¡lise determinÃ­stica atual.
+      O sistema não persiste hoje o HTML final do email/LLM por período. Esta tela mostra apenas a análise determinística atual.
     </div>
   </details>
 </div>
@@ -480,20 +480,19 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'bottom' },
-          tooltip: {
-            callbacks: {
-              label(context) {
-                return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
-              },
-            },
-          },
-        },
         scales: {
           y: {
             ticks: {
-              callback(value) { return formatCurrency(value); },
+              callback: formatCurrency,
+            },
+          },
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label(context) {
+                return `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`;
+              },
             },
           },
         },
@@ -501,30 +500,34 @@
     });
 
     new Chart(categoriesCanvas, {
-      type: 'doughnut',
+      type: 'bar',
       data: {
         labels: categoriesData.labels,
         datasets: [
           {
+            label: 'Despesas',
             data: categoriesData.values,
-            backgroundColor: categoriesData.technical.map((isTechnical, index) => {
-              if (isTechnical) return '#f0b45a';
-              const palette = ['#0f766e', '#5ca68d', '#9fc490', '#d97757', '#e8b96f', '#335c67', '#6c8ead', '#8b5e83'];
-              return palette[index % palette.length];
-            }),
-            borderWidth: 0,
+            backgroundColor: categoriesData.technical.map((isTechnical) => isTechnical ? '#d4a373' : '#7c9f71'),
+            borderRadius: 10,
           },
         ],
       },
       options: {
+        indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
+        scales: {
+          x: {
+            ticks: {
+              callback: formatCurrency,
+            },
+          },
+        },
         plugins: {
-          legend: { position: 'bottom' },
           tooltip: {
             callbacks: {
               label(context) {
-                return `${context.label}: ${formatCurrency(context.raw)}`;
+                return `${context.dataset.label}: ${formatCurrency(context.parsed.x)}`;
               },
             },
           },
@@ -535,6 +538,3 @@
 </script>
 {% endif %}
 {% endblock %}
-
-
-

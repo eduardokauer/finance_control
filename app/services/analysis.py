@@ -12,7 +12,7 @@ from app.repositories.models import AnalysisRun, Transaction
 from app.services.credit_card_bills import build_conciliation_analytics_snapshot
 from app.utils.normalization import normalize_description
 
-UNCATEGORIZED_NAMES = ("NÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£o Categorizado", "NÃƒÆ’Ã‚Â£o Categorizado", "NÃƒÂ£o Categorizado", "Não Categorizado")
+UNCATEGORIZED_NAMES = ("Não Categorizado", "Nao Categorizado")
 MONTH_LABELS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
 TECHNICAL_TRANSFER_KEYS = {"transferencias"}
 TECHNICAL_CARD_BILL_KEYS = {"pagamento de fatura", "pagamento fatura"}
@@ -113,7 +113,7 @@ def _build_metric_change(current: float, previous: float) -> dict:
         "delta": delta,
         "percent": percent,
         "trend": trend,
-        "trend_label": {"up": "subiu", "down": "desceu", "stable": "estÃƒÂ¡vel"}[trend],
+        "trend_label": {"up": "subiu", "down": "desceu", "stable": "estável"}[trend],
         "current_display": format_currency_br(current),
         "previous_display": format_currency_br(previous),
         "delta_display": format_currency_br(delta),
@@ -148,13 +148,15 @@ def _build_monthly_series(db: Session, *, anchor_month: date) -> list[dict]:
 
 
 def _build_category_rows(txs: list[Transaction], *, expense_total: float) -> list[dict]:
-    grouped: dict[str, dict] = defaultdict(lambda: {
-        "expense_total": 0.0,
-        "income_total": 0.0,
-        "transaction_count": 0,
-        "is_transfer_technical": False,
-        "is_card_bill_technical": False,
-    })
+    grouped: dict[str, dict] = defaultdict(
+        lambda: {
+            "expense_total": 0.0,
+            "income_total": 0.0,
+            "transaction_count": 0,
+            "is_transfer_technical": False,
+            "is_card_bill_technical": False,
+        }
+    )
     for tx in txs:
         bucket = grouped[tx.category]
         bucket["expense_total"] += _expense_amount(tx)
@@ -174,7 +176,7 @@ def _build_category_rows(txs: list[Transaction], *, expense_total: float) -> lis
             flow_label = "Misto"
         technical_label = None
         if values["is_transfer_technical"]:
-            technical_label = "TransferÃƒÂªncias"
+            technical_label = "Transferências"
         elif values["is_card_bill_technical"]:
             technical_label = "Pagamento de Fatura"
         share_of_expense = values["expense_total"] / expense_total if expense_total else 0.0
@@ -219,7 +221,7 @@ def _build_technical_items(txs: list[Transaction], *, expense_total: float) -> d
         "combined_display": format_currency_br(combined_total),
         "combined_share": combined_share,
         "combined_share_display": format_percent_br(combined_share),
-        "note": "TransferÃƒÂªncias e pagamento de fatura continuam no consolidado, mas podem distorcer a leitura do consumo real.",
+        "note": "Transferências e pagamento de fatura continuam no consolidado, mas podem distorcer a leitura do consumo real.",
     }
 
 
@@ -246,16 +248,16 @@ def _build_alerts(
         alerts.append(
             {
                 "level": "danger",
-                "title": "Saldo negativo no perÃƒÂ­odo",
-                "body": f"O perÃƒÂ­odo fechou com saldo de {summary['balance_display']}. Vale revisar as maiores saÃƒÂ­das antes do prÃƒÂ³ximo fechamento.",
+                "title": "Saldo negativo no período",
+                "body": f"O período fechou com saldo de {summary['balance_display']}. Vale revisar as maiores saídas antes do próximo fechamento.",
             }
         )
     if comparison["expense"]["trend"] == "up" and (comparison["expense"]["percent"] or 0) >= 0.15:
         alerts.append(
             {
                 "level": "warn",
-                "title": "Despesas subiram em relaÃƒÂ§ÃƒÂ£o ao mÃƒÂªs anterior",
-                "body": f"As despesas aumentaram {comparison['expense']['percent_display']} ({comparison['expense']['delta_display']}) contra o mÃƒÂªs anterior.",
+                "title": "Despesas subiram em relação ao mês anterior",
+                "body": f"As despesas aumentaram {comparison['expense']['percent_display']} ({comparison['expense']['delta_display']}) contra o mês anterior.",
             }
         )
     top_expense_category = next((item for item in categories if item["expense_total"] > 0), None)
@@ -263,15 +265,15 @@ def _build_alerts(
         alerts.append(
             {
                 "level": "warn",
-                "title": "Alta concentraÃƒÂ§ÃƒÂ£o em uma categoria",
-                "body": f"{top_expense_category['name']} respondeu por {top_expense_category['share_of_expense_display']} das despesas do mÃƒÂªs-base.",
+                "title": "Alta concentração em uma categoria",
+                "body": f"{top_expense_category['name']} respondeu por {top_expense_category['share_of_expense_display']} das despesas do mês-base.",
             }
         )
     if quality["uncategorized_share"] >= 0.08:
         alerts.append(
             {
                 "level": "warn",
-                "title": "NÃƒÂ£o categorizado ainda alto",
+                "title": "Não categorizado ainda alto",
                 "body": f"Ainda existem {quality['uncategorized_display']} sem categoria definida, o que representa {quality['uncategorized_share_display']} das despesas.",
             }
         )
@@ -279,16 +281,16 @@ def _build_alerts(
         alerts.append(
             {
                 "level": "warn",
-                "title": "Itens tÃƒÂ©cnicos pesam na leitura do mÃƒÂªs",
-                "body": f"TransferÃƒÂªncias e pagamento de fatura somam {technical_items['combined_display']} ({technical_items['combined_share_display']} das despesas).",
+                "title": "Itens técnicos pesam na leitura do mês",
+                "body": f"Transferências e pagamento de fatura somam {technical_items['combined_display']} ({technical_items['combined_share_display']} das despesas).",
             }
         )
     if comparison["balance"]["percent"] is not None and fabs(comparison["balance"]["percent"]) >= 0.25:
         alerts.append(
             {
                 "level": "warn",
-                "title": "VariaÃƒÂ§ÃƒÂ£o forte frente ao mÃƒÂªs anterior",
-                "body": f"O saldo {comparison['balance']['trend_label']} {comparison['balance']['percent_display']} em relaÃƒÂ§ÃƒÂ£o ao perÃƒÂ­odo anterior comparÃƒÂ¡vel.",
+                "title": "Variação forte frente ao mês anterior",
+                "body": f"O saldo {comparison['balance']['trend_label']} {comparison['balance']['percent_display']} em relação ao período anterior comparável.",
             }
         )
     return alerts[:5]
@@ -308,7 +310,7 @@ def _build_actions(
         actions.append(
             {
                 "title": "Melhorar a qualidade da base",
-                "body": f"Priorize a revisÃƒÂ£o do nÃƒÂ£o categorizado ({quality['uncategorized_display']}) para evitar distorÃƒÂ§ÃƒÂ£o na leitura do mÃƒÂªs.",
+                "body": f"Priorize a revisão do não categorizado ({quality['uncategorized_display']}) para evitar distorção na leitura do mês.",
             }
         )
 
@@ -320,30 +322,30 @@ def _build_actions(
             actions.append(
                 {
                     "title": f"Revisar a categoria {top_expense_category['name']}",
-                    "body": f"Ela concentrou {top_expense_category['share_of_expense_display']} das despesas e subiu {format_currency_br(delta)} contra o mÃƒÂªs anterior.",
+                    "body": f"Ela concentrou {top_expense_category['share_of_expense_display']} das despesas e subiu {format_currency_br(delta)} contra o mês anterior.",
                 }
             )
     if comparison["expense"]["trend"] == "up" and (comparison["expense"]["percent"] or 0) >= 0.15:
         actions.append(
             {
                 "title": "Investigar o aumento das despesas",
-                "body": "Compare as maiores categorias do mÃƒÂªs atual com o mÃƒÂªs anterior para identificar o que puxou a alta.",
+                "body": "Compare as maiores categorias do mês atual com o mês anterior para identificar o que puxou a alta.",
             }
         )
     if technical_items["combined_share"] >= 0.2:
         actions.append(
             {
-                "title": "Separar consumo real de itens tÃƒÂ©cnicos",
-                "body": "Ao revisar o mÃƒÂªs, considere transferÃƒÂªncias e pagamento de fatura em separado para nÃƒÂ£o superestimar o gasto recorrente.",
+                "title": "Separar consumo real de itens técnicos",
+                "body": "Ao revisar o mês, considere transferências e pagamento de fatura em separado para não superestimar o gasto recorrente.",
             }
         )
     if summary["balance"] < 0:
         focus_categories = [item["name"] for item in categories if item["expense_total"] > 0 and not item["is_technical"]][:2]
-        categories_text = ", ".join(focus_categories) if focus_categories else "as maiores despesas variÃƒÂ¡veis"
+        categories_text = ", ".join(focus_categories) if focus_categories else "as maiores despesas variáveis"
         actions.append(
             {
                 "title": "Atacar o saldo negativo imediatamente",
-                "body": f"Comece por {categories_text} para tentar recuperar caixa jÃƒÂ¡ no prÃƒÂ³ximo perÃƒÂ­odo.",
+                "body": f"Comece por {categories_text} para tentar recuperar caixa já no próximo período.",
             }
         )
 
@@ -457,21 +459,15 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
 
 def _render_alert_items(items: list[dict]) -> str:
     if not items:
-        return "<p>Nenhum alerta determinÃƒÂ­stico relevante para este perÃƒÂ­odo.</p>"
-    rows = "".join(
-        f"<li><strong>{item['title']}</strong><br>{item['body']}</li>"
-        for item in items
-    )
+        return "<p>Nenhum alerta determinístico relevante para este período.</p>"
+    rows = "".join(f"<li><strong>{item['title']}</strong><br>{item['body']}</li>" for item in items)
     return f"<ul>{rows}</ul>"
 
 
 def _render_action_items(items: list[dict]) -> str:
     if not items:
-        return "<p>Nenhuma aÃƒÂ§ÃƒÂ£o prioritÃƒÂ¡ria sugerida no momento.</p>"
-    rows = "".join(
-        f"<li><strong>{item['title']}</strong><br>{item['body']}</li>"
-        for item in items
-    )
+        return "<p>Nenhuma ação prioritária sugerida no momento.</p>"
+    rows = "".join(f"<li><strong>{item['title']}</strong><br>{item['body']}</li>" for item in items)
     return f"<ul>{rows}</ul>"
 
 
@@ -479,10 +475,8 @@ def _render_category_items(items: list[dict]) -> str:
     rows = []
     for item in items[:5]:
         note = f" <em>({item['technical_label']})</em>" if item["is_technical"] else ""
-        rows.append(
-            f"<li><strong>{item['name']}</strong>: {item['display_total']} Ã‚Â· {item['flow_label']}{note}</li>"
-        )
-    return f"<ul>{''.join(rows)}</ul>" if rows else "<p>Sem categorias relevantes no mÃƒÂªs-base.</p>"
+        rows.append(f"<li><strong>{item['name']}</strong>: {item['display_total']} · {item['flow_label']}{note}</li>")
+    return f"<ul>{''.join(rows)}</ul>" if rows else "<p>Sem categorias relevantes no mês-base.</p>"
 
 
 def render_analysis_html(snapshot: dict) -> str:
@@ -492,14 +486,14 @@ def render_analysis_html(snapshot: dict) -> str:
     return (
         "<!DOCTYPE html>"
         "<html><head><meta charset=\"UTF-8\"></head><body>"
-        f"<h1>AnÃƒÂ¡lise financeira determinÃƒÂ­stica</h1>"
-        f"<p><strong>PerÃƒÂ­odo:</strong> {snapshot['period']['label']}</p>"
+        f"<h1>Análise financeira determinística</h1>"
+        f"<p><strong>Período:</strong> {snapshot['period']['label']}</p>"
         f"<p>Receitas em {summary['income_display']}, despesas em {summary['expense_display']} e saldo de {summary['balance_display']}.</p>"
         f"<p>Contra {comparison['reference_label']}, as despesas {comparison['expense']['trend_label']} {comparison['expense']['percent_display']} ({comparison['expense']['delta_display']}).</p>"
-        f"<p>Itens tÃƒÂ©cnicos do mÃƒÂªs-base: {technical['combined_display']} ({technical['combined_share_display']} das despesas).</p>"
+        f"<p>Itens técnicos do mês-base: {technical['combined_display']} ({technical['combined_share_display']} das despesas).</p>"
         "<h2>Alertas</h2>"
         f"{_render_alert_items(snapshot['alerts'])}"
-        "<h2>AÃƒÂ§ÃƒÂµes recomendadas</h2>"
+        "<h2>Ações recomendadas</h2>"
         f"{_render_action_items(snapshot['actions'])}"
         "<h2>Categorias em destaque</h2>"
         f"{_render_category_items(snapshot['categories'])}"
@@ -539,5 +533,3 @@ def run_analysis(db: Session, period_start: date, period_end: date, trigger_sour
     db.commit()
     db.refresh(run)
     return run
-
-

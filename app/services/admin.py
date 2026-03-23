@@ -15,7 +15,7 @@ from app.services.classification import apply_transaction_classification, classi
 from app.services.credit_card_bills import map_conciliated_bank_payment_signals
 from app.utils.normalization import normalize_description
 
-UNCATEGORIZED_NAMES = ("NÃƒÂ£o Categorizado", "NÃ£o Categorizado", "Não Categorizado")
+UNCATEGORIZED_NAMES = ("Não Categorizado", "Nao Categorizado")
 
 
 @dataclass

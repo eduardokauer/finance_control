@@ -77,7 +77,7 @@ def test_e2e_ofx_import_and_manual_reclassification(client, db_session, auth_hea
     )
 
     uncategorized_before = db_session.scalar(
-        select(func.count(Transaction.id)).where(Transaction.category.in_(["NÃ£o Categorizado", "Não Categorizado", "NÃƒÂ£o Categorizado"]))
+        select(func.count(Transaction.id)).where(Transaction.category.in_(["Não Categorizado", "Nao Categorizado"]))
     )
     assert uncategorized_before == 4
     print(f"[e2e] uncategorized before manual overrides: {uncategorized_before}")
@@ -133,7 +133,7 @@ def test_e2e_ofx_import_and_manual_reclassification(client, db_session, auth_hea
     db_session.expire_all()
 
     uncategorized_after = db_session.scalar(
-        select(func.count(Transaction.id)).where(Transaction.category == "NÃ£o Categorizado")
+        select(func.count(Transaction.id)).where(Transaction.category == "Não Categorizado")
     )
     assert uncategorized_after == 0
     print(f"[e2e] uncategorized after manual overrides: {uncategorized_after}")
@@ -170,8 +170,8 @@ def test_e2e_ofx_import_and_manual_reclassification(client, db_session, auth_hea
     assert len(payload["monthly_series"]) == 12
     assert latest_run.status == "success"
     assert latest_run.prompt == "deterministic_html_analysis_v2"
-    assert "determin" in latest_run.html_output
-    assert "recomendadas" in latest_run.html_output
+    assert "Análise financeira determinística" in latest_run.html_output
+    assert "Ações recomendadas" in latest_run.html_output
     assert "Reembolsos" not in latest_run.html_output
     print(
         f"[e2e] analysis run: id={latest_run.id} status={latest_run.status} "
