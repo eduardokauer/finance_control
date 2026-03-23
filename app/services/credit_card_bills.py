@@ -1089,20 +1089,56 @@ def _category_kind_map(db: Session) -> dict[str, str]:
     return {name: kind for name, kind in rows}
 
 
-def _uncategorized_name(category_kinds: dict[str, str]) -> str:
+def _ensure_official_uncategorized_name(db: Session, category_kinds: dict[str, str]) -> str:
     for name in INVOICE_ITEM_UNCATEGORIZED_NAMES:
         if name in category_kinds:
             return name
-    return INVOICE_ITEM_UNCATEGORIZED_NAMES[0]
+    uncategorized_name = "Não Categorizado"
+    db.add(Category(name=uncategorized_name, transaction_kind="expense", is_active=True))
+    db.flush()
+    category_kinds[uncategorized_name] = "expense"
+    return uncategorized_name
 
 
-def _categorize_invoice_item(
+def _uncategorized_invoice_item_classification(uncategorized_name: str) -> dict:
+    return {
+        "category": uncategorized_name,
+        "method": "fallback",
+        "confidence": 0.3,
+        "rule": None,
+        "rule_id": None,
+    }
+
+
+def _resolve_official_invoice_item_category(
+    classification: dict,
+    *,
+    category_kinds: dict[str, str],
+    uncategorized_name: str,
+) -> dict:
+    category_name = classification["category"]
+    category_kind = category_kinds.get(category_name)
+
+    if category_name is None or category_kind is None:
+        return _uncategorized_invoice_item_classification(uncategorized_name)
+
+    if category_kind in {"income", "transfer"} or category_name == "Pagamento de Fatura":
+        return _uncategorized_invoice_item_classification(uncategorized_name)
+
+    return classification
+
+
+def resolve_credit_card_invoice_item_categorization(
     db: Session,
     *,
-    description_raw: str,
-    item_type: str,
-    category_kinds: dict[str, str],
+    item: CreditCardInvoiceItem,
+    category_kinds: dict[str, str] | None = None,
+    allowed_rule_ids: list[int] | None = None,
 ) -> dict:
+    if category_kinds is None:
+        category_kinds = _category_kind_map(db)
+    uncategorized_name = _ensure_official_uncategorized_name(db, category_kinds)
+    item_type = classify_credit_card_invoice_item(item)
     if item_type != "charge":
         return {
             "category": None,
@@ -1112,18 +1148,67 @@ def _categorize_invoice_item(
             "rule_id": None,
         }
 
-    classification = classify_credit_card_invoice_charge(db, description_raw)
-    category_name = classification["category"]
-    category_kind = category_kinds.get(category_name)
-    if category_kind in {"income", "transfer"} or category_name == "Pagamento de Fatura":
-        return {
-            "category": _uncategorized_name(category_kinds),
-            "method": "fallback",
-            "confidence": 0.3,
-            "rule": None,
-            "rule_id": None,
-        }
-    return classification
+    classification = classify_credit_card_invoice_charge(
+        db,
+        item.description_raw,
+        allowed_rule_ids=allowed_rule_ids,
+    )
+    return _resolve_official_invoice_item_category(
+        classification,
+        category_kinds=category_kinds,
+        uncategorized_name=uncategorized_name,
+    )
+
+
+def recategorize_credit_card_invoice_items(
+    db: Session,
+    *,
+    invoice_id: int | None = None,
+    allowed_rule_ids: list[int] | None = None,
+) -> dict:
+    query = select(CreditCardInvoiceItem)
+    if invoice_id is not None:
+        query = query.where(CreditCardInvoiceItem.invoice_id == invoice_id)
+
+    items = db.scalars(
+        query.order_by(CreditCardInvoiceItem.purchase_date.asc(), CreditCardInvoiceItem.id.asc())
+    ).all()
+    if not items:
+        return {"checked_count": 0, "updated_count": 0}
+
+    category_kinds = _category_kind_map(db)
+    updated = 0
+    for item in items:
+        previous_state = (
+            item.category,
+            item.categorization_method,
+            item.categorization_confidence,
+            item.applied_rule,
+            item.categorization_rule_id,
+        )
+        classification = resolve_credit_card_invoice_item_categorization(
+            db,
+            item=item,
+            category_kinds=category_kinds,
+            allowed_rule_ids=allowed_rule_ids,
+        )
+        item.category = classification["category"]
+        item.categorization_method = classification["method"]
+        item.categorization_confidence = classification["confidence"]
+        item.applied_rule = classification["rule"]
+        item.categorization_rule_id = classification["rule_id"]
+        current_state = (
+            item.category,
+            item.categorization_method,
+            item.categorization_confidence,
+            item.applied_rule,
+            item.categorization_rule_id,
+        )
+        if current_state != previous_state:
+            updated += 1
+
+    db.commit()
+    return {"checked_count": len(items), "updated_count": updated}
 
 
 def import_credit_card_bill(
@@ -1195,24 +1280,21 @@ def import_credit_card_bill(
         db.flush()
 
         for row_position, item in enumerate(items, start=1):
-            item_type = classify_credit_card_invoice_item(
-                CreditCardInvoiceItem(
-                    invoice_id=invoice.id,
-                    purchase_date=item["purchase_date"],
-                    description_raw=item["description_raw"],
-                    description_normalized=item["description_normalized"],
-                    amount_brl=item["amount_brl"],
-                    installment_current=item["installment_current"],
-                    installment_total=item["installment_total"],
-                    is_installment=item["is_installment"],
-                    derived_note=item["derived_note"],
-                    external_row_hash="preview",
-                )
-            )
-            classification = _categorize_invoice_item(
-                db,
+            preview_item = CreditCardInvoiceItem(
+                invoice_id=invoice.id,
+                purchase_date=item["purchase_date"],
                 description_raw=item["description_raw"],
-                item_type=item_type,
+                description_normalized=item["description_normalized"],
+                amount_brl=item["amount_brl"],
+                installment_current=item["installment_current"],
+                installment_total=item["installment_total"],
+                is_installment=item["is_installment"],
+                derived_note=item["derived_note"],
+                external_row_hash="preview",
+            )
+            classification = resolve_credit_card_invoice_item_categorization(
+                db,
+                item=preview_item,
                 category_kinds=category_kinds,
             )
             row_hash = _build_row_hash(

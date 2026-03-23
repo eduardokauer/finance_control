@@ -142,6 +142,12 @@ def test_manual_rule_flow_uses_expense_for_negative_amount(db_session):
     assert result["transaction_kind"] == "expense"
 
 
+def test_bank_statement_classification_remains_independent_from_invoice_category_validation(db_session):
+    result = classify_transaction(db_session, "bank_statement", "Compra Ifood pedido", -35.0)
+    assert result["category"] == "Alimentação"
+    assert result["transaction_kind"] == "expense"
+
+
 def test_manual_rule_transfer_forces_transfer_kind(db_session):
     db_session.add(
         CategorizationRule(
