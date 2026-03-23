@@ -20,6 +20,40 @@
     <a class="button" href="/admin">Voltar para home</a>
   </div>
 
+  <div class="card stack" style="margin-bottom: 0;">
+    <div>
+      <strong>Importar fatura</strong>
+      <div class="subtle">Upload manual do CSV oficial da fatura com os metadados necessários.</div>
+    </div>
+    {% if invoice_upload_error %}
+      <div class="flash" style="background: var(--danger-soft); color: var(--danger); border-color: #f7b4ae; margin-bottom: 0;">{{ invoice_upload_error }}</div>
+    {% endif %}
+    {% if credit_cards %}
+      <form method="post" action="/admin/credit-card-bills/upload" enctype="multipart/form-data" class="stack">
+        <label>Cartão
+          <select name="card_id" required>
+            <option value="">Selecione</option>
+            {% for card in credit_cards %}
+              <option value="{{ card.id }}">{{ card.card_label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Arquivo CSV<input type="file" name="file" accept=".csv,text/csv" required></label>
+        <div class="grid grid-2">
+          <label>Mês<input type="number" name="billing_month" min="1" max="12" required></label>
+          <label>Ano<input type="number" name="billing_year" min="2000" max="2100" required></label>
+        </div>
+        <label>Vencimento<input type="date" name="due_date" required></label>
+        <label>Fechamento opcional<input type="date" name="closing_date"></label>
+        <label>Valor total da fatura<input type="text" name="total_amount_brl" inputmode="decimal" placeholder="1234,56" required></label>
+        <label>Observação opcional<textarea name="notes" placeholder="Observações da importação"></textarea></label>
+        <button type="submit" class="button button-primary">Importar fatura</button>
+      </form>
+    {% else %}
+      <div class="subtle">Cadastre um cartão na home operacional antes de importar a primeira fatura.</div>
+    {% endif %}
+  </div>
+
   {% if chart_data %}
     <div class="card stack" style="margin-bottom: 0;">
       <div>
@@ -55,7 +89,7 @@
               <td>{{ entry.invoice.due_date }}</td>
               <td>R$ {{ "%.2f"|format(entry.invoice.total_amount_brl) }}</td>
               <td><span class="badge {{ status_variant(entry.invoice.import_status) }}">{{ entry.invoice.import_status }}</span></td>
-              <td>{{ entry.item_count }}</td>
+              <td>{{ entry.item_count }} lançamento(s)</td>
               <td>{{ entry.invoice.imported_at.strftime('%Y-%m-%d %H:%M') if entry.invoice.imported_at else '-' }}</td>
               <td><a href="/admin/credit-card-invoices/{{ entry.invoice.id }}">Ver detalhe</a></td>
             </tr>

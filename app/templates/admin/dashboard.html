@@ -89,6 +89,9 @@
       <h2 class="section-title">Cartões</h2>
       <p class="section-intro">Cadastre novos cartões e acompanhe os já existentes.</p>
     </div>
+    {% if credit_card_error %}
+      <div class="flash" style="background: var(--danger-soft); color: var(--danger); border-color: #f7b4ae; margin-bottom: 0;">{{ credit_card_error }}</div>
+    {% endif %}
     <form method="post" action="/admin/credit-cards" class="stack">
       <label>Emissor
         <select name="issuer" required>
@@ -115,36 +118,6 @@
         <div class="subtle">Nenhum cartão cadastrado ainda.</div>
       {% endif %}
     </div>
-  </div>
-
-  <div class="card stack">
-    <div>
-      <h2 class="section-title">Importar fatura</h2>
-      <p class="section-intro">Upload manual do CSV oficial da fatura com os metadados necessários.</p>
-    </div>
-    {% if invoice_upload_error %}
-      <div class="flash" style="background: var(--danger-soft); color: var(--danger); border-color: #f7b4ae; margin-bottom: 0;">{{ invoice_upload_error }}</div>
-    {% endif %}
-    <form method="post" action="/admin/credit-card-bills/upload" enctype="multipart/form-data" class="stack">
-      <label>Cartão
-        <select name="card_id" required>
-          <option value="">Selecione</option>
-          {% for card in credit_cards if card.is_active %}
-            <option value="{{ card.id }}">{{ card.card_label }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Arquivo CSV<input type="file" name="file" accept=".csv,text/csv" required></label>
-      <div class="grid grid-2">
-        <label>Mês<input type="number" name="billing_month" min="1" max="12" required></label>
-        <label>Ano<input type="number" name="billing_year" min="2000" max="2100" required></label>
-      </div>
-      <label>Vencimento<input type="date" name="due_date" required></label>
-      <label>Fechamento opcional<input type="date" name="closing_date"></label>
-      <label>Valor total da fatura<input type="text" name="total_amount_brl" inputmode="decimal" placeholder="1234,56" required></label>
-      <label>Observação opcional<textarea name="notes" placeholder="Observações da importação"></textarea></label>
-      <button type="submit" class="button button-primary">Importar fatura</button>
-    </form>
   </div>
 </section>
 

@@ -10,6 +10,7 @@ from app.services.credit_card_bills import (
     build_credit_card_invoice_import_chart,
     CreditCardInvoiceConciliationError,
     get_credit_card_invoice_detail,
+    list_credit_cards,
     list_credit_card_invoices,
     reconcile_credit_card_invoice_bank_payments,
     unlink_credit_card_invoice_bank_payment,
@@ -59,6 +60,7 @@ def admin_credit_card_invoice_list(
         {
             "entries": entries,
             "chart_data": chart_payload,
+            "credit_cards": list_credit_cards(db, active_only=True),
             "status_variant": _status_variant,
         },
     )
