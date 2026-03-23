@@ -10,11 +10,13 @@ from sqlalchemy.orm import Session
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
 from app.services.credit_card_bills import (
+    build_credit_card_invoice_import_chart,
     CreditCardBillError,
     CreditCardBillUploadInput,
     create_credit_card,
     import_credit_card_bill,
     list_credit_cards,
+    list_credit_card_invoices,
     list_recent_credit_card_invoices,
 )
 from app.services.admin import admin_dashboard_metrics
@@ -42,6 +44,42 @@ def _dashboard_context(db: Session) -> dict:
         "metrics": admin_dashboard_metrics(db),
         "credit_cards": list_credit_cards(db),
         "recent_credit_card_invoices": list_recent_credit_card_invoices(db),
+    }
+
+
+def _status_variant(status: str) -> str:
+    return {
+        "imported": "ok",
+        "pending_review": "warn",
+        "partially_conciliated": "warn",
+        "conciliated": "ok",
+        "conflict": "danger",
+    }.get(status, "")
+
+
+def _credit_card_invoice_page_context(db: Session) -> dict:
+    entries = list_credit_card_invoices(db)
+    chart_data = build_credit_card_invoice_import_chart(db)
+    chart_payload = (
+        {
+            "month_labels": chart_data.month_labels,
+            "datasets": [
+                {
+                    "year": dataset.year,
+                    "color": dataset.color,
+                    "values": dataset.values,
+                }
+                for dataset in chart_data.datasets
+            ],
+        }
+        if chart_data
+        else None
+    )
+    return {
+        "entries": entries,
+        "chart_data": chart_payload,
+        "credit_cards": list_credit_cards(db, active_only=True),
+        "status_variant": _status_variant,
     }
 
 
@@ -76,7 +114,7 @@ def admin_create_credit_card(
         return render_admin(
             request,
             "admin/dashboard.html",
-            {**_dashboard_context(db), "invoice_upload_error": str(exc)},
+            {**_dashboard_context(db), "credit_card_error": str(exc)},
             status_code=exc.status_code if exc.status_code >= 400 else 422,
         )
     request.session["flash"] = "Cartao salvo."
@@ -115,17 +153,20 @@ async def admin_upload_credit_card_bill(
     except ValueError:
         return render_admin(
             request,
-            "admin/dashboard.html",
-            {**_dashboard_context(db), "invoice_upload_error": "Estrutura invalida: datas do formulario estao invalidas."},
+            "admin/credit_card_invoices.html",
+            {
+                **_credit_card_invoice_page_context(db),
+                "invoice_upload_error": "Estrutura invalida: datas do formulario estao invalidas.",
+            },
             status_code=422,
         )
     except CreditCardBillError as exc:
         return render_admin(
             request,
-            "admin/dashboard.html",
-            {**_dashboard_context(db), "invoice_upload_error": str(exc)},
+            "admin/credit_card_invoices.html",
+            {**_credit_card_invoice_page_context(db), "invoice_upload_error": str(exc)},
             status_code=exc.status_code,
         )
 
     request.session["flash"] = result["message"]
-    return RedirectResponse(url=CONTROL_CENTER_URL, status_code=303)
+    return RedirectResponse(url="/admin/credit-card-invoices", status_code=303)

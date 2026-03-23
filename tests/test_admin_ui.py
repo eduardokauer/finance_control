@@ -229,6 +229,33 @@ def test_admin_can_create_credit_card_and_upload_invoice(client, db_session, mon
     assert db_session.scalar(select(CreditCardInvoiceItem)) is not None
 
 
+def test_admin_invoice_upload_form_is_available_only_on_invoice_page(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    db_session.add(
+        CreditCard(
+            issuer="itau",
+            card_label="Itaú Visa final 1234",
+            card_final="1234",
+            brand="Visa",
+            is_active=True,
+        )
+    )
+    db_session.commit()
+    _login(client)
+
+    operations = client.get("/admin/operations")
+    invoices = client.get("/admin/credit-card-invoices")
+
+    assert operations.status_code == 200
+    assert 'action="/admin/credit-card-bills/upload"' not in operations.text
+    assert "Importar fatura" not in operations.text
+    assert invoices.status_code == 200
+    assert "Importar fatura" in invoices.text
+    assert 'action="/admin/credit-card-bills/upload"' in invoices.text
+    assert "Arquivo CSV" in invoices.text
+
+
 def test_admin_manual_edit_creates_audit_and_rule(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
