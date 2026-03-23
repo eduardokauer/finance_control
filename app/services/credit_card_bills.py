@@ -1110,7 +1110,7 @@ def import_credit_card_bill(
         db.commit()
         return {
             "status": "processed",
-            "message": f"Fatura importada com {len(items)} lancamentos.",
+            "message": f"Fatura importada com {len(items)} lançamentos.",
             "invoice_id": invoice.id,
             "imported_items": len(items),
         }

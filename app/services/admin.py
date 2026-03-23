@@ -442,7 +442,7 @@ def reapply_rules_for_period(
             previous_transaction_kind=previous_kind,
             new_transaction_kind=tx.transaction_kind,
             applied_rule_id=resolved["rule_id"],
-            notes="ReaplicaÃƒÂ§ÃƒÂ£o administrativa de regras",
+            notes="Reaplicação administrativa de regras",
         )
         if previous_category != tx.category or previous_kind != tx.transaction_kind:
             updated += 1
@@ -520,4 +520,5 @@ def build_pagination(total: int, *, limit: int, offset: int) -> dict:
         "has_more": offset + limit < total,
         "next_offset": offset + limit,
     }
+
 
