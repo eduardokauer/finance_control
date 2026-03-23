@@ -1,4 +1,4 @@
-﻿from decimal import Decimal
+from decimal import Decimal
 
 from app.api.routes import credit_card_bills as credit_card_bill_routes
 

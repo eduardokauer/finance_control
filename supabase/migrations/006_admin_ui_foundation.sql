@@ -5,8 +5,8 @@ alter table categories add column if not exists updated_at timestamptz default n
 
 update categories
 set transaction_kind = case
-  when name in ('SalÃ¡rio', 'Reembolsos', 'Outras Receitas') then 'income'
-  when name in ('TransferÃªncias') then 'transfer'
+  when name in ('Salário', 'Reembolsos', 'Outras Receitas') then 'income'
+  when name in ('Transferências') then 'transfer'
   else 'expense'
 end
 where transaction_kind is null;
@@ -20,8 +20,8 @@ alter table categorization_rules add column if not exists updated_at timestamptz
 
 update categorization_rules
 set transaction_kind = case
-  when category_name in ('SalÃ¡rio', 'Reembolsos', 'Outras Receitas') then 'income'
-  when category_name in ('TransferÃªncias') then 'transfer'
+  when category_name in ('Salário', 'Reembolsos', 'Outras Receitas') then 'income'
+  when category_name in ('Transferências') then 'transfer'
   else 'expense'
 end
 where transaction_kind is null;

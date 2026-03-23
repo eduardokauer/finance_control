@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 from uuid import uuid4
@@ -151,7 +151,7 @@ def test_rule_kind_mode_migration_converts_legacy_transaction_kind(monkeypatch):
                 )
                 cur.execute(
                     "insert into categorization_rules(rule_type, pattern, category_name, transaction_kind, priority) values (%s, %s, %s, %s, %s)",
-                    ("contains", "regra-transfer-legada", "TransferÃªncias", "transfer", 998),
+                    ("contains", "regra-transfer-legada", "Transferências", "transfer", 998),
                 )
                 conn.commit()
 

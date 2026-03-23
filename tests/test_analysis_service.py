@@ -1,4 +1,4 @@
-﻿import json
+import json
 from datetime import date
 
 from sqlalchemy import select

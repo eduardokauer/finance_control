@@ -1,4 +1,4 @@
-﻿from app.parsers.csv_parser import parse_csv
+from app.parsers.csv_parser import parse_csv
 from app.parsers.ofx_parser import parse_ofx, validate_ofx_structure
 from app.repositories.models import CategorizationRule
 from app.services.categorization import categorize
@@ -27,7 +27,7 @@ def test_parse_csv_validation():
 
 
 def test_normalization():
-    assert normalize_description("DrogÃ¡-Raia #123") == "droga raia 123"
+    assert normalize_description("Drogá-Raia #123") == "droga raia 123"
 
 
 def test_hashing():

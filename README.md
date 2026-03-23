@@ -1,4 +1,4 @@
-﻿# Finance Control Backend
+# Finance Control Backend
 
 Backend em FastAPI para controle financeiro pessoal: ingestão de extratos, categorização, análise determinística e interface administrativa web para revisão e correção dos lançamentos.
 
