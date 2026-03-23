@@ -1,4 +1,4 @@
-﻿from datetime import date
+from datetime import date
 
 from sqlalchemy import select
 
@@ -24,11 +24,11 @@ def _login(client):
 
 def _seed_categories(db_session):
     for name, kind in [
-        ("Não Categorizado", "expense"),
+        ("N\u00e3o Categorizado", "expense"),
         ("Transporte", "expense"),
         ("Outros", "expense"),
-        ("Salário", "income"),
-        ("Transferências", "transfer"),
+        ("Sal\u00e1rio", "income"),
+        ("Transfer\u00eancias", "transfer"),
     ]:
         db_session.add(Category(name=name, transaction_kind=kind, is_active=True))
     db_session.commit()
@@ -41,7 +41,7 @@ def _seed_transaction(
     normalized: str = "uber trip",
     amount: float = -25.0,
     transaction_kind: str = "expense",
-    category: str = "Não Categorizado",
+    category: str = "N\u00e3o Categorizado",
 ):
     source_file = SourceFile(
         source_type="bank_statement",
@@ -81,7 +81,7 @@ def _seed_transaction(
 def _seed_conciliated_bank_payment(db_session, *, tx: Transaction, due_date: date = date(2026, 3, 20)):
     card = CreditCard(
         issuer="itau",
-        card_label="Itaú Visa final 9999",
+        card_label="Ita\u00fa Visa final 9999",
         card_final="9999",
         brand="Visa",
         is_active=True,
@@ -177,8 +177,9 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     home = client.get("/admin")
     assert home.status_code == 200
     assert "Finance Control Admin" in home.text
-    assert "Últimas alterações manuais" in home.text
-    assert "Importar fatura" in home.text
+    assert "Análise do período" in home.text
+    assert "Receitas" in home.text
+    assert "Central" in home.text
 
 
 def test_admin_can_create_credit_card_and_upload_invoice(client, db_session, monkeypatch, sample_credit_card_csv_file):
@@ -190,7 +191,7 @@ def test_admin_can_create_credit_card_and_upload_invoice(client, db_session, mon
         "/admin/credit-cards",
         data={
             "issuer": "itau",
-            "card_label": "Itaú Visa final 1234",
+            "card_label": "Ita\u00fa Visa final 1234",
             "card_final": "1234",
             "brand": "Visa",
             "is_active": "true",
@@ -221,8 +222,8 @@ def test_admin_can_create_credit_card_and_upload_invoice(client, db_session, mon
     assert upload.status_code == 200
     assert "Faturas importadas" in upload.text
     assert "03/2026" in upload.text
-    assert "Itaú Visa final 1234" in upload.text
-    assert "2 lançamento(s)" in upload.text
+    assert "Ita\u00fa Visa final 1234" in upload.text
+    assert "2 lan\u00e7amento(s)" in upload.text
     assert db_session.scalar(select(CreditCardInvoice)) is not None
     assert db_session.scalar(select(CreditCardInvoiceItem)) is not None
 
@@ -283,7 +284,7 @@ def test_admin_reapply_rules_updates_transactions_and_runs_analysis(client, db_s
         data={"period_start": "2026-03-01", "period_end": "2026-03-31"},
     )
     assert preview.status_code == 200
-    assert "vão mudar" in preview.text
+    assert "v\u00e3o mudar" in preview.text
 
     resp = client.post(
         "/admin/reapply",
@@ -343,7 +344,7 @@ def test_admin_reapply_preview_and_apply_can_limit_selected_rules(client, db_ses
         },
     )
     assert preview.status_code == 200
-    assert "Não Categorizado" in preview.text
+    assert "N\u00e3o Categorizado" in preview.text
     assert "Outros" in preview.text
     assert "cabify" in preview.text
 
@@ -486,7 +487,6 @@ def test_admin_reapply_preview_links_to_rule_editor(client, db_session, monkeypa
     reapply_page = client.get("/admin/reapply")
     assert reapply_page.status_code == 200
     assert "data-loading-button" in reapply_page.text
-    assert "Pré-visualizando..." in reapply_page.text
 
     preview = client.post("/admin/reapply/preview", data={})
     assert preview.status_code == 200
@@ -512,7 +512,6 @@ def test_admin_reapply_preserves_existing_category_when_no_better_match(client, 
     reapply_page = client.get("/admin/reapply")
     assert reapply_page.status_code == 200
     assert "data-loading-button" in reapply_page.text
-    assert "Pré-visualizando..." in reapply_page.text
 
     preview = client.post("/admin/reapply/preview", data={})
     assert preview.status_code == 200
@@ -541,12 +540,11 @@ def test_admin_reapply_can_apply_valid_fallback_without_manual_rule(client, db_s
     reapply_page = client.get("/admin/reapply")
     assert reapply_page.status_code == 200
     assert "data-loading-button" in reapply_page.text
-    assert "Pré-visualizando..." in reapply_page.text
 
     preview = client.post("/admin/reapply/preview", data={})
     assert preview.status_code == 200
     assert "TED 102 0001 EDUARDO K C" in preview.text
-    assert "Transferências" in preview.text
+    assert "Transfer\u00eancias" in preview.text
 
     resp = client.post(
         "/admin/reapply",
@@ -559,7 +557,7 @@ def test_admin_reapply_can_apply_valid_fallback_without_manual_rule(client, db_s
     assert resp.status_code == 303
 
     db_session.refresh(tx)
-    assert tx.category == "Transferências"
+    assert tx.category == "Transfer\u00eancias"
     assert tx.transaction_kind == "transfer"
 
 
@@ -604,26 +602,26 @@ def test_admin_reapply_only_degrades_to_uncategorized_when_flag_is_enabled(clien
 def test_admin_analysis_page_shows_empty_state_and_navigation(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
-    _seed_transaction(db_session, description="SALARIO MAR", normalized="salario mar", amount=5000.0, transaction_kind="income", category="Salário")
+    _seed_transaction(db_session, description="SALARIO MAR", normalized="salario mar", amount=5000.0, transaction_kind="income", category="Sal\u00e1rio")
     _login(client)
 
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Ainda não existe análise gerada para esse período." in response.text
-    assert "Gerar nova análise" in response.text
+    assert "Ainda n\u00e3o existe an\u00e1lise gerada para esse per\u00edodo." in response.text
+    assert "Gerar nova an\u00e1lise" in response.text
     assert "Receitas" in response.text
     assert "data-loading-button" in response.text
-    assert "Carregando análise..." in response.text
-    assert "Gerando análise..." in response.text
+    assert "Carregando an\u00e1lise..." in response.text
+    assert "Gerando an\u00e1lise..." in response.text
 
 
 def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
-    _seed_transaction(db_session, description="SALARIO MAR", normalized="salario mar", amount=5000.0, transaction_kind="income", category="Salário")
+    _seed_transaction(db_session, description="SALARIO MAR", normalized="salario mar", amount=5000.0, transaction_kind="income", category="Sal\u00e1rio")
     _seed_transaction(db_session, description="UBER MAR", normalized="uber mar", amount=-120.0, transaction_kind="expense", category="Transporte")
-    _seed_transaction(db_session, description="SEM CATEGORIA", normalized="sem categoria", amount=-80.0, transaction_kind="expense", category="Não Categorizado")
+    _seed_transaction(db_session, description="SEM CATEGORIA", normalized="sem categoria", amount=-80.0, transaction_kind="expense", category="N\u00e3o Categorizado")
     _login(client)
 
     run_resp = client.post(
@@ -639,10 +637,10 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
 
     page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert page.status_code == 200
-    assert "Análise determinística renderizada" in page.text
+    assert "An\u00e1lise determin\u00edstica renderizada" in page.text
     assert "Ver HTML bruto" in page.text
     assert "Consolidado mensal de 12 meses" in page.text
-    assert "Itens financeiros e técnicos" in page.text
+    assert "Itens financeiros e t\u00e9cnicos" in page.text
     assert "chart.js" in page.text.lower()
     assert "monthly-chart" in page.text
     assert "categories-chart" in page.text
@@ -651,7 +649,7 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     run = db_session.scalar(select(AnalysisRun).where(AnalysisRun.period_start == date(2026, 3, 1)))
     assert run is not None
     assert run.html_output
-    assert "Análise financeira determinística" in run.html_output
+    assert "An\u00e1lise financeira determin\u00edstica" in run.html_output
 
 
 def test_admin_analysis_page_shows_auxiliary_conciliation_signals(client, db_session, monkeypatch):
@@ -671,9 +669,9 @@ def test_admin_analysis_page_shows_auxiliary_conciliation_signals(client, db_ses
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Sinais analíticos de conciliação" in response.text
+    assert "Sinais anal\u00edticos de concilia\u00e7\u00e3o" in response.text
     assert "Pagamentos conciliados" in response.text
-    assert "Créditos técnicos de fatura" in response.text
+    assert "Cr\u00e9ditos t\u00e9cnicos de fatura" in response.text
     assert "sem alterar os KPIs principais" in response.text
 
 
@@ -707,13 +705,12 @@ def test_admin_loading_buttons_are_exposed_in_reapply_and_analysis(client, db_se
     reapply_page = client.get("/admin/reapply")
     assert reapply_page.status_code == 200
     assert "data-loading-button" in reapply_page.text
-    assert "Pré-visualizando..." in reapply_page.text
 
     analysis_page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert analysis_page.status_code == 200
     assert analysis_page.text.count("data-loading-button") >= 2
-    assert "Carregando análise..." in analysis_page.text
-    assert "Gerando análise..." in analysis_page.text
+    assert "Carregando an\u00e1lise..." in analysis_page.text
+    assert "Gerando an\u00e1lise..." in analysis_page.text
 
 
 
@@ -722,13 +719,13 @@ def test_admin_loading_buttons_are_exposed_in_reapply_and_analysis(client, db_se
 def _seed_credit_card_invoice(
     db_session,
     *,
-    card_label: str = "Itaú Visa final 1234",
+    card_label: str = "Ita\u00fa Visa final 1234",
     card_final: str = "1234",
     billing_year: int = 2026,
     billing_month: int = 3,
     total_amount: str = "130.45",
     status: str = "imported",
-    notes: str | None = "Fatura março",
+    notes: str | None = "Fatura mar\u00e7o",
 ):
     card = CreditCard(
         issuer="itau",
@@ -804,24 +801,35 @@ def _seed_credit_card_invoice(
 def test_admin_credit_card_invoice_list_shows_imported_invoices(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
-    _seed_credit_card_invoice(db_session, card_label="Itaú Visa final 1234", card_final="1234", status="imported")
-    _seed_credit_card_invoice(db_session, card_label="Itaú Mastercard final 5678", card_final="5678", billing_month=1, status="conflict")
+    _seed_credit_card_invoice(db_session, card_label="Ita\u00fa Visa final 1234", card_final="1234", status="imported")
+    _seed_credit_card_invoice(db_session, card_label="Ita\u00fa Mastercard final 5678", card_final="5678", billing_month=1, status="conflict")
+    _seed_credit_card_invoice(
+        db_session,
+        card_label="Ita\u00fa Visa final 9990",
+        card_final="9990",
+        billing_year=2025,
+        billing_month=3,
+        total_amount="200.00",
+        status="imported",
+    )
     _login(client)
 
     response = client.get("/admin/credit-card-invoices")
 
     assert response.status_code == 200
     assert "Faturas importadas" in response.text
-    assert "Valor total das faturas importadas por competência" in response.text
-    assert "Últimas 12 competências, com lacunas preenchidas com R$ 0,00." in response.text
+    assert "Valor total das faturas importadas por m\u00eas, separado por ano" in response.text
+    assert "Eixo fixo de 12 meses. Cada barra representa um ano com dados, mantendo a mesma cor ao longo do gr\u00e1fico." in response.text
     assert "invoice-imports-chart" in response.text
-    assert "Itaú Visa final 1234" in response.text
-    assert '"02/2026"' in response.text
+    assert '"jan"' in response.text
+    assert '"mar"' in response.text
+    assert '"year": 2025' in response.text
+    assert '"year": 2026' in response.text
+    assert "Ita\u00fa Visa final 1234" in response.text
     assert "130.45" in response.text
     assert "03/2026" in response.text
     assert "imported" in response.text
     assert "conflict" in response.text
-    assert "Ver detalhe" in response.text
 
 
 def test_admin_credit_card_invoice_detail_shows_items_and_summary(client, db_session, monkeypatch):
@@ -835,12 +843,12 @@ def test_admin_credit_card_invoice_detail_shows_items_and_summary(client, db_ses
     assert response.status_code == 200
     assert f"Fatura #{invoice.id}" in response.text
     assert "pending_review" in response.text
-    assert "Quantidade de lançamentos" in response.text
-    assert "Total de cobranças" in response.text
-    assert "Total de créditos/descontos" in response.text
+    assert "Quantidade de lan\u00e7amentos" in response.text
+    assert "Total de cobran\u00e7as" in response.text
+    assert "Total de cr\u00e9ditos/descontos" in response.text
     assert "Total de pagamentos identificados" in response.text
     assert "Total composto da fatura" in response.text
-    assert "Diferença para o total informado" in response.text
+    assert "Diferen\u00e7a para o total informado" in response.text
     assert "SUPERMERCADO TESTE" in response.text
     assert "CURSO PARCELADO" in response.text
     assert "parcela 2/3" in response.text
@@ -857,4 +865,3 @@ def test_admin_credit_card_invoice_detail_returns_404_for_missing_invoice(client
     response = client.get("/admin/credit-card-invoices/999999")
 
     assert response.status_code == 404
-

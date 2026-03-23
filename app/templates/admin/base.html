@@ -43,20 +43,77 @@
       gap: 12px;
       margin-bottom: 18px;
     }
+    .topbar-start {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
     .brand {
       font-size: 1.25rem;
       font-weight: 700;
       text-decoration: none;
     }
+    .nav-shell {
+      position: relative;
+      margin-bottom: 18px;
+    }
+    .nav-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--line);
+      background: rgba(255, 253, 247, 0.96);
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+    }
+    .nav-toggle-lines {
+      display: inline-grid;
+      gap: 4px;
+    }
+    .nav-toggle-lines span {
+      width: 16px;
+      height: 2px;
+      border-radius: 999px;
+      background: currentColor;
+      display: block;
+    }
+    .nav-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(31, 41, 51, 0.28);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+      z-index: 19;
+    }
+    .nav-backdrop.is-open {
+      opacity: 1;
+      pointer-events: auto;
+    }
     .nav {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      bottom: 16px;
+      width: min(360px, calc(100vw - 32px));
       display: grid;
       gap: 12px;
-      margin-bottom: 18px;
       padding: 14px 16px;
       background: rgba(255, 253, 247, 0.96);
       border: 1px solid rgba(219, 205, 179, 0.9);
       box-shadow: var(--shadow);
       border-radius: var(--radius);
+      overflow-y: auto;
+      transform: translateX(calc(-100% - 24px));
+      transition: transform 0.2s ease;
+      z-index: 20;
+    }
+    .nav.is-open {
+      transform: translateX(0);
     }
     .nav-row {
       display: flex;
@@ -102,6 +159,32 @@
       background: var(--accent-soft);
       color: var(--accent);
       border-color: #a8dfd5;
+    }
+    .nav-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(219, 205, 179, 0.9);
+      margin-bottom: 4px;
+    }
+    .nav-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .nav-close {
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
     }
     .nav-submenu {
       display: grid;
@@ -353,16 +436,28 @@
   {% block body %}
   <div class="shell">
     <div class="topbar">
-      <a href="/admin" class="brand">Finance Control Admin</a>
+      <div class="topbar-start">
+        <button type="button" class="nav-toggle" data-nav-toggle aria-expanded="false" aria-controls="admin-nav">
+          <span class="nav-toggle-lines" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span>Menu</span>
+        </button>
+        <a href="/admin" class="brand">Finance Control Admin</a>
+      </div>
       <form method="post" action="/admin/logout">
         <button type="submit">Sair</button>
       </form>
     </div>
-    <nav class="nav">
+    <div class="nav-shell">
+      <div class="nav-backdrop" data-nav-backdrop></div>
+      <nav class="nav" id="admin-nav" data-admin-nav>
+      <div class="nav-header">
+        <div class="nav-title">Navegação</div>
+        <button type="button" class="nav-close" data-nav-close aria-label="Fechar menu">×</button>
+      </div>
       <div class="nav-row">
         <span class="nav-section-label">Visão geral</span>
-        <a href="/admin" class="{% if request.url.path == '/admin' or request.url.path == '/admin/' %}nav-link-active{% endif %}">Home</a>
-        <a href="/admin/analysis" class="{% if request.url.path.startswith('/admin/analysis') %}nav-link-active{% endif %}">Análise</a>
+        <a href="/admin" class="{% if request.url.path == '/admin' or request.url.path == '/admin/' or request.url.path.startswith('/admin/analysis') %}nav-link-active{% endif %}">Home</a>
+        <a href="/admin/operations" class="{% if request.url.path.startswith('/admin/operations') %}nav-link-active{% endif %}">Central</a>
       </div>
       <div class="nav-row">
         <span class="nav-section-label">Operação</span>
@@ -381,13 +476,40 @@
           </div>
         </details>
       </div>
-    </nav>
+      </nav>
+    </div>
     {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
     {% block content %}{% endblock %}
   </div>
   {% endblock %}
   <script>
     (() => {
+      const nav = document.querySelector('[data-admin-nav]');
+      const navBackdrop = document.querySelector('[data-nav-backdrop]');
+      const navToggle = document.querySelector('[data-nav-toggle]');
+      const navClose = document.querySelector('[data-nav-close]');
+
+      function setNavOpen(open) {
+        if (!nav || !navBackdrop || !navToggle) return;
+        nav.classList.toggle('is-open', open);
+        navBackdrop.classList.toggle('is-open', open);
+        navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        document.body.style.overflow = open ? 'hidden' : '';
+      }
+
+      navToggle?.addEventListener('click', () => {
+        setNavOpen(!nav.classList.contains('is-open'));
+      });
+
+      navClose?.addEventListener('click', () => setNavOpen(false));
+      navBackdrop?.addEventListener('click', () => setNavOpen(false));
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') setNavOpen(false);
+      });
+      nav?.querySelectorAll('a').forEach((link) => {
+        link.addEventListener('click', () => setNavOpen(false));
+      });
+
       function setLoadingState(button, enabled) {
         if (!button) return;
         if (enabled) {
