@@ -54,7 +54,7 @@ def _add_tx(db_session, *, tx_date: date, description: str, amount: float, categ
 def _add_invoice(db_session, *, due_date: date, card_final: str = "1234", item_specs: list[tuple[str, str]] | None = None):
     card = CreditCard(
         issuer="itau",
-        card_label=f"Itaú Visa final {card_final}",
+        card_label=f"Ita\u00fa Visa final {card_final}",
         card_final=card_final,
         brand="Visa",
         is_active=True,
@@ -116,15 +116,15 @@ def _set_conciliation_status(db_session, *, invoice_id: int, status: str):
 
 
 def test_build_analysis_snapshot_returns_richer_structure(db_session):
-    _add_tx(db_session, tx_date=date(2025, 4, 5), description="SALARIO ANTIGO", amount=4200.0, category="Salário", transaction_kind="income")
-    _add_tx(db_session, tx_date=date(2025, 12, 8), description="PIX TRANSF", amount=-700.0, category="Transferências", transaction_kind="transfer")
+    _add_tx(db_session, tx_date=date(2025, 4, 5), description="SALARIO ANTIGO", amount=4200.0, category="Sal\u00e1rio", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2025, 12, 8), description="PIX TRANSF", amount=-700.0, category="Transfer\u00eancias", transaction_kind="transfer")
     _add_tx(db_session, tx_date=date(2026, 2, 12), description="ALUGUEL FEV", amount=-1500.0, category="Moradia", transaction_kind="expense")
     _add_tx(db_session, tx_date=date(2026, 2, 22), description="FATURA FEV", amount=-1100.0, category="Pagamento de Fatura", transaction_kind="expense", is_card_bill_payment=True)
-    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Sal\u00e1rio", transaction_kind="income")
     _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
-    _add_tx(db_session, tx_date=date(2026, 3, 10), description="PIX TRANSF MAR", amount=-900.0, category="Transferências", transaction_kind="transfer")
+    _add_tx(db_session, tx_date=date(2026, 3, 10), description="PIX TRANSF MAR", amount=-900.0, category="Transfer\u00eancias", transaction_kind="transfer")
     _add_tx(db_session, tx_date=date(2026, 3, 18), description="FATURA MAR", amount=-1300.0, category="Pagamento de Fatura", transaction_kind="expense", is_card_bill_payment=True)
-    _add_tx(db_session, tx_date=date(2026, 3, 21), description="SEM CATEGORIA", amount=-450.0, category="Não Categorizado", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 3, 21), description="SEM CATEGORIA", amount=-450.0, category="N\u00e3o Categorizado", transaction_kind="expense")
 
     snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
 
@@ -139,11 +139,11 @@ def test_build_analysis_snapshot_returns_richer_structure(db_session):
     assert snapshot["quality"]["uncategorized_total"] == 450.0
     assert snapshot["alerts"]
     assert snapshot["actions"]
-    assert any(item["name"] == "Transferências" and item["is_technical"] for item in snapshot["categories"])
+    assert any(item["name"] == "Transfer\u00eancias" and item["is_technical"] for item in snapshot["categories"])
 
 
 def test_run_analysis_persists_snapshot_payload_and_html(db_session):
-    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Sal\u00e1rio", transaction_kind="income")
     _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
     _add_tx(db_session, tx_date=date(2026, 3, 18), description="FATURA MAR", amount=-1300.0, category="Pagamento de Fatura", transaction_kind="expense", is_card_bill_payment=True)
 
@@ -154,12 +154,12 @@ def test_run_analysis_persists_snapshot_payload_and_html(db_session):
     assert payload["period"]["label"] == "01/03/2026 a 31/03/2026"
     assert payload["summary"]["transaction_count"] == 3
     assert len(payload["charts"]["monthly"]["labels"]) == 12
-    assert "Análise financeira determinística" in run.html_output
-    assert "Ações recomendadas" in run.html_output
+    assert "An\u00e1lise financeira determin\u00edstica" in run.html_output
+    assert "A\u00e7\u00f5es recomendadas" in run.html_output
 
 
 def test_top_categories_of_month_are_ranked_by_expense_total(db_session):
-    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=9000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=9000.0, category="Sal\u00e1rio", transaction_kind="income")
     _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
     _add_tx(db_session, tx_date=date(2026, 3, 9), description="MERCADO MAR", amount=-950.0, category="Mercado", transaction_kind="expense")
     _add_tx(db_session, tx_date=date(2026, 3, 12), description="PIX RECEBIDO", amount=3200.0, category="Reembolsos", transaction_kind="income")
@@ -170,13 +170,13 @@ def test_top_categories_of_month_are_ranked_by_expense_total(db_session):
     assert snapshot["categories"][1]["name"] == "Mercado"
     assert snapshot["top_expense_categories"][0]["name"] == "Moradia"
     assert snapshot["top_expense_categories"][1]["name"] == "Mercado"
-    assert "Salário" not in [item["name"] for item in snapshot["top_expense_categories"]]
+    assert "Sal\u00e1rio" not in [item["name"] for item in snapshot["top_expense_categories"]]
     assert snapshot["charts"]["categories"]["labels"][0] == "Moradia"
     assert snapshot["charts"]["categories"]["values"][0] == 1800.0
 
 
 def test_analysis_snapshot_exposes_conciliation_signals_without_changing_main_totals(db_session):
-    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Sal\u00e1rio", transaction_kind="income")
     _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
     payment = _add_tx(
         db_session,
@@ -205,6 +205,10 @@ def test_analysis_snapshot_exposes_conciliation_signals_without_changing_main_to
 
     assert snapshot["summary"]["expense_total"] == 3100.0
     assert snapshot["summary"]["income_total"] == 5000.0
+    assert snapshot["primary_summary"]["mode"] == "conciliated"
+    assert snapshot["primary_summary"]["income_total"] == 5000.0
+    assert snapshot["primary_summary"]["expense_total"] == 3100.0
+    assert snapshot["primary_summary"]["balance"] == 1900.0
     assert snapshot["conciliation_signals"]["conciliated_bank_payment_total_brl"] == 1300.0
     assert snapshot["conciliation_signals"]["invoice_credit_total_brl"] == 100.0
     assert snapshot["conciliation_signals"]["invoices_by_status"]["conciliated"] == 1
@@ -212,7 +216,7 @@ def test_analysis_snapshot_exposes_conciliation_signals_without_changing_main_to
 
 
 def test_analysis_snapshot_builds_conciliated_month_view_without_changing_main_totals(db_session):
-    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Sal\u00e1rio", transaction_kind="income")
     _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
     payment = _add_tx(
         db_session,
@@ -253,10 +257,16 @@ def test_analysis_snapshot_builds_conciliated_month_view_without_changing_main_t
     assert conciliated["conciliated_balance_total"] == 1900.0
     assert conciliated["included_invoice_count"] == 1
     assert conciliated["outside_invoices_total"] == 0
+    assert snapshot["primary_summary"]["income_display"] == conciliated["bank_income_display"]
+    assert snapshot["primary_summary"]["expense_display"] == conciliated["net_conciliated_expense_display"]
+    assert snapshot["primary_summary"]["balance_display"] == conciliated["conciliated_balance_display"]
+    assert snapshot["primary_summary"]["included_invoice_count"] == 1
+    assert snapshot["primary_summary"]["outside_invoice_count"] == 0
+    assert snapshot["primary_summary"]["excluded_bank_payment_count"] == 1
 
 
 def test_analysis_snapshot_only_includes_fully_conciliated_invoices_in_conciliated_view(db_session):
-    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Sal\u00e1rio", transaction_kind="income")
     payment = _add_tx(
         db_session,
         tx_date=date(2026, 3, 18),
@@ -315,4 +325,7 @@ def test_analysis_snapshot_only_includes_fully_conciliated_invoices_in_conciliat
     assert conciliated["outside_invoices_by_status"]["partially_conciliated"] == 1
     assert conciliated["outside_invoices_by_status"]["conflict"] == 1
     assert conciliated["outside_invoices_total"] == 3
+    assert snapshot["primary_summary"]["included_invoice_count"] == 1
+    assert snapshot["primary_summary"]["outside_invoice_count"] == 3
+    assert snapshot["primary_summary"]["expense_total"] == 650.0
 

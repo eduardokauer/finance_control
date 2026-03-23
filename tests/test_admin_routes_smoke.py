@@ -24,9 +24,9 @@ def _assert_route_ok(response, route: str):
 
 def _seed_categories(db_session):
     for name, kind in [
-        ("Não Categorizado", "expense"),
+        ("N\u00e3o Categorizado", "expense"),
         ("Transporte", "expense"),
-        ("Salário", "income"),
+        ("Sal\u00e1rio", "income"),
     ]:
         db_session.add(Category(name=name, transaction_kind=kind, is_active=True))
     db_session.commit()
@@ -71,7 +71,7 @@ def _seed_transaction(db_session) -> Transaction:
 def _seed_invoice(db_session) -> CreditCardInvoice:
     card = CreditCard(
         issuer="itau",
-        card_label="Itaú Visa final 1234",
+        card_label="Ita\u00fa Visa final 1234",
         card_final="1234",
         brand="Visa",
         is_active=True,
@@ -235,5 +235,6 @@ def test_admin_analysis_route_smoke_with_legacy_saved_payload(client, db_session
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     _assert_route_ok(response, "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
-    assert "Visão mensal conciliada" in response.text
+    assert "Resumo principal conciliado" in response.text
+    assert "Visão bruta de apoio" in response.text
     assert "legacy html" in response.text
