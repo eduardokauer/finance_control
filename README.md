@@ -79,6 +79,16 @@ A análise expõe sinais auxiliares para dar visibilidade operacional à cobertu
 
 Esses sinais continuam servindo como apoio operacional e auditoria, sem substituir o domínio bruto.
 
+## Categorias em itens de fatura
+A mesma base de categorias do extrato também passa a atender os itens de fatura:
+
+- itens `charge` podem receber categoria de consumo normal
+- itens `credit` continuam técnicos e não viram categoria de consumo
+- itens `payment` continuam técnicos e não viram categoria de consumo
+- regras determinísticas podem ser reaproveitadas com escopo por fonte (`bank_statement`, `credit_card_invoice_item` ou `both`)
+
+Esta etapa prepara a base para futuras leituras analíticas por categoria nas faturas, sem alterar a lógica principal da conciliação.
+
 ## Visão mensal conciliada
 A tela de análise agora prioriza a visão mensal conciliada como leitura principal do mês:
 

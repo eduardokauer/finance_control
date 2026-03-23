@@ -13,6 +13,8 @@ def _login(client):
 def _seed_categories(db_session):
     for name, kind in [
         ("Não Categorizado", "expense"),
+        ("Supermercado", "expense"),
+        ("Educação", "expense"),
         ("Transporte", "expense"),
         ("Outros", "expense"),
         ("Salário", "income"),
@@ -69,6 +71,10 @@ def _seed_invoice_for_summary_ui(db_session) -> CreditCardInvoice:
                 description_raw="SUPERMERCADO TESTE",
                 description_normalized="supermercado teste",
                 amount_brl="100.00",
+                category="Supermercado",
+                categorization_method="rule",
+                categorization_confidence=1.0,
+                applied_rule="supermercado teste",
                 installment_current=None,
                 installment_total=None,
                 is_installment=False,
@@ -81,6 +87,10 @@ def _seed_invoice_for_summary_ui(db_session) -> CreditCardInvoice:
                 description_raw="CURSO PARCELADO",
                 description_normalized="curso parcelado",
                 amount_brl="30.45",
+                category="Educação",
+                categorization_method="fallback",
+                categorization_confidence=0.3,
+                applied_rule=None,
                 installment_current=2,
                 installment_total=3,
                 is_installment=True,
@@ -136,6 +146,9 @@ def test_admin_credit_card_invoice_detail_shows_operational_summary(client, db_s
     assert "Diferença para o total informado" in response.text
     assert "payment" in response.text
     assert "credit" in response.text
+    assert "categoria" in response.text.lower()
+    assert "Supermercado" in response.text
+    assert "Educação" in response.text
     assert "PAGAMENTO EFETUADO" in response.text
     assert "DESCONTO NA FATURA - PO" in response.text
     assert "R$ -50.00" in response.text

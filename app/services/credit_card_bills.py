@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.parsers.credit_card_bill_parser import parse_itau_credit_card_csv
 from app.repositories.models import (
+    Category,
     CreditCard,
     CreditCardInvoice,
     CreditCardInvoiceConciliation,
@@ -18,6 +19,7 @@ from app.repositories.models import (
     SourceFile,
     Transaction,
 )
+from app.services.classification import classify_credit_card_invoice_charge
 from app.utils.hashing import canonical_hash, file_hash
 from app.utils.normalization import normalize_description
 
@@ -60,6 +62,7 @@ INVOICE_IMPORT_STATUSES = ("imported", "pending_review", "conciliated", "conflic
 INVOICE_ITEM_TYPES = ("charge", "credit", "payment", "unknown")
 CONCILIATION_STATUSES = ("pending_review", "partially_conciliated", "conciliated", "conflict")
 CONCILIATION_ITEM_TYPES = ("bank_payment", "invoice_credit")
+INVOICE_ITEM_UNCATEGORIZED_NAMES = ("Não Categorizado", "Nao Categorizado")
 
 
 @dataclass
@@ -1081,6 +1084,48 @@ def _build_row_hash(
     )
 
 
+def _category_kind_map(db: Session) -> dict[str, str]:
+    rows = db.execute(select(Category.name, Category.transaction_kind)).all()
+    return {name: kind for name, kind in rows}
+
+
+def _uncategorized_name(category_kinds: dict[str, str]) -> str:
+    for name in INVOICE_ITEM_UNCATEGORIZED_NAMES:
+        if name in category_kinds:
+            return name
+    return INVOICE_ITEM_UNCATEGORIZED_NAMES[0]
+
+
+def _categorize_invoice_item(
+    db: Session,
+    *,
+    description_raw: str,
+    item_type: str,
+    category_kinds: dict[str, str],
+) -> dict:
+    if item_type != "charge":
+        return {
+            "category": None,
+            "method": None,
+            "confidence": None,
+            "rule": None,
+            "rule_id": None,
+        }
+
+    classification = classify_credit_card_invoice_charge(db, description_raw)
+    category_name = classification["category"]
+    category_kind = category_kinds.get(category_name)
+    if category_kind in {"income", "transfer"} or category_name == "Pagamento de Fatura":
+        return {
+            "category": _uncategorized_name(category_kinds),
+            "method": "fallback",
+            "confidence": 0.3,
+            "rule": None,
+            "rule_id": None,
+        }
+    return classification
+
+
 def import_credit_card_bill(
     db: Session,
     *,
@@ -1117,6 +1162,7 @@ def import_credit_card_bill(
         raise CreditCardBillConflictError("Conflito: ja existe uma fatura para este cartao e competencia.")
 
     items = parse_itau_credit_card_csv(raw_content)
+    category_kinds = _category_kind_map(db)
 
     try:
         source_file = SourceFile(
@@ -1149,6 +1195,26 @@ def import_credit_card_bill(
         db.flush()
 
         for row_position, item in enumerate(items, start=1):
+            item_type = classify_credit_card_invoice_item(
+                CreditCardInvoiceItem(
+                    invoice_id=invoice.id,
+                    purchase_date=item["purchase_date"],
+                    description_raw=item["description_raw"],
+                    description_normalized=item["description_normalized"],
+                    amount_brl=item["amount_brl"],
+                    installment_current=item["installment_current"],
+                    installment_total=item["installment_total"],
+                    is_installment=item["is_installment"],
+                    derived_note=item["derived_note"],
+                    external_row_hash="preview",
+                )
+            )
+            classification = _categorize_invoice_item(
+                db,
+                description_raw=item["description_raw"],
+                item_type=item_type,
+                category_kinds=category_kinds,
+            )
             row_hash = _build_row_hash(
                 card_id=card.id,
                 billing_year=upload_input.billing_year,
@@ -1167,6 +1233,11 @@ def import_credit_card_bill(
                     description_raw=item["description_raw"],
                     description_normalized=item["description_normalized"],
                     amount_brl=item["amount_brl"],
+                    category=classification["category"],
+                    categorization_method=classification["method"],
+                    categorization_confidence=classification["confidence"],
+                    applied_rule=classification["rule"],
+                    categorization_rule_id=classification["rule_id"],
                     installment_current=item["installment_current"],
                     installment_total=item["installment_total"],
                     is_installment=item["is_installment"],

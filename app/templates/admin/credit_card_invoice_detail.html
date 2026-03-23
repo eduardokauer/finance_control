@@ -26,7 +26,7 @@
     <div class="kv-grid">
       <div class="subtle">ID</div><div>#{{ detail.invoice.id }}</div>
       <div class="subtle">Cartão</div><div>{{ detail.card.card_label }}</div>
-      <div class="subtle">Issuer</div><div>{{ detail.invoice.issuer }}</div>
+      <div class="subtle">Emissor</div><div>{{ detail.invoice.issuer }}</div>
       <div class="subtle">Competência</div><div>{{ "%02d/%04d"|format(detail.invoice.billing_month, detail.invoice.billing_year) }}</div>
       <div class="subtle">Vencimento</div><div>{{ detail.invoice.due_date }}</div>
       <div class="subtle">Fechamento</div><div>{{ detail.invoice.closing_date or '-' }}</div>
@@ -35,9 +35,9 @@
       <div class="subtle">Arquivo</div><div>{{ detail.invoice.source_file_name }}</div>
       <div class="subtle">Hash</div><div><code>{{ detail.invoice.source_file_hash }}</code></div>
       <div class="subtle">Observação</div><div>{{ detail.invoice.notes or '-' }}</div>
-      <div class="subtle">Imported at</div><div>{{ detail.invoice.imported_at or '-' }}</div>
-      <div class="subtle">Created at</div><div>{{ detail.invoice.created_at or '-' }}</div>
-      <div class="subtle">Source file created</div><div>{{ detail.source_file.created_at if detail.source_file else '-' }}</div>
+      <div class="subtle">Importada em</div><div>{{ detail.invoice.imported_at or '-' }}</div>
+      <div class="subtle">Criada em</div><div>{{ detail.invoice.created_at or '-' }}</div>
+      <div class="subtle">Arquivo criado em</div><div>{{ detail.source_file.created_at if detail.source_file else '-' }}</div>
     </div>
   </div>
 
@@ -212,14 +212,15 @@
       <table>
         <thead>
           <tr>
-            <th>purchase_date</th>
-            <th>description_raw</th>
-            <th>item_type</th>
-            <th>amount_brl</th>
-            <th>is_installment</th>
-            <th>installment_current</th>
-            <th>installment_total</th>
-            <th>derived_note</th>
+            <th>data</th>
+            <th>descrição</th>
+            <th>tipo</th>
+            <th>categoria</th>
+            <th>valor</th>
+            <th>parcelado</th>
+            <th>parcela atual</th>
+            <th>total de parcelas</th>
+            <th>observação derivada</th>
           </tr>
         </thead>
         <tbody>
@@ -228,6 +229,17 @@
               <td>{{ item_detail.item.purchase_date }}</td>
               <td>{{ item_detail.item.description_raw }}</td>
               <td><span class="badge">{{ item_detail.item_type }}</span></td>
+              <td>
+                {% if item_detail.item.category %}
+                  {{ item_detail.item.category }}
+                  <div class="subtle">
+                    {{ item_detail.item.categorization_method or '-' }}
+                    {% if item_detail.item.applied_rule %}| regra: {{ item_detail.item.applied_rule }}{% endif %}
+                  </div>
+                {% else %}
+                  <span class="subtle">-</span>
+                {% endif %}
+              </td>
               <td>R$ {{ "%.2f"|format(item_detail.item.amount_brl) }}</td>
               <td>{{ 'sim' if item_detail.item.is_installment else 'não' }}</td>
               <td>{{ item_detail.item.installment_current or '-' }}</td>

@@ -39,6 +39,7 @@ def admin_create_rule(
     rule_type: str = Form(...),
     category_name: str = Form(...),
     kind_mode: str = Form("flow"),
+    source_scope: str = Form("both"),
     priority: int = Form(0),
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
@@ -50,6 +51,7 @@ def admin_create_rule(
         rule_type=rule_type,
         category_name=category_name,
         kind_mode=kind_mode,
+        source_scope=source_scope,
         priority=priority,
         is_active=True,
     )
@@ -65,6 +67,7 @@ def admin_update_rule(
     rule_type: str = Form(...),
     category_name: str = Form(...),
     kind_mode: str = Form(...),
+    source_scope: str = Form(...),
     priority: int = Form(...),
     is_active: bool = Form(False),
     db: Session = Depends(get_db),
@@ -77,6 +80,7 @@ def admin_update_rule(
         rule_type=rule_type,
         category_name=category_name,
         kind_mode=kind_mode,
+        source_scope=source_scope,
         priority=priority,
         is_active=is_active,
     )

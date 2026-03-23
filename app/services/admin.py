@@ -285,6 +285,7 @@ def upsert_rule(
     rule_type: str,
     category_name: str,
     kind_mode: str,
+    source_scope: str,
     priority: int,
     is_active: bool = True,
 ) -> CategorizationRule:
@@ -296,6 +297,7 @@ def upsert_rule(
             rule_type=rule_type,
             category_name=category_name,
             kind_mode=kind_mode,
+            source_scope=source_scope,
             priority=priority,
             is_active=is_active,
         )
@@ -305,6 +307,7 @@ def upsert_rule(
         rule.rule_type = rule_type
         rule.category_name = category_name
         rule.kind_mode = kind_mode
+        rule.source_scope = source_scope
         rule.priority = priority
         rule.is_active = is_active
     db.commit()

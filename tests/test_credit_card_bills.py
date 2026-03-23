@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
-from app.repositories.models import CreditCard, CreditCardInvoice, CreditCardInvoiceItem, SourceFile
+from app.repositories.models import CategorizationRule, Category, CreditCard, CreditCardInvoice, CreditCardInvoiceItem, SourceFile
 from app.services.credit_card_bills import classify_credit_card_invoice_item, create_credit_card, get_credit_card_invoice_detail
 
 
@@ -87,7 +87,20 @@ def _upload_invoice(client, auth_headers, card_id: int, csv_file, **overrides):
             headers=auth_headers,
             data=data,
             files={"file": (csv_file.name, handle, "text/csv")},
-        )
+        )        
+
+
+def _seed_categories(db_session):
+    for name, kind in [
+        ("Não Categorizado", "expense"),
+        ("Supermercado", "expense"),
+        ("Educação", "expense"),
+        ("Ajustes e Estornos", "expense"),
+        ("Transferências", "transfer"),
+        ("Outras Receitas", "income"),
+    ]:
+        db_session.add(Category(name=name, transaction_kind=kind, is_active=True))
+    db_session.commit()
 
 
 def test_credit_card_creation_persists_basic_entity(db_session):
@@ -336,6 +349,57 @@ def test_credit_card_invoice_upload_accepts_real_fixture_file(
     assert items[-1].purchase_date == date(2025, 7, 15)
     assert items[-1].description_raw == "MP *SAMSUNG       08/18"
     assert items[-1].amount_brl == Decimal("214.23")
+
+
+def test_credit_card_invoice_upload_categorizes_charge_and_keeps_technical_items_without_category(
+    client,
+    db_session,
+    auth_headers,
+    tmp_path,
+):
+    _seed_categories(db_session)
+    db_session.add(
+        CategorizationRule(
+            rule_type="contains",
+            pattern="supermercado extra",
+            category_name="Supermercado",
+            kind_mode="flow",
+            source_scope="credit_card_invoice_item",
+            priority=0,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+    card = _create_card(db_session)
+    categorized_file = tmp_path / "fatura_categorizada.csv"
+    categorized_file.write_text(
+        "data;lançamento;valor\n"
+        "05/03/2026;SUPERMERCADO EXTRA;120,45\n"
+        "06/03/2026;DESCONTO NA FATURA - PO;-10,00\n"
+        "07/03/2026;PAGAMENTO EFETUADO;-110,45\n",
+        encoding="utf-8",
+    )
+
+    response = _upload_invoice(
+        client,
+        auth_headers,
+        card.id,
+        categorized_file,
+        total_amount_brl="110.45",
+    )
+
+    assert response.status_code == 200
+    items = db_session.scalars(select(CreditCardInvoiceItem).order_by(CreditCardInvoiceItem.id.asc())).all()
+    assert len(items) == 3
+    assert items[0].category == "Supermercado"
+    assert items[0].categorization_method == "rule"
+    assert items[0].applied_rule == "supermercado extra"
+    assert items[0].categorization_rule_id is not None
+    assert items[1].category is None
+    assert items[1].categorization_method is None
+    assert items[2].category is None
+    assert items[2].categorization_method is None
+    assert db_session.scalar(select(Category).where(Category.name == items[0].category)) is not None
 
 
 def test_credit_card_invoice_item_classifies_payment_and_credit(db_session):

@@ -69,6 +69,24 @@ def test_sql_migrations_are_idempotent_in_postgres(monkeypatch):
                 cur.execute("select count(*) from categorization_rules where kind_mode is null")
                 null_rule_kinds = cur.fetchone()[0]
 
+                cur.execute("select count(*) from categorization_rules where source_scope is null")
+                null_rule_source_scopes = cur.fetchone()[0]
+
+                cur.execute(
+                    "select count(*) from information_schema.columns where table_name = 'categorization_rules' and column_name = 'source_scope'"
+                )
+                has_rule_source_scope = cur.fetchone()[0]
+
+                cur.execute(
+                    "select count(*) from information_schema.columns where table_name = 'credit_card_invoice_items' and column_name = 'category'"
+                )
+                has_invoice_item_category = cur.fetchone()[0]
+
+                cur.execute(
+                    "select count(*) from information_schema.columns where table_name = 'credit_card_invoice_items' and column_name = 'categorization_method'"
+                )
+                has_invoice_item_method = cur.fetchone()[0]
+
                 cur.execute("select count(*) from transaction_audit_logs")
                 audit_log_rows = cur.fetchone()[0]
 
@@ -81,6 +99,10 @@ def test_sql_migrations_are_idempotent_in_postgres(monkeypatch):
         assert first_rules > 0
         assert null_category_kinds == 0
         assert null_rule_kinds == 0
+        assert null_rule_source_scopes == 0
+        assert has_rule_source_scope == 1
+        assert has_invoice_item_category == 1
+        assert has_invoice_item_method == 1
         assert audit_log_rows == 0
 
         with psycopg.connect(temp_dsn) as conn:
@@ -98,6 +120,9 @@ def test_sql_migrations_are_idempotent_in_postgres(monkeypatch):
                 assert cur.fetchone()[0] == 0
 
                 cur.execute("select count(*) from categorization_rules where kind_mode is null")
+                assert cur.fetchone()[0] == 0
+
+                cur.execute("select count(*) from categorization_rules where source_scope is null")
                 assert cur.fetchone()[0] == 0
     finally:
         monkeypatch.setattr(settings, "database_url", base_url)
