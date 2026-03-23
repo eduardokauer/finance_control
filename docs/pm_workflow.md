@@ -21,13 +21,17 @@ Leitura obrigatória antes de atuar:
    - contexto do projeto;
    - regras do PM;
    - regras do Codex.
-9. Sempre mandar o Codex ler os arquivos relevantes antes de começar.
-10. Sempre instruir o Codex a atualizar os arquivos de contexto/processo quando necessário.
-11. Sempre exigir que o Codex só commite e abra PR depois de:
+9. Sempre mandar o Codex ler, por padrão:
+   - `docs/project_context.md`;
+   - `docs/codex_workflow.md`;
+   - arquivos adicionais relevantes do trabalho.
+10. Não incluir `docs/pm_workflow.md` no prompt do Codex por padrão; só incluir por motivo excepcional e explícito.
+11. Sempre instruir o Codex a atualizar os arquivos de contexto/processo quando necessário.
+12. Sempre exigir que o Codex só commite e abra PR depois de:
     - DoD cumprido;
     - documentação atualizada quando aplicável;
     - suíte completa verde.
-12. Sempre exigir higiene final:
+13. Sempre exigir higiene final:
     - mojibake;
     - encoding;
     - BOM;
@@ -44,14 +48,22 @@ Leitura obrigatória antes de atuar:
 ## Como Montar o Prompt para o Codex
 
 Todo prompt deve deixar explícito:
-- quais arquivos o Codex deve ler antes de executar;
+- quais arquivos o Codex deve ler por padrão:
+  - `docs/project_context.md`;
+  - `docs/codex_workflow.md`;
+  - arquivos adicionais relevantes do trabalho;
+- que `docs/pm_workflow.md` não deve ser enviado ao Codex por padrão;
 - o objetivo da entrega;
 - o fora de escopo;
 - as decisões já fechadas relevantes;
 - o DoD;
 - a exigência de testes;
 - a exigência de atualização de documentação/contexto/processo;
-- quais arquivos precisam ser atualizados naquele trabalho, quando aplicável;
+- quais arquivos precisam ser atualizados naquele trabalho, quando aplicável, evitando instruções vagas como "atualize a documentação se necessário";
+- o mapeamento esperado para atualização de arquivos:
+  - feature, estado ou decisão mudou -> atualizar `docs/project_context.md`;
+  - processo do PM mudou -> atualizar `docs/pm_workflow.md`;
+  - processo do Codex mudou -> atualizar `docs/codex_workflow.md`;
 - o formato esperado da entrega final;
 - a regra de commit + PR só no final.
 
@@ -88,6 +100,8 @@ Na revisão do PR, o PM deve checar:
 Antes de enviar um prompt ao Codex, confirmar que ele inclui:
 
 1. Arquivos obrigatórios para leitura.
+   Por padrão: `docs/project_context.md`, `docs/codex_workflow.md` e arquivos adicionais relevantes do trabalho.
+   `docs/pm_workflow.md` não deve ir para o Codex por padrão.
 2. Objetivo do PR.
 3. Fora de escopo.
 4. Decisões já fechadas relevantes.
