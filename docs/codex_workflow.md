@@ -9,21 +9,24 @@ Leitura obrigatória antes de executar:
 2. `docs/codex_workflow.md`
 3. quaisquer outros arquivos que o prompt mandar ler antes de começar.
 
+`docs/pm_workflow.md` não faz parte da leitura padrão do Codex. Ele só deve ser lido se o prompt mandar explicitamente por motivo específico.
+
 ## Regras Obrigatórias do Codex
 
 1. Sempre considerar `docs/project_context.md` como base prioritária de contexto do projeto.
 2. Sempre considerar `docs/codex_workflow.md` como base prioritária do processo de execução.
 3. Sempre ler também os arquivos adicionais indicados no prompt.
-4. Não contradizer decisões já tomadas em `docs/project_context.md`.
-5. Respeitar objetivo, fora de escopo e DoD do prompt.
-6. Não abrir escopo por conta própria.
-7. Transformar itens críticos do DoD em testes sempre que possível.
-8. Revisar os arquivos alterados quanto a:
+4. Não ler `docs/pm_workflow.md` por padrão; só fazê-lo se o prompt mandar explicitamente por motivo específico.
+5. Não contradizer decisões já tomadas em `docs/project_context.md`.
+6. Respeitar objetivo, fora de escopo e DoD do prompt.
+7. Não abrir escopo por conta própria.
+8. Transformar itens críticos do DoD em testes sempre que possível.
+9. Revisar os arquivos alterados quanto a:
    - mojibake;
    - encoding incorreto;
    - BOM residual;
    - problemas de formatação.
-9. Executar a suíte completa antes de considerar a entrega concluída.
+10. Executar a suíte completa antes de considerar a entrega concluída.
 
 ## Regra Crítica de Atualização dos Arquivos
 
