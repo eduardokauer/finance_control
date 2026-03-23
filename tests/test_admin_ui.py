@@ -805,14 +805,18 @@ def test_admin_credit_card_invoice_list_shows_imported_invoices(client, db_sessi
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
     _seed_credit_card_invoice(db_session, card_label="Itaú Visa final 1234", card_final="1234", status="imported")
-    _seed_credit_card_invoice(db_session, card_label="Itaú Mastercard final 5678", card_final="5678", billing_month=2, status="conflict")
+    _seed_credit_card_invoice(db_session, card_label="Itaú Mastercard final 5678", card_final="5678", billing_month=1, status="conflict")
     _login(client)
 
     response = client.get("/admin/credit-card-invoices")
 
     assert response.status_code == 200
     assert "Faturas importadas" in response.text
+    assert "Faturas importadas por competência" in response.text
+    assert "Últimas 12 competências, com lacunas preenchidas com zero." in response.text
+    assert "invoice-imports-chart" in response.text
     assert "Itaú Visa final 1234" in response.text
+    assert '"02/2026"' in response.text
     assert "03/2026" in response.text
     assert "imported" in response.text
     assert "conflict" in response.text

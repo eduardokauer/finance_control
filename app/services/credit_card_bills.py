@@ -68,6 +68,12 @@ class CreditCardInvoiceListEntry:
 
 
 @dataclass
+class CreditCardInvoiceImportChartPoint:
+    competence_label: str
+    invoice_count: int
+
+
+@dataclass
 class CreditCardInvoiceItemDetail:
     item: CreditCardInvoiceItem
     item_type: str
@@ -175,6 +181,16 @@ def _empty_invoice_status_counts() -> dict[str, int]:
     }
 
 
+def _month_start(value: date) -> date:
+    return value.replace(day=1)
+
+
+def _add_months(value: date, offset: int) -> date:
+    year = value.year + ((value.month - 1 + offset) // 12)
+    month = ((value.month - 1 + offset) % 12) + 1
+    return date(year, month, 1)
+
+
 def list_credit_cards(db: Session, *, active_only: bool = False) -> list[CreditCard]:
     query = select(CreditCard)
     if active_only:
@@ -220,6 +236,64 @@ def list_recent_credit_card_invoices(db: Session, *, limit: int = 10) -> list[di
         }
         for invoice, card_label, item_count_value in rows
     ]
+
+
+def build_credit_card_invoice_import_chart(
+    db: Session,
+    *,
+    months: int = 12,
+) -> list[CreditCardInvoiceImportChartPoint]:
+    latest_invoice = db.execute(
+        select(CreditCardInvoice.billing_year, CreditCardInvoice.billing_month)
+        .order_by(CreditCardInvoice.billing_year.desc(), CreditCardInvoice.billing_month.desc(), CreditCardInvoice.id.desc())
+        .limit(1)
+    ).first()
+    if latest_invoice is None:
+        return []
+
+    latest_billing_year, latest_billing_month = latest_invoice
+    end_month = date(int(latest_billing_year), int(latest_billing_month), 1)
+    start_month = _add_months(end_month, -(months - 1))
+    competence_keys = [
+        (_add_months(start_month, offset).year, _add_months(start_month, offset).month)
+        for offset in range(months)
+    ]
+
+    rows = db.execute(
+        select(
+            CreditCardInvoice.billing_year,
+            CreditCardInvoice.billing_month,
+            func.count(CreditCardInvoice.id),
+        )
+        .where(
+            or_(
+                *(
+                    (
+                        (CreditCardInvoice.billing_year == billing_year)
+                        & (CreditCardInvoice.billing_month == billing_month)
+                    )
+                    for billing_year, billing_month in competence_keys
+                )
+            )
+        )
+        .group_by(CreditCardInvoice.billing_year, CreditCardInvoice.billing_month)
+    ).all()
+
+    counts_by_competence = {
+        (int(billing_year), int(billing_month)): int(invoice_count or 0)
+        for billing_year, billing_month, invoice_count in rows
+    }
+
+    points: list[CreditCardInvoiceImportChartPoint] = []
+    for offset in range(months):
+        current_month = _add_months(start_month, offset)
+        points.append(
+            CreditCardInvoiceImportChartPoint(
+                competence_label=f"{current_month.month:02d}/{current_month.year}",
+                invoice_count=counts_by_competence.get((current_month.year, current_month.month), 0),
+            )
+        )
+    return points
 
 
 def map_conciliated_bank_payment_signals(
