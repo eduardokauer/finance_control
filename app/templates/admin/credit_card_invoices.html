@@ -1,6 +1,16 @@
-{% extends "admin/base.html" %}
+﻿{% extends "admin/base.html" %}
 {% block title %}Faturas de Cartão{% endblock %}
 {% block content %}
+<style>
+  .invoice-chart-shell {
+    min-height: 280px;
+  }
+  .invoice-chart-shell canvas {
+    width: 100% !important;
+    height: 280px !important;
+  }
+</style>
+
 <section class="card stack">
   <div class="inline" style="justify-content: space-between; align-items: flex-start;">
     <div>
@@ -9,6 +19,16 @@
     </div>
     <a class="button" href="/admin">Voltar para home</a>
   </div>
+
+  {% if chart_points %}
+    <div class="card stack" style="margin-bottom: 0;">
+      <div>
+        <strong>Faturas importadas por competência</strong>
+        <div class="subtle">Últimas 12 competências, com lacunas preenchidas com zero.</div>
+      </div>
+      <div class="invoice-chart-shell"><canvas id="invoice-imports-chart"></canvas></div>
+    </div>
+  {% endif %}
 
   {% if entries %}
     <div class="table-wrap">
@@ -47,4 +67,47 @@
     <div class="subtle">Nenhuma fatura importada ainda.</div>
   {% endif %}
 </section>
+
+{% if chart_points %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  (() => {
+    const canvas = document.getElementById('invoice-imports-chart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    const chartData = {
+      labels: {{ chart_points | map(attribute='competence_label') | list | tojson }},
+      values: {{ chart_points | map(attribute='invoice_count') | list | tojson }},
+    };
+
+    new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: chartData.labels,
+        datasets: [
+          {
+            label: 'Faturas importadas',
+            data: chartData.values,
+            backgroundColor: '#0f766e',
+            borderRadius: 10,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              precision: 0,
+              stepSize: 1,
+            },
+          },
+        },
+      },
+    });
+  })();
+</script>
+{% endif %}
 {% endblock %}

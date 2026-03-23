@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
 from app.services.credit_card_bills import (
+    build_credit_card_invoice_import_chart,
     CreditCardInvoiceConciliationError,
     get_credit_card_invoice_detail,
     list_credit_card_invoices,
@@ -36,11 +37,13 @@ def admin_credit_card_invoice_list(
     _: bool = Depends(require_admin_session),
 ):
     entries = list_credit_card_invoices(db)
+    chart_points = build_credit_card_invoice_import_chart(db)
     return render_admin(
         request,
         "admin/credit_card_invoices.html",
         {
             "entries": entries,
+            "chart_points": chart_points,
             "status_variant": _status_variant,
         },
     )
