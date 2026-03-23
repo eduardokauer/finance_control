@@ -370,7 +370,7 @@ def _build_primary_summary(*, conciliated_month: dict) -> dict:
     else:
         coverage_note = "Sem faturas conciliadas no período; a leitura principal coincide com a movimentação líquida da conta."
     executive_summary = (
-        f"Receitas da conta em {conciliated_month['bank_income_display']}, despesa liquida conciliada em "
+        f"Receitas da conta em {conciliated_month['bank_income_display']}, despesa líquida conciliada em "
         f"{conciliated_month['net_conciliated_expense_display']} e saldo conciliado de "
         f"{conciliated_month['conciliated_balance_display']}."
     )
@@ -497,7 +497,7 @@ def _build_actions(
         )
     if summary["balance"] < 0:
         focus_categories = [item["name"] for item in categories if item["expense_total"] > 0 and not item["is_technical"]][:2]
-        categories_text = ", ".join(focus_categories) if focus_categories else "as maiores despesas variaveis"
+        categories_text = ", ".join(focus_categories) if focus_categories else "as maiores despesas variáveis"
         actions.append(
             {
                 "title": "Atacar o saldo negativo imediatamente",
