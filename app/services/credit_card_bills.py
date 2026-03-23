@@ -327,7 +327,7 @@ def build_conciliation_analytics_snapshot(
     status_counts = _empty_invoice_status_counts()
     status_rows = db.execute(
         select(
-            func.coalesce(CreditCardInvoiceConciliation.status, "pending_review"),
+            CreditCardInvoiceConciliation.status,
             func.count(CreditCardInvoice.id),
         )
         .select_from(CreditCardInvoice)
@@ -336,9 +336,10 @@ def build_conciliation_analytics_snapshot(
             CreditCardInvoice.due_date >= period_start,
             CreditCardInvoice.due_date <= period_end,
         )
-        .group_by(func.coalesce(CreditCardInvoiceConciliation.status, "pending_review"))
+        .group_by(CreditCardInvoiceConciliation.status)
     ).all()
-    for status, count_value in status_rows:
+    for raw_status, count_value in status_rows:
+        status = raw_status or "pending_review"
         if status in status_counts:
             status_counts[status] = int(count_value or 0)
 
