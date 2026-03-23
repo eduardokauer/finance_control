@@ -80,6 +80,15 @@ O Codex só pode commitar e abrir PR depois de:
 
 Se qualquer um desses pontos falhar, o trabalho ainda não está finalizado.
 
+### Texto obrigatório do PR
+
+O texto do PR deve incluir um relatório final objetivo da entrega, com no mínimo:
+- resumo do que foi feito;
+- arquivos alterados;
+- validação explícita do DoD;
+- resultado da suíte;
+- commit realizado.
+
 ## Como Usar nos Próximos Prompts
 
 - O PM deve mandar o Codex ler os arquivos relevantes antes de cada nova execução.
