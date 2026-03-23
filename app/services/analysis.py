@@ -12,7 +12,12 @@ from app.repositories.models import AnalysisRun, CreditCardInvoice, CreditCardIn
 from app.services.credit_card_bills import build_conciliation_analytics_snapshot, classify_credit_card_invoice_item, map_conciliated_bank_payment_signals
 from app.utils.normalization import normalize_description
 
-UNCATEGORIZED_NAMES = ("Não Categorizado", "Nao Categorizado")
+UNCATEGORIZED_NAMES = (
+    "N\u00e3o Categorizado",
+    "Nao Categorizado",
+    "N\u00c3\u00a3o Categorizado",
+    "N\u00c3\u0192\u00c2\u00a3o Categorizado",
+)
 MONTH_LABELS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
 TECHNICAL_TRANSFER_KEYS = {"transferencias"}
 TECHNICAL_CARD_BILL_KEYS = {"pagamento de fatura", "pagamento fatura"}
@@ -113,7 +118,7 @@ def _build_metric_change(current: float, previous: float) -> dict:
         "delta": delta,
         "percent": percent,
         "trend": trend,
-        "trend_label": {"up": "subiu", "down": "desceu", "stable": "estável"}[trend],
+        "trend_label": {"up": "subiu", "down": "desceu", "stable": "estavel"}[trend],
         "current_display": format_currency_br(current),
         "previous_display": format_currency_br(previous),
         "delta_display": format_currency_br(delta),
@@ -176,7 +181,7 @@ def _build_category_rows(txs: list[Transaction], *, expense_total: float) -> lis
             flow_label = "Misto"
         technical_label = None
         if values["is_transfer_technical"]:
-            technical_label = "Transferências"
+            technical_label = "Transferencias"
         elif values["is_card_bill_technical"]:
             technical_label = "Pagamento de Fatura"
         share_of_expense = values["expense_total"] / expense_total if expense_total else 0.0
@@ -221,7 +226,7 @@ def _build_technical_items(txs: list[Transaction], *, expense_total: float) -> d
         "combined_display": format_currency_br(combined_total),
         "combined_share": combined_share,
         "combined_share_display": format_percent_br(combined_share),
-        "note": "Transferências e pagamento de fatura continuam no consolidado, mas podem distorcer a leitura do consumo real.",
+        "note": "Transferencias e pagamento de fatura continuam no consolidado, mas podem distorcer a leitura do consumo real.",
     }
 
 
@@ -335,7 +340,7 @@ def _build_conciliated_month_snapshot(
         "ignored_invoice_payment_item_display": format_currency_br(payment_item_total),
         "note": (
             "Considera apenas faturas totalmente conciliadas. "
-            "Pagamentos bancários conciliados saem do gasto real e compras/credits da fatura entram como consumo líquido do mês."
+            "Pagamentos bancarios conciliados saem do gasto real e compras/credits da fatura entram como consumo liquido do mes."
         ),
     }
 
@@ -347,6 +352,42 @@ def _build_quality(summary: dict) -> dict:
         "uncategorized_display": summary["uncategorized_display"],
         "uncategorized_share": uncategorized_share,
         "uncategorized_share_display": format_percent_br(uncategorized_share),
+    }
+
+
+def _build_primary_summary(*, conciliated_month: dict) -> dict:
+    income_total = conciliated_month["bank_income_total"]
+    expense_total = conciliated_month["net_conciliated_expense_total"]
+    balance_total = conciliated_month["conciliated_balance_total"]
+    included_invoice_count = conciliated_month["included_invoice_count"]
+    outside_invoice_count = conciliated_month["outside_invoices_total"]
+    excluded_payment_count = conciliated_month["excluded_bank_payment_count"]
+    if included_invoice_count or outside_invoice_count:
+        coverage_note = (
+            f"{included_invoice_count} fatura(s) conciliada(s) entraram na leitura principal e "
+            f"{outside_invoice_count} ficaram fora por pendencia, parcial ou conflito."
+        )
+    else:
+        coverage_note = "Sem faturas conciliadas no periodo; a leitura principal coincide com a movimentacao liquida da conta."
+    executive_summary = (
+        f"Receitas da conta em {conciliated_month['bank_income_display']}, despesa liquida conciliada em "
+        f"{conciliated_month['net_conciliated_expense_display']} e saldo conciliado de "
+        f"{conciliated_month['conciliated_balance_display']}."
+    )
+    return {
+        "mode": "conciliated",
+        "income_total": income_total,
+        "expense_total": expense_total,
+        "balance": balance_total,
+        "income_display": format_currency_br(income_total),
+        "expense_display": format_currency_br(expense_total),
+        "balance_display": format_currency_br(balance_total),
+        "included_invoice_count": included_invoice_count,
+        "outside_invoice_count": outside_invoice_count,
+        "excluded_bank_payment_count": excluded_payment_count,
+        "excluded_bank_payment_display": conciliated_month["excluded_conciliated_bank_payment_display"],
+        "coverage_note": coverage_note,
+        "executive_summary": executive_summary,
     }
 
 
@@ -363,16 +404,16 @@ def _build_alerts(
         alerts.append(
             {
                 "level": "danger",
-                "title": "Saldo negativo no período",
-                "body": f"O período fechou com saldo de {summary['balance_display']}. Vale revisar as maiores saídas antes do próximo fechamento.",
+                "title": "Saldo negativo no periodo",
+                "body": f"O periodo fechou com saldo de {summary['balance_display']}. Vale revisar as maiores saidas antes do proximo fechamento.",
             }
         )
     if comparison["expense"]["trend"] == "up" and (comparison["expense"]["percent"] or 0) >= 0.15:
         alerts.append(
             {
                 "level": "warn",
-                "title": "Despesas subiram em relação ao mês anterior",
-                "body": f"As despesas aumentaram {comparison['expense']['percent_display']} ({comparison['expense']['delta_display']}) contra o mês anterior.",
+                "title": "Despesas subiram em relacao ao mes anterior",
+                "body": f"As despesas aumentaram {comparison['expense']['percent_display']} ({comparison['expense']['delta_display']}) contra o mes anterior.",
             }
         )
     top_expense_category = next((item for item in categories if item["expense_total"] > 0), None)
@@ -380,15 +421,15 @@ def _build_alerts(
         alerts.append(
             {
                 "level": "warn",
-                "title": "Alta concentração em uma categoria",
-                "body": f"{top_expense_category['name']} respondeu por {top_expense_category['share_of_expense_display']} das despesas do mês-base.",
+                "title": "Alta concentracao em uma categoria",
+                "body": f"{top_expense_category['name']} respondeu por {top_expense_category['share_of_expense_display']} das despesas do mes-base.",
             }
         )
     if quality["uncategorized_share"] >= 0.08:
         alerts.append(
             {
                 "level": "warn",
-                "title": "Não categorizado ainda alto",
+                "title": "Nao categorizado ainda alto",
                 "body": f"Ainda existem {quality['uncategorized_display']} sem categoria definida, o que representa {quality['uncategorized_share_display']} das despesas.",
             }
         )
@@ -396,16 +437,16 @@ def _build_alerts(
         alerts.append(
             {
                 "level": "warn",
-                "title": "Itens técnicos pesam na leitura do mês",
-                "body": f"Transferências e pagamento de fatura somam {technical_items['combined_display']} ({technical_items['combined_share_display']} das despesas).",
+                "title": "Itens tecnicos pesam na leitura do mes",
+                "body": f"Transferencias e pagamento de fatura somam {technical_items['combined_display']} ({technical_items['combined_share_display']} das despesas).",
             }
         )
     if comparison["balance"]["percent"] is not None and fabs(comparison["balance"]["percent"]) >= 0.25:
         alerts.append(
             {
                 "level": "warn",
-                "title": "Variação forte frente ao mês anterior",
-                "body": f"O saldo {comparison['balance']['trend_label']} {comparison['balance']['percent_display']} em relação ao período anterior comparável.",
+                "title": "Variacao forte frente ao mes anterior",
+                "body": f"O saldo {comparison['balance']['trend_label']} {comparison['balance']['percent_display']} em relacao ao periodo anterior comparavel.",
             }
         )
     return alerts[:5]
@@ -425,7 +466,7 @@ def _build_actions(
         actions.append(
             {
                 "title": "Melhorar a qualidade da base",
-                "body": f"Priorize a revisão do não categorizado ({quality['uncategorized_display']}) para evitar distorção na leitura do mês.",
+                "body": f"Priorize a revisao do nao categorizado ({quality['uncategorized_display']}) para evitar distorcao na leitura do mes.",
             }
         )
 
@@ -437,30 +478,30 @@ def _build_actions(
             actions.append(
                 {
                     "title": f"Revisar a categoria {top_expense_category['name']}",
-                    "body": f"Ela concentrou {top_expense_category['share_of_expense_display']} das despesas e subiu {format_currency_br(delta)} contra o mês anterior.",
+                    "body": f"Ela concentrou {top_expense_category['share_of_expense_display']} das despesas e subiu {format_currency_br(delta)} contra o mes anterior.",
                 }
             )
     if comparison["expense"]["trend"] == "up" and (comparison["expense"]["percent"] or 0) >= 0.15:
         actions.append(
             {
                 "title": "Investigar o aumento das despesas",
-                "body": "Compare as maiores categorias do mês atual com o mês anterior para identificar o que puxou a alta.",
+                "body": "Compare as maiores categorias do mes atual com o mes anterior para identificar o que puxou a alta.",
             }
         )
     if technical_items["combined_share"] >= 0.2:
         actions.append(
             {
-                "title": "Separar consumo real de itens técnicos",
-                "body": "Ao revisar o mês, considere transferências e pagamento de fatura em separado para não superestimar o gasto recorrente.",
+                "title": "Separar consumo real de itens tecnicos",
+                "body": "Ao revisar o mes, considere transferencias e pagamento de fatura em separado para nao superestimar o gasto recorrente.",
             }
         )
     if summary["balance"] < 0:
         focus_categories = [item["name"] for item in categories if item["expense_total"] > 0 and not item["is_technical"]][:2]
-        categories_text = ", ".join(focus_categories) if focus_categories else "as maiores despesas variáveis"
+        categories_text = ", ".join(focus_categories) if focus_categories else "as maiores despesas variaveis"
         actions.append(
             {
                 "title": "Atacar o saldo negativo imediatamente",
-                "body": f"Comece por {categories_text} para tentar recuperar caixa já no próximo período.",
+                "body": f"Comece por {categories_text} para tentar recuperar caixa ja no proximo periodo.",
             }
         )
 
@@ -534,6 +575,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         period_end=period_end,
         current_txs=current_txs,
     )
+    primary_summary = _build_primary_summary(conciliated_month=conciliated_month)
 
     top_expense_categories = [item for item in category_rows if item["expense_total"] > 0][:8]
     return {
@@ -543,6 +585,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
             "label": f"{format_date_br(period_start)} a {format_date_br(period_end)}",
             "month_reference_label": format_month_label(anchor_month),
         },
+        "primary_summary": primary_summary,
         "summary": summary,
         "comparison": comparison,
         "monthly_series": monthly_series,
@@ -581,14 +624,14 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
 
 def _render_alert_items(items: list[dict]) -> str:
     if not items:
-        return "<p>Nenhum alerta determinístico relevante para este período.</p>"
+        return "<p>Nenhum alerta deterministico relevante para este periodo.</p>"
     rows = "".join(f"<li><strong>{item['title']}</strong><br>{item['body']}</li>" for item in items)
     return f"<ul>{rows}</ul>"
 
 
 def _render_action_items(items: list[dict]) -> str:
     if not items:
-        return "<p>Nenhuma ação prioritária sugerida no momento.</p>"
+        return "<p>Nenhuma acao prioritaria sugerida no momento.</p>"
     rows = "".join(f"<li><strong>{item['title']}</strong><br>{item['body']}</li>" for item in items)
     return f"<ul>{rows}</ul>"
 
@@ -597,29 +640,34 @@ def _render_category_items(items: list[dict]) -> str:
     rows = []
     for item in items[:5]:
         note = f" <em>({item['technical_label']})</em>" if item["is_technical"] else ""
-        rows.append(f"<li><strong>{item['name']}</strong>: {item['display_total']} · {item['flow_label']}{note}</li>")
-    return f"<ul>{''.join(rows)}</ul>" if rows else "<p>Sem categorias relevantes no mês-base.</p>"
+        rows.append(f"<li><strong>{item['name']}</strong>: {item['display_total']} - {item['flow_label']}{note}</li>")
+    return f"<ul>{''.join(rows)}</ul>" if rows else "<p>Sem categorias relevantes no mes-base.</p>"
 
 
 def render_analysis_html(snapshot: dict) -> str:
     summary = snapshot["summary"]
+    primary_summary = snapshot.get("primary_summary", summary)
     comparison = snapshot["comparison"]
     technical = snapshot["technical_items"]
     conciliated_month = snapshot["conciliated_month"]
     return (
         "<!DOCTYPE html>"
         "<html><head><meta charset=\"UTF-8\"></head><body>"
-        f"<h1>Análise financeira determinística</h1>"
-        f"<p><strong>Período:</strong> {snapshot['period']['label']}</p>"
-        f"<p>Receitas em {summary['income_display']}, despesas em {summary['expense_display']} e saldo de {summary['balance_display']}.</p>"
-        f"<p>Contra {comparison['reference_label']}, as despesas {comparison['expense']['trend_label']} {comparison['expense']['percent_display']} ({comparison['expense']['delta_display']}).</p>"
-        f"<p>Itens técnicos do mês-base: {technical['combined_display']} ({technical['combined_share_display']} das despesas).</p>"
-        "<h2>Visão mensal conciliada</h2>"
-        f"<p>Receitas da conta em {conciliated_month['bank_income_display']}, despesas líquidas conciliadas em {conciliated_month['net_conciliated_expense_display']} e saldo conciliado de {conciliated_month['conciliated_balance_display']}.</p>"
-        f"<p>Pagamentos bancários excluídos por conciliação: {conciliated_month['excluded_conciliated_bank_payment_display']}. Faturas consideradas: {conciliated_month['included_invoice_count']}.</p>"
+        f"<h1>An\u00e1lise financeira determin\u00edstica</h1>"
+        f"<p><strong>Per\u00edodo:</strong> {snapshot['period']['label']}</p>"
+        "<h2>Resumo principal conciliado</h2>"
+        f"<p>{primary_summary['executive_summary']}</p>"
+        f"<p>{primary_summary['coverage_note']} Pagamentos banc\u00e1rios exclu\u00eddos por concilia\u00e7\u00e3o: {primary_summary['excluded_bank_payment_display']}.</p>"
+        "<h2>Vis\u00e3o bruta de apoio</h2>"
+        f"<p>Receitas brutas em {summary['income_display']}, despesas brutas em {summary['expense_display']} e saldo bruto de {summary['balance_display']}.</p>"
+        f"<p>Contra {comparison['reference_label']}, as despesas brutas {comparison['expense']['trend_label']} {comparison['expense']['percent_display']} ({comparison['expense']['delta_display']}).</p>"
+        f"<p>Itens t\u00e9cnicos do m\u00eas-base: {technical['combined_display']} ({technical['combined_share_display']} das despesas brutas).</p>"
+        "<h2>Cobertura da vis\u00e3o conciliada</h2>"
+        f"<p>Receitas da conta em {conciliated_month['bank_income_display']}, despesas l\u00edquidas conciliadas em {conciliated_month['net_conciliated_expense_display']} e saldo conciliado de {conciliated_month['conciliated_balance_display']}.</p>"
+        f"<p>Faturas conciliadas consideradas: {conciliated_month['included_invoice_count']}. Faturas fora da leitura principal: {conciliated_month['outside_invoices_total']}.</p>"
         "<h2>Alertas</h2>"
         f"{_render_alert_items(snapshot['alerts'])}"
-        "<h2>Ações recomendadas</h2>"
+        "<h2>A\u00e7\u00f5es recomendadas</h2>"
         f"{_render_action_items(snapshot['actions'])}"
         "<h2>Categorias em destaque</h2>"
         f"{_render_category_items(snapshot['categories'])}"

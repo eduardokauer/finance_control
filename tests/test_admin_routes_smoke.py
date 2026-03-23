@@ -24,9 +24,9 @@ def _assert_route_ok(response, route: str):
 
 def _seed_categories(db_session):
     for name, kind in [
-        ("Não Categorizado", "expense"),
+        ("N\u00e3o Categorizado", "expense"),
         ("Transporte", "expense"),
-        ("Salário", "income"),
+        ("Sal\u00e1rio", "income"),
     ]:
         db_session.add(Category(name=name, transaction_kind=kind, is_active=True))
     db_session.commit()
@@ -71,7 +71,7 @@ def _seed_transaction(db_session) -> Transaction:
 def _seed_invoice(db_session) -> CreditCardInvoice:
     card = CreditCard(
         issuer="itau",
-        card_label="Itaú Visa final 1234",
+        card_label="Ita\u00fa Visa final 1234",
         card_final="1234",
         brand="Visa",
         is_active=True,
@@ -143,7 +143,7 @@ def _seed_legacy_analysis_run(db_session):
         "comparison": {
             "reference_label": "fev/2026",
             "income": {"trend": "up", "trend_label": "subiu", "percent_display": "n/a", "delta_display": "R$ 5.000,00", "current_display": "R$ 5.000,00", "previous_display": "R$ 0,00"},
-            "expense": {"trend": "stable", "trend_label": "estável", "percent_display": "n/a", "delta_display": "R$ 0,00", "current_display": "R$ 0,00", "previous_display": "R$ 0,00"},
+            "expense": {"trend": "stable", "trend_label": "estavel", "percent_display": "n/a", "delta_display": "R$ 0,00", "current_display": "R$ 0,00", "previous_display": "R$ 0,00"},
             "balance": {"trend": "up", "trend_label": "subiu", "percent_display": "n/a", "delta_display": "R$ 5.000,00", "current_display": "R$ 5.000,00", "previous_display": "R$ 0,00"},
         },
         "monthly_series": [],
@@ -235,5 +235,6 @@ def test_admin_analysis_route_smoke_with_legacy_saved_payload(client, db_session
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     _assert_route_ok(response, "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
-    assert "Visão mensal conciliada" in response.text
+    assert "Resumo principal conciliado" in response.text
+    assert "Visao bruta de apoio" in response.text
     assert "legacy html" in response.text

@@ -178,7 +178,7 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     home = client.get("/admin")
     assert home.status_code == 200
     assert "Finance Control Admin" in home.text
-    assert "Análise do período" in home.text
+    assert "Analise do periodo" in home.text
     assert "Receitas" in home.text
     assert "Central" in home.text
 
@@ -609,12 +609,12 @@ def test_admin_analysis_page_shows_empty_state_and_navigation(client, db_session
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Ainda n\u00e3o existe an\u00e1lise gerada para esse per\u00edodo." in response.text
-    assert "Gerar nova an\u00e1lise" in response.text
+    assert "Ainda nao existe analise gerada para esse periodo." in response.text
+    assert "Gerar nova analise" in response.text
     assert "Receitas" in response.text
     assert "data-loading-button" in response.text
-    assert "Carregando an\u00e1lise..." in response.text
-    assert "Gerando an\u00e1lise..." in response.text
+    assert "Carregando analise..." in response.text
+    assert "Gerando analise..." in response.text
 
 
 def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_session, monkeypatch):
@@ -638,12 +638,12 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
 
     page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert page.status_code == 200
-    assert "An\u00e1lise determin\u00edstica renderizada" in page.text
+    assert "Analise deterministica renderizada" in page.text
     assert "Ver HTML bruto" in page.text
     assert "Consolidado mensal de 12 meses" in page.text
-    assert "Vis\u00e3o mensal conciliada" in page.text
-    assert "Despesa l\u00edquida conciliada" in page.text
-    assert "Itens financeiros e t\u00e9cnicos" in page.text
+    assert "Resumo principal conciliado" in page.text
+    assert "Visao bruta de apoio" in page.text
+    assert "Itens financeiros e tecnicos" in page.text
     assert "chart.js" in page.text.lower()
     assert "monthly-chart" in page.text
     assert "categories-chart" in page.text
@@ -672,12 +672,14 @@ def test_admin_analysis_page_shows_auxiliary_conciliation_signals(client, db_ses
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Sinais anal\u00edticos de concilia\u00e7\u00e3o" in response.text
-    assert "Fora da vis\u00e3o conciliada" in response.text
+    assert "Sinais analiticos de conciliacao" in response.text
+    assert "Resumo principal conciliado" in response.text
+    assert "Visao bruta de apoio" in response.text
+    assert "Fora da leitura principal" in response.text
     assert "Pagamentos conciliados" in response.text
-    assert "Cr\u00e9ditos t\u00e9cnicos de fatura" in response.text
-    assert "Pagamentos exclu\u00eddos por concilia\u00e7\u00e3o" in response.text
-    assert "sem alterar os KPIs principais" in response.text
+    assert "Creditos tecnicos de fatura" in response.text
+    assert "Pagamentos excluidos por conciliacao" in response.text
+    assert "A leitura principal do mes passa a refletir o consumo real conciliado" in response.text
 
 
 
@@ -702,7 +704,7 @@ def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(c
         "comparison": {
             "reference_label": "fev/2026",
             "income": {"trend": "up", "trend_label": "subiu", "percent_display": "n/a", "delta_display": "R$ 5.000,00", "current_display": "R$ 5.000,00", "previous_display": "R$ 0,00"},
-            "expense": {"trend": "stable", "trend_label": "estável", "percent_display": "n/a", "delta_display": "R$ 0,00", "current_display": "R$ 0,00", "previous_display": "R$ 0,00"},
+            "expense": {"trend": "stable", "trend_label": "estavel", "percent_display": "n/a", "delta_display": "R$ 0,00", "current_display": "R$ 0,00", "previous_display": "R$ 0,00"},
             "balance": {"trend": "up", "trend_label": "subiu", "percent_display": "n/a", "delta_display": "R$ 5.000,00", "current_display": "R$ 5.000,00", "previous_display": "R$ 0,00"},
         },
         "monthly_series": [],
@@ -755,7 +757,8 @@ def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(c
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Visão mensal conciliada" in response.text
+    assert "Resumo principal conciliado" in response.text
+    assert "Visao bruta de apoio" in response.text
     assert "legacy html" in response.text
 
 def test_admin_transactions_page_marks_conciliated_bank_payment(client, db_session, monkeypatch):
@@ -792,8 +795,8 @@ def test_admin_loading_buttons_are_exposed_in_reapply_and_analysis(client, db_se
     analysis_page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert analysis_page.status_code == 200
     assert analysis_page.text.count("data-loading-button") >= 2
-    assert "Carregando an\u00e1lise..." in analysis_page.text
-    assert "Gerando an\u00e1lise..." in analysis_page.text
+    assert "Carregando analise..." in analysis_page.text
+    assert "Gerando analise..." in analysis_page.text
 
 
 

@@ -60,6 +60,8 @@ def admin_analysis_page(
         payload_snapshot["conciliation_signals"] = live_snapshot["conciliation_signals"]
     if payload_snapshot and "conciliated_month" not in payload_snapshot:
         payload_snapshot["conciliated_month"] = live_snapshot["conciliated_month"]
+    if payload_snapshot and "primary_summary" not in payload_snapshot:
+        payload_snapshot["primary_summary"] = live_snapshot["primary_summary"]
     analysis_data = payload_snapshot or live_snapshot
     html_fragment = renderable_analysis_html(analysis_run.html_output) if analysis_run else None
     return render_admin(
@@ -74,7 +76,7 @@ def admin_analysis_page(
             "latest_closed_end": latest_closed_end,
             "month_preview_start": month_preview_start,
             "month_preview_end": month_preview_end,
-            "summary": analysis_data["summary"],
+            "summary": analysis_data.get("primary_summary", analysis_data["summary"]),
             "analysis_run": analysis_run,
             "analysis_data": analysis_data,
             "analysis_html_fragment": html_fragment,
