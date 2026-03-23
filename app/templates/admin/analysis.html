@@ -1,5 +1,5 @@
 {% extends "admin/base.html" %}
-{% block title %}Analise{% endblock %}
+{% block title %}Análise{% endblock %}
 {% block content %}
 <style>
   .analysis-grid {
@@ -78,25 +78,25 @@
 
 <div class="card stack">
   <div>
-    <h1 style="margin:0;">Analise do periodo</h1>
-    <div class="subtle">Escolha como definir o periodo e consulte a leitura financeira deterministica mais recente.</div>
+    <h1 style="margin:0;">Análise do período</h1>
+    <div class="subtle">Escolha como definir o período e consulte a leitura financeira determinística mais recente.</div>
   </div>
 
   <form method="get" action="/admin/analysis" class="stack" id="analysis-period-form">
     <input type="hidden" name="selection_mode" id="selection-mode-input" value="{{ selection_mode }}">
 
     <div class="inline" style="gap:8px;">
-      <button type="button" class="button period-tab {% if selection_mode == 'closed' %}button-primary{% endif %}" data-mode="closed">Ultimo mes fechado</button>
-      <button type="button" class="button period-tab {% if selection_mode == 'month' %}button-primary{% endif %}" data-mode="month">Mes/ano</button>
+      <button type="button" class="button period-tab {% if selection_mode == 'closed' %}button-primary{% endif %}" data-mode="closed">Último mês fechado</button>
+      <button type="button" class="button period-tab {% if selection_mode == 'month' %}button-primary{% endif %}" data-mode="month">Mês/ano</button>
       <button type="button" class="button period-tab {% if selection_mode == 'custom' %}button-primary{% endif %}" data-mode="custom">Intervalo customizado</button>
     </div>
 
     <div id="panel-closed" class="period-panel stack" {% if selection_mode != 'closed' %}style="display:none;"{% endif %}>
-      <div class="subtle">Periodo selecionado: {{ latest_closed_start.strftime('%d/%m/%Y') }} a {{ latest_closed_end.strftime('%d/%m/%Y') }}</div>
+      <div class="subtle">Período selecionado: {{ latest_closed_start.strftime('%d/%m/%Y') }} a {{ latest_closed_end.strftime('%d/%m/%Y') }}</div>
     </div>
 
     <div id="panel-month" class="period-panel stack" {% if selection_mode != 'month' %}style="display:none;"{% endif %}>
-      <label>Mes/ano
+      <label>Mês/ano
         <input type="month" name="month" id="analysis-month-input" value="{{ month_value }}" {% if selection_mode != 'month' %}disabled{% endif %}>
       </label>
       <div class="subtle">Data inicial: <span id="month-start-text">{{ month_preview_start.strftime('%d/%m/%Y') }}</span></div>
@@ -113,7 +113,7 @@
     </div>
 
     <div class="actions">
-      <button type="submit" class="button button-primary" data-loading-button data-loading-label="Carregando analise...">Ver analise</button>
+      <button type="submit" class="button button-primary" data-loading-button data-loading-label="Carregando análise...">Ver análise</button>
     </div>
   </form>
 </div>
@@ -145,7 +145,7 @@
   <div class="card stack" style="margin-bottom:0;">
     <div>
       <strong>Resumo principal conciliado</strong>
-      <div class="subtle">A leitura principal do mes passa a refletir o consumo real conciliado. A visao bruta segue abaixo como apoio e auditoria.</div>
+      <div class="subtle">A leitura principal do mês passa a refletir o consumo real conciliado. A visão bruta segue abaixo como apoio e auditoria.</div>
     </div>
     <div class="analysis-list">
       <div class="analysis-item">
@@ -159,9 +159,9 @@
     </div>
     <div class="kv-grid">
       <div class="subtle">Despesas reais da conta</div><div>{{ analysis_data.conciliated_month.bank_expense_total_included_display }}</div>
-      <div class="subtle">Compras de cartao conciliado</div><div>{{ analysis_data.conciliated_month.conciliated_card_charge_display }}</div>
-      <div class="subtle">Creditos tecnicos de fatura</div><div>-{{ analysis_data.conciliated_month.conciliated_invoice_credit_display }}</div>
-      <div class="subtle">Pagamentos bancarios excluidos</div><div>{{ analysis_data.primary_summary.excluded_bank_payment_display }} - {{ analysis_data.primary_summary.excluded_bank_payment_count }} pagamento(s)</div>
+      <div class="subtle">Compras de cartão conciliado</div><div>{{ analysis_data.conciliated_month.conciliated_card_charge_display }}</div>
+      <div class="subtle">Créditos técnicos de fatura</div><div>-{{ analysis_data.conciliated_month.conciliated_invoice_credit_display }}</div>
+      <div class="subtle">Pagamentos bancários excluídos</div><div>{{ analysis_data.primary_summary.excluded_bank_payment_display }} - {{ analysis_data.primary_summary.excluded_bank_payment_count }} pagamento(s)</div>
       <div class="subtle">Faturas conciliadas consideradas</div><div>{{ analysis_data.primary_summary.included_invoice_count }}</div>
       <div class="subtle">Faturas fora da leitura principal</div><div>{{ analysis_data.primary_summary.outside_invoice_count }}</div>
     </div>
@@ -169,8 +169,8 @@
 
   <div class="card stack" style="margin-bottom:0;">
     <div>
-      <strong>Visao bruta de apoio</strong>
-      <div class="subtle">A movimentacao bruta continua disponivel para conferencia e auditoria, sem reclassificar o dominio original.</div>
+      <strong>Visão bruta de apoio</strong>
+      <div class="subtle">A movimentação bruta continua disponível para conferência e auditoria, sem reclassificar o domínio original.</div>
     </div>
     <div class="kpi-grid">
       <div>
@@ -186,28 +186,28 @@
         <div class="metric-value {% if analysis_data.summary.balance < 0 %}amount-negative{% else %}amount-positive{% endif %}">{{ analysis_data.summary.balance_display }}</div>
       </div>
       <div>
-        <div class="subtle">Nao categorizado</div>
+        <div class="subtle">Não categorizado</div>
         <div class="metric-value">{{ analysis_data.summary.uncategorized_display }}</div>
       </div>
       <div>
-        <div class="subtle">Transacoes</div>
+        <div class="subtle">Transações</div>
         <div class="metric-value">{{ analysis_data.summary.transaction_count }}</div>
       </div>
     </div>
-    <div class="subtle">A visao bruta ajuda a explicar diferencas operacionais, especialmente pagamentos de fatura e outros itens tecnicos.</div>
+    <div class="subtle">A visão bruta ajuda a explicar diferenças operacionais, especialmente pagamentos de fatura e outros itens técnicos.</div>
   </div>
 </section>
 
 <section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
   <div class="card stack" style="margin-bottom:0;">
     <div>
-      <strong>Sinais analiticos de conciliacao</strong>
-      <div class="subtle">Bloco auxiliar da leitura principal conciliada, com a abrangencia das faturas e dos pagamentos excluidos.</div>
+      <strong>Sinais analíticos de conciliação</strong>
+      <div class="subtle">Bloco auxiliar da leitura principal conciliada, com a abrangência das faturas e dos pagamentos excluídos.</div>
     </div>
     <div class="kv-grid">
-      <div class="subtle">Pagamentos conciliados</div><div>{{ analysis_data.conciliation_signals.conciliated_bank_payment_display }} - {{ analysis_data.conciliation_signals.conciliated_bank_payment_count }} lancamento(s)</div>
-      <div class="subtle">Creditos tecnicos de fatura</div><div>{{ analysis_data.conciliation_signals.invoice_credit_display }}</div>
-      <div class="subtle">Faturas no periodo</div><div>{{ analysis_data.conciliation_signals.invoices_total }}</div>
+      <div class="subtle">Pagamentos conciliados</div><div>{{ analysis_data.conciliation_signals.conciliated_bank_payment_display }} - {{ analysis_data.conciliation_signals.conciliated_bank_payment_count }} lançamento(s)</div>
+      <div class="subtle">Créditos técnicos de fatura</div><div>{{ analysis_data.conciliation_signals.invoice_credit_display }}</div>
+      <div class="subtle">Faturas no período</div><div>{{ analysis_data.conciliation_signals.invoices_total }}</div>
       <div class="subtle">Pendentes</div><div>{{ analysis_data.conciliation_signals.invoices_by_status.pending_review }}</div>
       <div class="subtle">Parcialmente conciliadas</div><div>{{ analysis_data.conciliation_signals.invoices_by_status.partially_conciliated }}</div>
       <div class="subtle">Conciliadas</div><div>{{ analysis_data.conciliation_signals.invoices_by_status.conciliated }}</div>
@@ -219,7 +219,7 @@
   <div class="card stack" style="margin-bottom:0;">
     <div>
       <strong>Fora da leitura principal</strong>
-      <div class="subtle">Faturas ainda nao totalmente conciliadas continuam fora do consolidado principal desta leitura.</div>
+      <div class="subtle">Faturas ainda não totalmente conciliadas continuam fora do consolidado principal desta leitura.</div>
     </div>
     <div class="kv-grid">
       <div class="subtle">Pending review</div><div>{{ analysis_data.conciliated_month.outside_invoices_by_status.pending_review }}</div>
@@ -229,12 +229,12 @@
     </div>
     <div class="analysis-list">
       <div class="analysis-item">
-        <strong>Pagamentos excluidos por conciliacao</strong>
-        <p>{{ analysis_data.conciliated_month.excluded_conciliated_bank_payment_display }} deixaram de contar como despesa principal do mes porque ja foram substituidos pelos itens da fatura conciliada.</p>
+        <strong>Pagamentos excluídos por conciliação</strong>
+        <p>{{ analysis_data.conciliated_month.excluded_conciliated_bank_payment_display }} deixaram de contar como despesa principal do mês porque já foram substituídos pelos itens da fatura conciliada.</p>
       </div>
       <div class="analysis-item">
         <strong>Escopo conservador</strong>
-        <p>Somente faturas com status <code>conciliated</code> entram nessa leitura principal. Pendencias, parciais e conflitos seguem como indicador auxiliar.</p>
+        <p>Somente faturas com status <code>conciliated</code> entram nessa leitura principal. Pendências, parciais e conflitos seguem como indicador auxiliar.</p>
       </div>
     </div>
   </div>
@@ -243,18 +243,18 @@
 <div class="card stack">
   <div class="inline" style="justify-content:space-between; align-items:flex-start;">
     <div>
-      <div><strong>Periodo:</strong> {{ analysis_data.period.label }}</div>
+      <div><strong>Período:</strong> {{ analysis_data.period.label }}</div>
       {% if analysis_run %}
         <div class="subtle">Gerada em {{ analysis_run.created_at.strftime('%d/%m/%Y %H:%M') }}  status {{ analysis_run.status }}  modo {{ analysis_run.prompt }}</div>
       {% else %}
-        <div class="subtle">Ainda nao existe analise gerada para esse periodo.</div>
+        <div class="subtle">Ainda não existe análise gerada para esse período.</div>
       {% endif %}
     </div>
     <form method="post" action="/admin/analysis/run">
       <input type="hidden" name="period_start" value="{{ period_start }}">
       <input type="hidden" name="period_end" value="{{ period_end }}">
       <input type="hidden" name="return_to" value="/admin/analysis?period_start={{ period_start }}&period_end={{ period_end }}">
-      <button type="submit" class="button button-primary" data-loading-button data-loading-label="Gerando analise...">Gerar nova analise</button>
+      <button type="submit" class="button button-primary" data-loading-button data-loading-label="Gerando análise...">Gerar nova análise</button>
     </form>
   </div>
 
@@ -284,14 +284,14 @@
       <div class="card stack" style="margin-bottom:0;">
         <div>
           <strong>Receitas x despesas x saldo</strong>
-          <div class="subtle">Ultimos 12 meses do calendario, com meses zerados incluidos.</div>
+          <div class="subtle">Últimos 12 meses do calendário, com meses zerados incluídos.</div>
         </div>
         <div class="chart-shell"><canvas id="monthly-chart"></canvas></div>
       </div>
       <div class="card stack" style="margin-bottom:0;">
         <div>
           <strong>Top categorias por peso nas despesas</strong>
-          <div class="subtle">Referencia: {{ analysis_data.period.month_reference_label }}  ranking por despesas do mes</div>
+          <div class="subtle">Referência: {{ analysis_data.period.month_reference_label }}  ranking por despesas do mês</div>
         </div>
         <div class="chart-shell"><canvas id="categories-chart"></canvas></div>
       </div>
@@ -300,8 +300,8 @@
     <section class="analysis-grid analysis-grid-2">
       <div class="card stack" style="margin-bottom:0;">
         <div>
-          <strong>Alertas deterministicos</strong>
-          <div class="subtle">Ate 5 sinais mais relevantes para o periodo selecionado.</div>
+          <strong>Alertas determinísticos</strong>
+          <div class="subtle">Até 5 sinais mais relevantes para o período selecionado.</div>
         </div>
         <div class="analysis-list">
           {% for alert in analysis_data.alerts %}
@@ -314,8 +314,8 @@
             </div>
           {% else %}
             <div class="analysis-item">
-              <strong>Nenhum alerta critico</strong>
-              <p>O periodo nao trouxe sinais deterministicos prioritarios alem do acompanhamento normal.</p>
+              <strong>Nenhum alerta crítico</strong>
+              <p>O período não trouxe sinais determinísticos prioritários além do acompanhamento normal.</p>
             </div>
           {% endfor %}
         </div>
@@ -323,8 +323,8 @@
 
       <div class="card stack" style="margin-bottom:0;">
         <div>
-          <strong>Acoes recomendadas</strong>
-          <div class="subtle">Proximos passos objetivos para melhorar leitura e decisao.</div>
+          <strong>Ações recomendadas</strong>
+          <div class="subtle">Próximos passos objetivos para melhorar leitura e decisão.</div>
         </div>
         <div class="analysis-list">
           {% for action in analysis_data.actions %}
@@ -334,8 +334,8 @@
             </div>
           {% else %}
             <div class="analysis-item">
-              <strong>Nenhuma acao prioritaria</strong>
-              <p>A analise atual nao encontrou um ajuste imediato acima da linha de base do periodo.</p>
+              <strong>Nenhuma ação prioritária</strong>
+              <p>A análise atual não encontrou um ajuste imediato acima da linha de base do período.</p>
             </div>
           {% endfor %}
         </div>
@@ -345,8 +345,8 @@
     <section class="analysis-grid analysis-grid-2">
       <div class="card stack" style="margin-bottom:0;">
         <div>
-          <strong>Categorias do mes-base</strong>
-          <div class="subtle">Todas as categorias do mes {{ analysis_data.period.month_reference_label }}, ordenadas por peso nas despesas e com destaque para itens tecnicos.</div>
+          <strong>Categorias do mês-base</strong>
+          <div class="subtle">Todas as categorias do mês {{ analysis_data.period.month_reference_label }}, ordenadas por peso nas despesas e com destaque para itens técnicos.</div>
         </div>
         <div class="analysis-list">
           {% for category in analysis_data.categories %}
@@ -359,12 +359,12 @@
                   <span class="badge">{{ category.flow_label }}</span>
                 {% endif %}
               </div>
-              <p>Despesa do mes: {{ category.expense_display }}  {% if category.expense_total > 0 %}peso nas despesas: {{ category.share_of_expense_display }}{% else %}sem peso relevante nas despesas{% endif %}  {% if category.income_total > 0 %}entradas: {{ category.income_display }}  {% endif %}{{ category.transaction_count }} lancamento(s)</p>
+              <p>Despesa do mês: {{ category.expense_display }}  {% if category.expense_total > 0 %}peso nas despesas: {{ category.share_of_expense_display }}{% else %}sem peso relevante nas despesas{% endif %}  {% if category.income_total > 0 %}entradas: {{ category.income_display }}  {% endif %}{{ category.transaction_count }} lançamento(s)</p>
             </div>
           {% else %}
             <div class="analysis-item">
-              <strong>Sem categorias no mes-base</strong>
-              <p>Nao houve movimentacao categorizada no mes de referencia.</p>
+              <strong>Sem categorias no mês-base</strong>
+              <p>Não houve movimentação categorizada no mês de referência.</p>
             </div>
           {% endfor %}
         </div>
@@ -372,12 +372,12 @@
 
       <div class="card stack technical-note" style="margin-bottom:0;">
         <div>
-          <strong>Itens financeiros e tecnicos</strong>
+          <strong>Itens financeiros e técnicos</strong>
           <div class="subtle">Eles continuam no consolidado principal, mas podem distorcer a leitura de consumo real.</div>
         </div>
         <div class="analysis-list">
           <div class="analysis-item">
-            <strong>Transferencias</strong>
+            <strong>Transferências</strong>
             <p>{{ analysis_data.technical_items.transfer_display }}  {{ analysis_data.technical_items.transfer_share_display }} do total de despesas</p>
           </div>
           <div class="analysis-item">
@@ -395,18 +395,18 @@
     <div class="card stack" style="margin-bottom:0;">
       <div>
         <strong>Consolidado mensal de 12 meses</strong>
-        <div class="subtle">Meses zerados incluidos para leitura de tendencia e comparacao.</div>
+        <div class="subtle">Meses zerados incluídos para leitura de tendência e comparação.</div>
       </div>
       <div class="analysis-table-wrap">
         <table class="analysis-table">
           <thead>
             <tr>
-              <th>Mes</th>
+              <th>Mês</th>
               <th>Receitas</th>
               <th>Despesas</th>
               <th>Saldo</th>
-              <th>Nao categorizado</th>
-              <th>Transacoes</th>
+              <th>Não categorizado</th>
+              <th>Transações</th>
             </tr>
           </thead>
           <tbody>
@@ -426,7 +426,7 @@
     </div>
 
     <div class="card" style="padding:0; overflow:hidden; margin-bottom:0;">
-      <div style="padding:16px; border-bottom:1px solid var(--line); font-weight:700;">Analise deterministica renderizada</div>
+      <div style="padding:16px; border-bottom:1px solid var(--line); font-weight:700;">Análise determinística renderizada</div>
       <div style="padding:16px;">
         {{ analysis_html_fragment|safe }}
       </div>
@@ -440,15 +440,15 @@
     </details>
   {% else %}
     <div class="card stack" style="margin-bottom:0;">
-      <strong>Analise ainda nao gerada</strong>
-      <div class="subtle">Os indicadores do topo ja refletem o periodo selecionado. Use o botao acima para registrar e visualizar a analise deterministica completa com graficos, alertas e aces.</div>
+      <strong>Análise ainda não gerada</strong>
+      <div class="subtle">Os indicadores do topo já refletem o período selecionado. Use o botão acima para registrar e visualizar a análise determinística completa com gráficos, alertas e ações.</div>
     </div>
   {% endif %}
 
   <details class="accordion card">
     <summary>HTML final / LLM</summary>
     <div class="accordion-body subtle">
-      O sistema nao persiste hoje o HTML final do email/LLM por periodo. Esta tela mostra apenas a analise deterministica atual.
+      O sistema não persiste hoje o HTML final do email/LLM por período. Esta tela mostra apenas a análise determinística atual.
     </div>
   </details>
 </div>

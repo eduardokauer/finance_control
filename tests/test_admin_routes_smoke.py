@@ -143,7 +143,7 @@ def _seed_legacy_analysis_run(db_session):
         "comparison": {
             "reference_label": "fev/2026",
             "income": {"trend": "up", "trend_label": "subiu", "percent_display": "n/a", "delta_display": "R$ 5.000,00", "current_display": "R$ 5.000,00", "previous_display": "R$ 0,00"},
-            "expense": {"trend": "stable", "trend_label": "estavel", "percent_display": "n/a", "delta_display": "R$ 0,00", "current_display": "R$ 0,00", "previous_display": "R$ 0,00"},
+            "expense": {"trend": "stable", "trend_label": "estável", "percent_display": "n/a", "delta_display": "R$ 0,00", "current_display": "R$ 0,00", "previous_display": "R$ 0,00"},
             "balance": {"trend": "up", "trend_label": "subiu", "percent_display": "n/a", "delta_display": "R$ 5.000,00", "current_display": "R$ 5.000,00", "previous_display": "R$ 0,00"},
         },
         "monthly_series": [],
@@ -236,5 +236,5 @@ def test_admin_analysis_route_smoke_with_legacy_saved_payload(client, db_session
 
     _assert_route_ok(response, "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert "Resumo principal conciliado" in response.text
-    assert "Visao bruta de apoio" in response.text
+    assert "Visão bruta de apoio" in response.text
     assert "legacy html" in response.text
