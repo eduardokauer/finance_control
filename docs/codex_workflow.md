@@ -83,6 +83,14 @@ O Codex só pode commitar e abrir PR depois de:
 
 Se qualquer um desses pontos falhar, o trabalho ainda não está finalizado.
 
+Antes de abrir um PR, o Codex deve verificar explicitamente:
+- qual é a branch atual;
+- se a branch atual existe no remoto;
+- se já existe PR aberto para essa branch;
+- se houve PR anterior da mesma branch já fechado ou mergeado.
+
+Se um PR anterior tiver sido mergeado e a branch remota tiver sido apagada, o Codex não deve assumir que o PR antigo pode ser reaproveitado ou reaberto. Ele deve primeiro confirmar o estado atual da branch/remoto e só então decidir entre atualizar o PR existente, publicar a branch novamente ou abrir um novo PR.
+
 ### Texto obrigatório do PR
 
 O texto do PR deve incluir um relatório final objetivo da entrega, com no mínimo:
