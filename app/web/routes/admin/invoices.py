@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -37,13 +37,28 @@ def admin_credit_card_invoice_list(
     _: bool = Depends(require_admin_session),
 ):
     entries = list_credit_card_invoices(db)
-    chart_points = build_credit_card_invoice_import_chart(db)
+    chart_data = build_credit_card_invoice_import_chart(db)
+    chart_payload = (
+        {
+            "month_labels": chart_data.month_labels,
+            "datasets": [
+                {
+                    "year": dataset.year,
+                    "color": dataset.color,
+                    "values": dataset.values,
+                }
+                for dataset in chart_data.datasets
+            ],
+        }
+        if chart_data
+        else None
+    )
     return render_admin(
         request,
         "admin/credit_card_invoices.html",
         {
             "entries": entries,
-            "chart_points": chart_points,
+            "chart_data": chart_payload,
             "status_variant": _status_variant,
         },
     )

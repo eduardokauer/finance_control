@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -25,6 +25,8 @@ from app.utils.normalization import normalize_description
 CENT_VALUE = Decimal("0.01")
 CANDIDATE_WINDOW_DAYS_BEFORE = 20
 CANDIDATE_WINDOW_DAYS_AFTER = 40
+MONTH_LABELS_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
+CHART_YEAR_COLORS = ["#0f766e", "#d97757", "#7c9f71", "#5b7c99", "#b7791f", "#8b5cf6", "#c05621", "#2b6cb0"]
 
 
 class CreditCardBillError(Exception):
@@ -68,10 +70,16 @@ class CreditCardInvoiceListEntry:
 
 
 @dataclass
-class CreditCardInvoiceImportChartPoint:
-    competence_label: str
-    total_amount_brl: Decimal
-    total_amount_value: float
+class CreditCardInvoiceImportChartDataset:
+    year: int
+    color: str
+    values: list[float]
+
+
+@dataclass
+class CreditCardInvoiceImportChart:
+    month_labels: list[str]
+    datasets: list[CreditCardInvoiceImportChartDataset]
 
 
 @dataclass
@@ -243,59 +251,42 @@ def build_credit_card_invoice_import_chart(
     db: Session,
     *,
     months: int = 12,
-) -> list[CreditCardInvoiceImportChartPoint]:
-    latest_invoice = db.execute(
-        select(CreditCardInvoice.billing_year, CreditCardInvoice.billing_month)
-        .order_by(CreditCardInvoice.billing_year.desc(), CreditCardInvoice.billing_month.desc(), CreditCardInvoice.id.desc())
-        .limit(1)
-    ).first()
-    if latest_invoice is None:
-        return []
-
-    latest_billing_year, latest_billing_month = latest_invoice
-    end_month = date(int(latest_billing_year), int(latest_billing_month), 1)
-    start_month = _add_months(end_month, -(months - 1))
-    competence_keys = [
-        (_add_months(start_month, offset).year, _add_months(start_month, offset).month)
-        for offset in range(months)
-    ]
-
+) -> CreditCardInvoiceImportChart | None:
     rows = db.execute(
         select(
             CreditCardInvoice.billing_year,
             CreditCardInvoice.billing_month,
             func.coalesce(func.sum(CreditCardInvoice.total_amount_brl), 0),
         )
-        .where(
-            or_(
-                *(
-                    (
-                        (CreditCardInvoice.billing_year == billing_year)
-                        & (CreditCardInvoice.billing_month == billing_month)
-                    )
-                    for billing_year, billing_month in competence_keys
-                )
-            )
-        )
         .group_by(CreditCardInvoice.billing_year, CreditCardInvoice.billing_month)
+        .order_by(CreditCardInvoice.billing_year.asc(), CreditCardInvoice.billing_month.asc())
     ).all()
+    if not rows:
+        return None
 
-    totals_by_competence = {
-        (int(billing_year), int(billing_month)): _quantize(total_amount_brl or Decimal("0.00"))
+    years = sorted({int(billing_year) for billing_year, _, _ in rows})
+    if len(years) > months:
+        years = years[-months:]
+
+    totals_by_year_month = {
+        (int(billing_year), int(billing_month)): float(_quantize(total_amount_brl or Decimal("0.00")))
         for billing_year, billing_month, total_amount_brl in rows
+        if int(billing_year) in years
     }
 
-    points: list[CreditCardInvoiceImportChartPoint] = []
-    for offset in range(months):
-        current_month = _add_months(start_month, offset)
-        points.append(
-            CreditCardInvoiceImportChartPoint(
-                competence_label=f"{current_month.month:02d}/{current_month.year}",
-                total_amount_brl=totals_by_competence.get((current_month.year, current_month.month), Decimal("0.00")),
-                total_amount_value=float(totals_by_competence.get((current_month.year, current_month.month), Decimal("0.00"))),
+    datasets: list[CreditCardInvoiceImportChartDataset] = []
+    for index, year in enumerate(years):
+        datasets.append(
+            CreditCardInvoiceImportChartDataset(
+                year=year,
+                color=CHART_YEAR_COLORS[index % len(CHART_YEAR_COLORS)],
+                values=[totals_by_year_month.get((year, month), 0.0) for month in range(1, months + 1)],
             )
         )
-    return points
+    return CreditCardInvoiceImportChart(
+        month_labels=MONTH_LABELS_PT[:months],
+        datasets=datasets,
+    )
 
 
 def map_conciliated_bank_payment_signals(
@@ -1197,8 +1188,3 @@ def import_credit_card_bill(
     except Exception:
         db.rollback()
         raise
-
-
-
-
-

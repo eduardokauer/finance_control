@@ -1,13 +1,13 @@
-﻿{% extends "admin/base.html" %}
+{% extends "admin/base.html" %}
 {% block title %}Faturas de Cartão{% endblock %}
 {% block content %}
 <style>
   .invoice-chart-shell {
-    min-height: 280px;
+    min-height: 320px;
   }
   .invoice-chart-shell canvas {
     width: 100% !important;
-    height: 280px !important;
+    height: 320px !important;
   }
 </style>
 
@@ -20,11 +20,11 @@
     <a class="button" href="/admin">Voltar para home</a>
   </div>
 
-  {% if chart_points %}
+  {% if chart_data %}
     <div class="card stack" style="margin-bottom: 0;">
       <div>
-        <strong>Valor total das faturas importadas por competência</strong>
-        <div class="subtle">Últimas 12 competências, com lacunas preenchidas com R$ 0,00.</div>
+        <strong>Valor total das faturas importadas por mês, separado por ano</strong>
+        <div class="subtle">Eixo fixo de 12 meses. Cada barra representa um ano com dados, mantendo a mesma cor ao longo do gráfico.</div>
       </div>
       <div class="invoice-chart-shell"><canvas id="invoice-imports-chart"></canvas></div>
     </div>
@@ -68,7 +68,7 @@
   {% endif %}
 </section>
 
-{% if chart_points %}
+{% if chart_data %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   (() => {
@@ -76,22 +76,20 @@
     if (!canvas || typeof Chart === 'undefined') return;
 
     const chartData = {
-      labels: {{ chart_points | map(attribute='competence_label') | list | tojson }},
-      values: {{ chart_points | map(attribute='total_amount_value') | list | tojson }},
+      labels: {{ chart_data.month_labels | tojson }},
+      datasets: {{ chart_data.datasets | tojson }},
     };
 
     new Chart(canvas, {
       type: 'bar',
       data: {
         labels: chartData.labels,
-        datasets: [
-          {
-            label: 'Valor total importado',
-            data: chartData.values,
-            backgroundColor: '#0f766e',
-            borderRadius: 10,
-          },
-        ],
+        datasets: chartData.datasets.map((dataset) => ({
+          label: String(dataset.year),
+          data: dataset.values,
+          backgroundColor: dataset.color,
+          borderRadius: 10,
+        })),
       },
       options: {
         responsive: true,
@@ -121,6 +119,3 @@
 </script>
 {% endif %}
 {% endblock %}
-
-
-

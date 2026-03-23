@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -23,6 +23,8 @@ from .helpers import render_admin
 
 
 CENT_VALUE = Decimal("0.01")
+CONTROL_CENTER_URL = "/admin/operations"
+ANALYSIS_HOME_URL = "/admin/analysis"
 
 
 def _parse_brl_amount(raw_value: str) -> Decimal:
@@ -43,7 +45,11 @@ def _dashboard_context(db: Session) -> dict:
     }
 
 
-def admin_home(request: Request, db: Session = Depends(get_db), _: bool = Depends(require_admin_session)):
+def admin_home(_: Request, __: Session = Depends(get_db), ___: bool = Depends(require_admin_session)):
+    return RedirectResponse(url=ANALYSIS_HOME_URL, status_code=303)
+
+
+def admin_operations(request: Request, db: Session = Depends(get_db), _: bool = Depends(require_admin_session)):
     return render_admin(request, "admin/dashboard.html", _dashboard_context(db))
 
 
@@ -74,7 +80,7 @@ def admin_create_credit_card(
             status_code=exc.status_code if exc.status_code >= 400 else 422,
         )
     request.session["flash"] = "Cartao salvo."
-    return RedirectResponse(url="/admin", status_code=303)
+    return RedirectResponse(url=CONTROL_CENTER_URL, status_code=303)
 
 
 async def admin_upload_credit_card_bill(
@@ -122,9 +128,4 @@ async def admin_upload_credit_card_bill(
         )
 
     request.session["flash"] = result["message"]
-    return RedirectResponse(url="/admin", status_code=303)
-
-
-
-
-
+    return RedirectResponse(url=CONTROL_CENTER_URL, status_code=303)
