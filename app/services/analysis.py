@@ -5,11 +5,11 @@ from datetime import date, timedelta
 import json
 from math import fabs
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.repositories.models import AnalysisRun, Transaction
-from app.services.credit_card_bills import build_conciliation_analytics_snapshot
+from app.repositories.models import AnalysisRun, CreditCardInvoice, CreditCardInvoiceConciliation, CreditCardInvoiceItem, Transaction
+from app.services.credit_card_bills import build_conciliation_analytics_snapshot, classify_credit_card_invoice_item, map_conciliated_bank_payment_signals
 from app.utils.normalization import normalize_description
 
 UNCATEGORIZED_NAMES = ("Não Categorizado", "Nao Categorizado")
@@ -225,6 +225,121 @@ def _build_technical_items(txs: list[Transaction], *, expense_total: float) -> d
     }
 
 
+def _build_conciliated_month_snapshot(
+    db: Session,
+    *,
+    period_start: date,
+    period_end: date,
+    current_txs: list[Transaction],
+) -> dict:
+    conciliated_invoice_rows = db.execute(
+        select(CreditCardInvoice, CreditCardInvoiceConciliation)
+        .join(CreditCardInvoiceConciliation, CreditCardInvoiceConciliation.invoice_id == CreditCardInvoice.id)
+        .where(
+            CreditCardInvoice.due_date >= period_start,
+            CreditCardInvoice.due_date <= period_end,
+            CreditCardInvoiceConciliation.status == "conciliated",
+        )
+    ).all()
+
+    included_invoice_ids = {invoice.id for invoice, _ in conciliated_invoice_rows}
+    outside_status_counts = {
+        "pending_review": 0,
+        "partially_conciliated": 0,
+        "conflict": 0,
+    }
+    outside_status_rows = db.execute(
+        select(
+            CreditCardInvoiceConciliation.status,
+            func.count(CreditCardInvoice.id),
+        )
+        .select_from(CreditCardInvoice)
+        .outerjoin(CreditCardInvoiceConciliation, CreditCardInvoiceConciliation.invoice_id == CreditCardInvoice.id)
+        .where(
+            CreditCardInvoice.due_date >= period_start,
+            CreditCardInvoice.due_date <= period_end,
+        )
+        .group_by(CreditCardInvoiceConciliation.status)
+    ).all()
+    for raw_status, count_value in outside_status_rows:
+        status = raw_status or "pending_review"
+        if status in outside_status_counts:
+            outside_status_counts[status] = int(count_value or 0)
+
+    invoice_item_rows = db.execute(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id.in_(included_invoice_ids))
+        .order_by(CreditCardInvoiceItem.invoice_id.asc(), CreditCardInvoiceItem.id.asc())
+    ).scalars().all() if included_invoice_ids else []
+
+    charge_total = 0.0
+    payment_item_total = 0.0
+    for item in invoice_item_rows:
+        item_type = classify_credit_card_invoice_item(item)
+        amount = float(item.amount_brl)
+        if item_type == "charge":
+            charge_total += amount
+        elif item_type == "payment":
+            payment_item_total += abs(amount)
+
+    invoice_credit_total = sum(float(conciliation.invoice_credit_total_brl) for _, conciliation in conciliated_invoice_rows)
+    signal_map = map_conciliated_bank_payment_signals(
+        db,
+        transaction_ids=[tx.id for tx in current_txs],
+    )
+    excluded_payment_ids = {
+        tx.id
+        for tx in current_txs
+        if tx.id in signal_map and signal_map[tx.id].conciliation_status == "conciliated" and signal_map[tx.id].invoice_id in included_invoice_ids
+    }
+
+    bank_income_total = sum(_income_amount(tx) for tx in current_txs)
+    bank_expense_total_included = sum(
+        _expense_amount(tx)
+        for tx in current_txs
+        if tx.id not in excluded_payment_ids
+    )
+    excluded_conciliated_bank_payment_total = sum(
+        _expense_amount(tx)
+        for tx in current_txs
+        if tx.id in excluded_payment_ids
+    )
+    net_conciliated_expense_total = (
+        bank_expense_total_included
+        + charge_total
+        - invoice_credit_total
+    )
+    conciliated_balance_total = bank_income_total - net_conciliated_expense_total
+    invoices_outside_total = sum(outside_status_counts.values())
+
+    return {
+        "bank_income_total": bank_income_total,
+        "bank_expense_total_included": bank_expense_total_included,
+        "conciliated_card_charge_total": charge_total,
+        "conciliated_invoice_credit_total": invoice_credit_total,
+        "excluded_conciliated_bank_payment_total": excluded_conciliated_bank_payment_total,
+        "net_conciliated_expense_total": net_conciliated_expense_total,
+        "conciliated_balance_total": conciliated_balance_total,
+        "included_invoice_count": len(included_invoice_ids),
+        "outside_invoices_by_status": outside_status_counts,
+        "outside_invoices_total": invoices_outside_total,
+        "excluded_bank_payment_count": len(excluded_payment_ids),
+        "ignored_invoice_payment_item_total": payment_item_total,
+        "bank_income_display": format_currency_br(bank_income_total),
+        "bank_expense_total_included_display": format_currency_br(bank_expense_total_included),
+        "conciliated_card_charge_display": format_currency_br(charge_total),
+        "conciliated_invoice_credit_display": format_currency_br(invoice_credit_total),
+        "excluded_conciliated_bank_payment_display": format_currency_br(excluded_conciliated_bank_payment_total),
+        "net_conciliated_expense_display": format_currency_br(net_conciliated_expense_total),
+        "conciliated_balance_display": format_currency_br(conciliated_balance_total),
+        "ignored_invoice_payment_item_display": format_currency_br(payment_item_total),
+        "note": (
+            "Considera apenas faturas totalmente conciliadas. "
+            "Pagamentos bancários conciliados saem do gasto real e compras/credits da fatura entram como consumo líquido do mês."
+        ),
+    }
+
+
 def _build_quality(summary: dict) -> dict:
     uncategorized_share = summary["uncategorized_total"] / summary["expense_total"] if summary["expense_total"] else 0.0
     return {
@@ -413,6 +528,12 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
     )
     monthly_series = _build_monthly_series(db, anchor_month=anchor_month)
     conciliation_signals = build_conciliation_analytics_snapshot(db, period_start=period_start, period_end=period_end)
+    conciliated_month = _build_conciliated_month_snapshot(
+        db,
+        period_start=period_start,
+        period_end=period_end,
+        current_txs=current_txs,
+    )
 
     top_expense_categories = [item for item in category_rows if item["expense_total"] > 0][:8]
     return {
@@ -438,6 +559,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
             "invoices_total": conciliation_signals.invoices_total,
             "note": conciliation_signals.note,
         },
+        "conciliated_month": conciliated_month,
         "quality": quality,
         "alerts": alerts,
         "actions": actions,
@@ -483,6 +605,7 @@ def render_analysis_html(snapshot: dict) -> str:
     summary = snapshot["summary"]
     comparison = snapshot["comparison"]
     technical = snapshot["technical_items"]
+    conciliated_month = snapshot["conciliated_month"]
     return (
         "<!DOCTYPE html>"
         "<html><head><meta charset=\"UTF-8\"></head><body>"
@@ -491,6 +614,9 @@ def render_analysis_html(snapshot: dict) -> str:
         f"<p>Receitas em {summary['income_display']}, despesas em {summary['expense_display']} e saldo de {summary['balance_display']}.</p>"
         f"<p>Contra {comparison['reference_label']}, as despesas {comparison['expense']['trend_label']} {comparison['expense']['percent_display']} ({comparison['expense']['delta_display']}).</p>"
         f"<p>Itens técnicos do mês-base: {technical['combined_display']} ({technical['combined_share_display']} das despesas).</p>"
+        "<h2>Visão mensal conciliada</h2>"
+        f"<p>Receitas da conta em {conciliated_month['bank_income_display']}, despesas líquidas conciliadas em {conciliated_month['net_conciliated_expense_display']} e saldo conciliado de {conciliated_month['conciliated_balance_display']}.</p>"
+        f"<p>Pagamentos bancários excluídos por conciliação: {conciliated_month['excluded_conciliated_bank_payment_display']}. Faturas consideradas: {conciliated_month['included_invoice_count']}.</p>"
         "<h2>Alertas</h2>"
         f"{_render_alert_items(snapshot['alerts'])}"
         "<h2>Ações recomendadas</h2>"

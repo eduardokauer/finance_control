@@ -1,4 +1,4 @@
-﻿{% extends "admin/base.html" %}
+{% extends "admin/base.html" %}
 {% block title %}Análise{% endblock %}
 {% block content %}
 <style>
@@ -157,6 +157,61 @@
       <div class="subtle">Conflito</div><div>{{ analysis_data.conciliation_signals.invoices_by_status.conflict }}</div>
     </div>
     <div class="subtle">{{ analysis_data.conciliation_signals.note }}</div>
+  </div>
+</section>
+
+<section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
+  <div class="card stack" style="margin-bottom:0;">
+    <div>
+      <strong>Visão mensal conciliada</strong>
+      <div class="subtle">Camada adicional: mantém a visão bruta atual e mostra como o mês fica quando pagamentos conciliados de cartão saem do gasto real e faturas totalmente conciliadas entram pelo consumo líquido.</div>
+    </div>
+    <div class="kpi-grid">
+      <div>
+        <div class="subtle">Receitas da conta</div>
+        <div class="metric-value amount-positive">{{ analysis_data.conciliated_month.bank_income_display }}</div>
+      </div>
+      <div>
+        <div class="subtle">Despesa líquida conciliada</div>
+        <div class="metric-value amount-negative">{{ analysis_data.conciliated_month.net_conciliated_expense_display }}</div>
+      </div>
+      <div>
+        <div class="subtle">Saldo conciliado</div>
+        <div class="metric-value {% if analysis_data.conciliated_month.conciliated_balance_total < 0 %}amount-negative{% else %}amount-positive{% endif %}">{{ analysis_data.conciliated_month.conciliated_balance_display }}</div>
+      </div>
+    </div>
+    <div class="kv-grid">
+      <div class="subtle">Despesas reais da conta</div><div>{{ analysis_data.conciliated_month.bank_expense_total_included_display }}</div>
+      <div class="subtle">Compras de cartão conciliado</div><div>{{ analysis_data.conciliated_month.conciliated_card_charge_display }}</div>
+      <div class="subtle">Créditos técnicos de fatura</div><div>-{{ analysis_data.conciliated_month.conciliated_invoice_credit_display }}</div>
+      <div class="subtle">Pagamentos bancários excluídos</div><div>{{ analysis_data.conciliated_month.excluded_conciliated_bank_payment_display }} · {{ analysis_data.conciliated_month.excluded_bank_payment_count }} pagamento(s)</div>
+      <div class="subtle">Itens payment ignorados na fatura</div><div>{{ analysis_data.conciliated_month.ignored_invoice_payment_item_display }}</div>
+      <div class="subtle">Faturas conciliadas consideradas</div><div>{{ analysis_data.conciliated_month.included_invoice_count }}</div>
+    </div>
+    <div class="subtle">{{ analysis_data.conciliated_month.note }}</div>
+  </div>
+
+  <div class="card stack" style="margin-bottom:0;">
+    <div>
+      <strong>Fora da visão conciliada</strong>
+      <div class="subtle">Faturas ainda não totalmente conciliadas continuam fora do consolidado principal desta nova leitura.</div>
+    </div>
+    <div class="kv-grid">
+      <div class="subtle">Pending review</div><div>{{ analysis_data.conciliated_month.outside_invoices_by_status.pending_review }}</div>
+      <div class="subtle">Partially conciliated</div><div>{{ analysis_data.conciliated_month.outside_invoices_by_status.partially_conciliated }}</div>
+      <div class="subtle">Conflict</div><div>{{ analysis_data.conciliated_month.outside_invoices_by_status.conflict }}</div>
+      <div class="subtle">Total fora da visão</div><div>{{ analysis_data.conciliated_month.outside_invoices_total }}</div>
+    </div>
+    <div class="analysis-list">
+      <div class="analysis-item">
+        <strong>Pagamentos excluídos por conciliação</strong>
+        <p>{{ analysis_data.conciliated_month.excluded_conciliated_bank_payment_display }} deixaram de contar como despesa real do mês porque já foram substituídos pelos itens da fatura conciliada.</p>
+      </div>
+      <div class="analysis-item">
+        <strong>Visão ainda conservadora</strong>
+        <p>Somente faturas com status <code>conciliated</code> entram nessa leitura. Pendências, parciais e conflitos seguem apenas como indicador auxiliar.</p>
+      </div>
+    </div>
   </div>
 </section>
 

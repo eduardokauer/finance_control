@@ -12,11 +12,11 @@ def _login(client):
 
 def _seed_categories(db_session):
     for name, kind in [
-        ("NÃƒÆ’Ã‚Â£o Categorizado", "expense"),
+        ("Não Categorizado", "expense"),
         ("Transporte", "expense"),
         ("Outros", "expense"),
-        ("SalÃƒÆ’Ã‚Â¡rio", "income"),
-        ("TransferÃƒÆ’Ã‚Âªncias", "transfer"),
+        ("Salário", "income"),
+        ("Transferências", "transfer"),
     ]:
         db_session.add(Category(name=name, transaction_kind=kind, is_active=True))
     db_session.commit()
@@ -25,7 +25,7 @@ def _seed_categories(db_session):
 def _seed_invoice_for_summary_ui(db_session) -> CreditCardInvoice:
     card = CreditCard(
         issuer="itau",
-        card_label="ItaÃº Visa final 1234",
+        card_label="Itaú Visa final 1234",
         card_final="1234",
         brand="Visa",
         is_active=True,
@@ -129,11 +129,11 @@ def test_admin_credit_card_invoice_detail_shows_operational_summary(client, db_s
     assert response.status_code == 200
     assert f"Fatura #{invoice.id}" in response.text
     assert "pending_review" in response.text
-    assert "Total de cobranças" in response.text or "Total de cobranÃ§as" in response.text
-    assert "Total de créditos/descontos" in response.text or "Total de crÃ©ditos/descontos" in response.text
+    assert "Total de cobranças" in response.text
+    assert "Total de créditos/descontos" in response.text
     assert "Total de pagamentos identificados" in response.text
     assert "Total composto da fatura" in response.text
-    assert "Diferença para o total informado" in response.text or "DiferenÃ§a para o total informado" in response.text
+    assert "Diferença para o total informado" in response.text
     assert "payment" in response.text
     assert "credit" in response.text
     assert "PAGAMENTO EFETUADO" in response.text

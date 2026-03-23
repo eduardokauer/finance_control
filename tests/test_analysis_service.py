@@ -1,7 +1,16 @@
-﻿import json
+import json
 from datetime import date
 
-from app.repositories.models import CreditCard, CreditCardInvoice, CreditCardInvoiceItem, SourceFile, Transaction
+from sqlalchemy import select
+
+from app.repositories.models import (
+    CreditCard,
+    CreditCardInvoice,
+    CreditCardInvoiceConciliation,
+    CreditCardInvoiceItem,
+    SourceFile,
+    Transaction,
+)
 from app.services.credit_card_bills import ensure_credit_card_invoice_conciliation, reconcile_credit_card_invoice_bank_payments
 from app.services.analysis import build_analysis_snapshot, run_analysis
 
@@ -98,6 +107,14 @@ def _add_invoice(db_session, *, due_date: date, card_final: str = "1234", item_s
     return invoice
 
 
+def _set_conciliation_status(db_session, *, invoice_id: int, status: str):
+    conciliation = ensure_credit_card_invoice_conciliation(db_session, invoice_id=invoice_id)
+    assert conciliation is not None
+    conciliation.status = status
+    db_session.commit()
+    return conciliation
+
+
 def test_build_analysis_snapshot_returns_richer_structure(db_session):
     _add_tx(db_session, tx_date=date(2025, 4, 5), description="SALARIO ANTIGO", amount=4200.0, category="Salário", transaction_kind="income")
     _add_tx(db_session, tx_date=date(2025, 12, 8), description="PIX TRANSF", amount=-700.0, category="Transferências", transaction_kind="transfer")
@@ -192,4 +209,110 @@ def test_analysis_snapshot_exposes_conciliation_signals_without_changing_main_to
     assert snapshot["conciliation_signals"]["invoice_credit_total_brl"] == 100.0
     assert snapshot["conciliation_signals"]["invoices_by_status"]["conciliated"] == 1
     assert snapshot["technical_items"]["card_bill_total"] == 1300.0
+
+
+def test_analysis_snapshot_builds_conciliated_month_view_without_changing_main_totals(db_session):
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
+    payment = _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 18),
+        description="FATURA MAR",
+        amount=-1300.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice = _add_invoice(
+        db_session,
+        due_date=date(2026, 3, 20),
+        item_specs=[
+            ("COMPRA MERCADO", "900.00"),
+            ("CURSO ONLINE", "500.00"),
+            ("DESCONTO NA FATURA - PO", "-100.00"),
+            ("PAGAMENTO EFETUADO", "-1300.00"),
+        ],
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice.id,
+        bank_transaction_ids=[payment.id],
+    )
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    assert snapshot["summary"]["expense_total"] == 3100.0
+    conciliated = snapshot["conciliated_month"]
+    assert conciliated["bank_income_total"] == 5000.0
+    assert conciliated["bank_expense_total_included"] == 1800.0
+    assert conciliated["conciliated_card_charge_total"] == 1400.0
+    assert conciliated["conciliated_invoice_credit_total"] == 100.0
+    assert conciliated["excluded_conciliated_bank_payment_total"] == 1300.0
+    assert conciliated["ignored_invoice_payment_item_total"] == 1300.0
+    assert conciliated["net_conciliated_expense_total"] == 3100.0
+    assert conciliated["conciliated_balance_total"] == 1900.0
+    assert conciliated["included_invoice_count"] == 1
+    assert conciliated["outside_invoices_total"] == 0
+
+
+def test_analysis_snapshot_only_includes_fully_conciliated_invoices_in_conciliated_view(db_session):
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    payment = _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 18),
+        description="FATURA MAR",
+        amount=-650.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    included_invoice = _add_invoice(
+        db_session,
+        due_date=date(2026, 3, 20),
+        card_final="1234",
+        item_specs=[
+            ("COMPRA A", "700.00"),
+            ("DESCONTO NA FATURA - PO", "-50.00"),
+        ],
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=included_invoice.id,
+        bank_transaction_ids=[payment.id],
+    )
+
+    pending_invoice = _add_invoice(
+        db_session,
+        due_date=date(2026, 3, 22),
+        card_final="5678",
+        item_specs=[("COMPRA PENDENTE", "200.00")],
+    )
+    partial_invoice = _add_invoice(
+        db_session,
+        due_date=date(2026, 3, 24),
+        card_final="9012",
+        item_specs=[("COMPRA PARCIAL", "300.00")],
+    )
+    conflict_invoice = _add_invoice(
+        db_session,
+        due_date=date(2026, 3, 26),
+        card_final="3456",
+        item_specs=[("COMPRA CONFLICT", "400.00")],
+    )
+    _set_conciliation_status(db_session, invoice_id=partial_invoice.id, status="partially_conciliated")
+    _set_conciliation_status(db_session, invoice_id=conflict_invoice.id, status="conflict")
+    assert db_session.scalar(
+        select(CreditCardInvoiceConciliation.status).where(CreditCardInvoiceConciliation.invoice_id == pending_invoice.id)
+    ) is None
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    conciliated = snapshot["conciliated_month"]
+    assert conciliated["included_invoice_count"] == 1
+    assert conciliated["conciliated_card_charge_total"] == 700.0
+    assert conciliated["conciliated_invoice_credit_total"] == 50.0
+    assert conciliated["outside_invoices_by_status"]["pending_review"] == 1
+    assert conciliated["outside_invoices_by_status"]["partially_conciliated"] == 1
+    assert conciliated["outside_invoices_by_status"]["conflict"] == 1
+    assert conciliated["outside_invoices_total"] == 3
 

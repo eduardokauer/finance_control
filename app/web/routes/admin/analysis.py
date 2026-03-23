@@ -58,6 +58,8 @@ def admin_analysis_page(
     payload_snapshot = parse_analysis_payload(analysis_run.payload) if analysis_run else None
     if payload_snapshot and "conciliation_signals" not in payload_snapshot:
         payload_snapshot["conciliation_signals"] = live_snapshot["conciliation_signals"]
+    if payload_snapshot and "conciliated_month" not in payload_snapshot:
+        payload_snapshot["conciliated_month"] = live_snapshot["conciliated_month"]
     analysis_data = payload_snapshot or live_snapshot
     html_fragment = renderable_analysis_html(analysis_run.html_output) if analysis_run else None
     return render_admin(

@@ -1,4 +1,4 @@
-﻿# Finance Control Backend
+# Finance Control Backend
 
 Backend em FastAPI para controle financeiro pessoal: ingestão de extratos, categorização, análise determinística e interface administrativa web para revisão e correção dos lançamentos.
 
@@ -100,7 +100,8 @@ make test
 ## Admin de faturas
 - listagem operacional: `/admin/credit-card-invoices`
 - detalhe da fatura: `/admin/credit-card-invoices/<invoice_id>`
-- a home do admin em `/admin` também mostra as últimas faturas importadas com link para o detalhe
+- a home do admin em `/admin` agora abre a análise
+- a central operacional antiga ficou disponível no menu em `/admin/operations`
 
 ## Conciliação manual assistida de faturas
 - a fonte oficial da liquidação é o extrato bancário, não o item `PAGAMENTO EFETUADO` dentro da própria fatura
@@ -125,6 +126,17 @@ make test
   - créditos técnicos de fatura no período
   - quantidade de faturas por status de conciliação
 - esta etapa é preparatória para futura integração completa da fatura na análise consolidada; neste PR os KPIs principais continuam iguais
+
+## Visão mensal conciliada
+- a tela de análise agora também mostra uma visão mensal conciliada, separada da visão atual/bruta
+- a visão atual continua disponível e inalterada
+- a visão conciliada considera apenas faturas com status `conciliated`
+- nessa leitura:
+  - pagamentos bancários conciliados de cartão saem do gasto real do mês
+  - itens `charge` das faturas conciliadas entram como despesa real de cartão
+  - itens `credit` reduzem a despesa do cartão sem virar receita operacional
+  - itens `payment` da própria fatura continuam fora do gasto real
+- faturas `pending_review`, `partially_conciliated` e `conflict` ficam fora do consolidado conciliado principal e aparecem apenas em indicadores auxiliares
 
 ## Desenvolvimento
 Parar a stack:

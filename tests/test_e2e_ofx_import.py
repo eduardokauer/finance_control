@@ -1,4 +1,4 @@
-﻿import json
+import json
 from math import isclose
 
 import pytest

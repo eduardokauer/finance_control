@@ -1,3 +1,4 @@
+import json
 from datetime import date
 
 from sqlalchemy import select
@@ -640,6 +641,8 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     assert "An\u00e1lise determin\u00edstica renderizada" in page.text
     assert "Ver HTML bruto" in page.text
     assert "Consolidado mensal de 12 meses" in page.text
+    assert "Vis\u00e3o mensal conciliada" in page.text
+    assert "Despesa l\u00edquida conciliada" in page.text
     assert "Itens financeiros e t\u00e9cnicos" in page.text
     assert "chart.js" in page.text.lower()
     assert "monthly-chart" in page.text
@@ -670,10 +673,90 @@ def test_admin_analysis_page_shows_auxiliary_conciliation_signals(client, db_ses
 
     assert response.status_code == 200
     assert "Sinais anal\u00edticos de concilia\u00e7\u00e3o" in response.text
+    assert "Fora da vis\u00e3o conciliada" in response.text
     assert "Pagamentos conciliados" in response.text
     assert "Cr\u00e9ditos t\u00e9cnicos de fatura" in response.text
+    assert "Pagamentos exclu\u00eddos por concilia\u00e7\u00e3o" in response.text
     assert "sem alterar os KPIs principais" in response.text
 
+
+
+def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(db_session, description="SALARIO MAR", normalized="salario mar", amount=5000.0, transaction_kind="income", category="Sal\u00e1rio")
+
+    legacy_payload = {
+        "period": {"label": "01/03/2026 a 31/03/2026", "start": "2026-03-01", "end": "2026-03-31", "month_reference_label": "mar/2026"},
+        "summary": {
+            "income_total": 5000.0,
+            "expense_total": 0.0,
+            "balance": 5000.0,
+            "uncategorized_total": 0.0,
+            "transaction_count": 1,
+            "income_display": "R$ 5.000,00",
+            "expense_display": "R$ 0,00",
+            "balance_display": "R$ 5.000,00",
+            "uncategorized_display": "R$ 0,00",
+        },
+        "comparison": {
+            "reference_label": "fev/2026",
+            "income": {"trend": "up", "trend_label": "subiu", "percent_display": "n/a", "delta_display": "R$ 5.000,00", "current_display": "R$ 5.000,00", "previous_display": "R$ 0,00"},
+            "expense": {"trend": "stable", "trend_label": "estável", "percent_display": "n/a", "delta_display": "R$ 0,00", "current_display": "R$ 0,00", "previous_display": "R$ 0,00"},
+            "balance": {"trend": "up", "trend_label": "subiu", "percent_display": "n/a", "delta_display": "R$ 5.000,00", "current_display": "R$ 5.000,00", "previous_display": "R$ 0,00"},
+        },
+        "monthly_series": [],
+        "categories": [],
+        "top_expense_categories": [],
+        "technical_items": {
+            "transfer_total": 0.0,
+            "transfer_display": "R$ 0,00",
+            "transfer_share": 0.0,
+            "transfer_share_display": "n/a",
+            "card_bill_total": 0.0,
+            "card_bill_display": "R$ 0,00",
+            "card_bill_share": 0.0,
+            "card_bill_share_display": "n/a",
+            "combined_total": 0.0,
+            "combined_display": "R$ 0,00",
+            "combined_share": 0.0,
+            "combined_share_display": "n/a",
+            "note": "legacy test",
+        },
+        "quality": {"uncategorized_total": 0.0, "uncategorized_display": "R$ 0,00", "uncategorized_share": 0.0, "uncategorized_share_display": "n/a"},
+        "alerts": [],
+        "actions": [],
+        "charts": {"monthly": {"labels": [], "income": [], "expense": [], "balance": []}, "categories": {"labels": [], "values": [], "technical": []}},
+        "conciliation_signals": {
+            "conciliated_bank_payment_total_brl": 0.0,
+            "conciliated_bank_payment_count": 0,
+            "conciliated_bank_payment_display": "R$ 0,00",
+            "invoice_credit_total_brl": 0.0,
+            "invoice_credit_display": "R$ 0,00",
+            "invoices_by_status": {"pending_review": 0, "partially_conciliated": 0, "conciliated": 0, "conflict": 0},
+            "invoices_total": 0,
+            "note": "legacy payload",
+        },
+    }
+    db_session.add(
+        AnalysisRun(
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            trigger_source_file_id=None,
+            payload=json.dumps(legacy_payload, ensure_ascii=False),
+            prompt="legacy_analysis",
+            html_output="<p>legacy html</p>",
+            status="success",
+        )
+    )
+    db_session.commit()
+    _login(client)
+
+    response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+
+    assert response.status_code == 200
+    assert "Visão mensal conciliada" in response.text
+    assert "legacy html" in response.text
 
 def test_admin_transactions_page_marks_conciliated_bank_payment(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
