@@ -33,6 +33,14 @@
           </select>
           <div class="subtle">Fluxo da transação: entrada vira receita, saída vira despesa.</div>
         </label>
+        <label>Escopo da regra
+          <select name="source_scope">
+            <option value="both">Extrato + fatura</option>
+            <option value="bank_statement">Somente extrato</option>
+            <option value="credit_card_invoice_item">Somente item de fatura</option>
+          </select>
+          <div class="subtle">Use escopo específico quando a descrição fizer sentido apenas no extrato ou apenas na fatura.</div>
+        </label>
         <label>Prioridade
           <input type="number" name="priority" value="0">
         </label>
@@ -48,7 +56,7 @@
     <details id="rule-{{ rule.id }}" class="rule-row accordion" {% if open_rule_id == rule.id %}open{% endif %}>
       <summary>
         <span>{{ rule.pattern }}</span>
-        <span class="subtle">{{ rule.category_name }} · {{ 'Fluxo da transação' if rule.kind_mode == 'flow' else 'Transferência' }} · prioridade {{ rule.priority }} · {{ 'ativa' if rule.is_active else 'inativa' }}</span>
+        <span class="subtle">{{ rule.category_name }} · {{ 'Fluxo da transação' if rule.kind_mode == 'flow' else 'Transferência' }} · {{ 'Extrato + fatura' if rule.source_scope == 'both' else 'Somente extrato' if rule.source_scope == 'bank_statement' else 'Somente item de fatura' }} · prioridade {{ rule.priority }} · {{ 'ativa' if rule.is_active else 'inativa' }}</span>
       </summary>
       <div class="accordion-body stack">
         <form method="post" action="/admin/rules/{{ rule.id }}/update" class="grid grid-2">
@@ -74,6 +82,14 @@
               <option value="transfer" {% if rule.kind_mode == 'transfer' %}selected{% endif %}>Transferência</option>
             </select>
             <div class="subtle">Fluxo da transação: entrada vira receita, saída vira despesa.</div>
+          </label>
+          <label>Escopo da regra
+            <select name="source_scope">
+              <option value="both" {% if rule.source_scope == 'both' %}selected{% endif %}>Extrato + fatura</option>
+              <option value="bank_statement" {% if rule.source_scope == 'bank_statement' %}selected{% endif %}>Somente extrato</option>
+              <option value="credit_card_invoice_item" {% if rule.source_scope == 'credit_card_invoice_item' %}selected{% endif %}>Somente item de fatura</option>
+            </select>
+            <div class="subtle">Use escopo específico quando a descrição fizer sentido apenas no extrato ou apenas na fatura.</div>
           </label>
           <label>Prioridade
             <input type="number" name="priority" value="{{ rule.priority }}">

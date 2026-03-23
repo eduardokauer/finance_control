@@ -3,8 +3,13 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
-from app.repositories.models import CreditCard, CreditCardInvoice, CreditCardInvoiceItem, SourceFile
-from app.services.credit_card_bills import classify_credit_card_invoice_item, create_credit_card, get_credit_card_invoice_detail
+from app.repositories.models import CategorizationRule, Category, CreditCard, CreditCardInvoice, CreditCardInvoiceItem, SourceFile
+from app.services.credit_card_bills import (
+    classify_credit_card_invoice_item,
+    create_credit_card,
+    get_credit_card_invoice_detail,
+    recategorize_credit_card_invoice_items,
+)
 
 
 def _create_card(db_session) -> CreditCard:
@@ -87,7 +92,20 @@ def _upload_invoice(client, auth_headers, card_id: int, csv_file, **overrides):
             headers=auth_headers,
             data=data,
             files={"file": (csv_file.name, handle, "text/csv")},
-        )
+        )        
+
+
+def _seed_categories(db_session):
+    for name, kind in [
+        ("Não Categorizado", "expense"),
+        ("Supermercado", "expense"),
+        ("Educação", "expense"),
+        ("Ajustes e Estornos", "expense"),
+        ("Transferências", "transfer"),
+        ("Outras Receitas", "income"),
+    ]:
+        db_session.add(Category(name=name, transaction_kind=kind, is_active=True))
+    db_session.commit()
 
 
 def test_credit_card_creation_persists_basic_entity(db_session):
@@ -338,6 +356,102 @@ def test_credit_card_invoice_upload_accepts_real_fixture_file(
     assert items[-1].amount_brl == Decimal("214.23")
 
 
+def test_credit_card_invoice_upload_categorizes_charge_and_keeps_technical_items_without_category(
+    client,
+    db_session,
+    auth_headers,
+    tmp_path,
+):
+    _seed_categories(db_session)
+    db_session.add(
+        CategorizationRule(
+            rule_type="contains",
+            pattern="supermercado extra",
+            category_name="Supermercado",
+            kind_mode="flow",
+            source_scope="credit_card_invoice_item",
+            priority=0,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+    card = _create_card(db_session)
+    categorized_file = tmp_path / "fatura_categorizada.csv"
+    categorized_file.write_text(
+        "data;lançamento;valor\n"
+        "05/03/2026;SUPERMERCADO EXTRA;120,45\n"
+        "06/03/2026;DESCONTO NA FATURA - PO;-10,00\n"
+        "07/03/2026;PAGAMENTO EFETUADO;-110,45\n",
+        encoding="utf-8",
+    )
+
+    response = _upload_invoice(
+        client,
+        auth_headers,
+        card.id,
+        categorized_file,
+        total_amount_brl="110.45",
+    )
+
+    assert response.status_code == 200
+    items = db_session.scalars(select(CreditCardInvoiceItem).order_by(CreditCardInvoiceItem.id.asc())).all()
+    assert len(items) == 3
+    assert items[0].category == "Supermercado"
+    assert items[0].categorization_method == "rule"
+    assert items[0].applied_rule == "supermercado extra"
+    assert items[0].categorization_rule_id is not None
+    assert items[1].category is None
+    assert items[1].categorization_method is None
+    assert items[2].category is None
+    assert items[2].categorization_method is None
+    assert db_session.scalar(select(Category).where(Category.name == items[0].category)) is not None
+
+
+def test_credit_card_invoice_charge_fallback_without_official_category_uses_official_uncategorized(
+    client,
+    db_session,
+    auth_headers,
+    tmp_path,
+    monkeypatch,
+):
+    _seed_categories(db_session)
+    card = _create_card(db_session)
+    categorized_file = tmp_path / "fatura_categoria_inexistente.csv"
+    categorized_file.write_text(
+        "data;lançamento;valor\n"
+        "05/03/2026;ASSINATURA DESCONHECIDA;120,45\n",
+        encoding="utf-8",
+    )
+
+    def fake_classification(*_args, **_kwargs):
+        return {
+            "category": "Categoria Fantasma",
+            "method": "fallback",
+            "confidence": 0.3,
+            "rule": None,
+            "rule_id": None,
+            "normalized_description": "assinatura desconhecida",
+        }
+
+    monkeypatch.setattr("app.services.credit_card_bills.classify_credit_card_invoice_charge", fake_classification)
+
+    response = _upload_invoice(
+        client,
+        auth_headers,
+        card.id,
+        categorized_file,
+        total_amount_brl="120.45",
+    )
+
+    assert response.status_code == 200
+    item = db_session.scalar(select(CreditCardInvoiceItem))
+    assert item is not None
+    assert item.category == "Não Categorizado"
+    assert item.categorization_method == "fallback"
+    assert db_session.scalar(select(Category).where(Category.name == item.category)) is not None
+    assert db_session.scalar(select(Category).where(Category.name == "Categoria Fantasma")) is None
+
+
 def test_credit_card_invoice_item_classifies_payment_and_credit(db_session):
     invoice = _create_invoice_with_items(
         db_session,
@@ -356,6 +470,75 @@ def test_credit_card_invoice_item_classifies_payment_and_credit(db_session):
     assert classify_credit_card_invoice_item(items[0]) == "payment"
     assert classify_credit_card_invoice_item(items[1]) == "credit"
     assert classify_credit_card_invoice_item(items[2]) == "charge"
+
+
+def test_credit_card_invoice_item_recategorization_reapplies_only_charges_and_respects_source_scope(db_session):
+    _seed_categories(db_session)
+    db_session.add(Category(name="Moradia", transaction_kind="expense", is_active=True))
+    db_session.add(
+        CategorizationRule(
+            rule_type="contains",
+            pattern="curso plataforma",
+            category_name="Moradia",
+            kind_mode="flow",
+            source_scope="bank_statement",
+            priority=0,
+            is_active=True,
+        )
+    )
+    db_session.add(
+        CategorizationRule(
+            rule_type="contains",
+            pattern="curso plataforma",
+            category_name="Educação",
+            kind_mode="flow",
+            source_scope="credit_card_invoice_item",
+            priority=1,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+
+    invoice = _create_invoice_with_items(
+        db_session,
+        descriptions_and_amounts=[
+            ("CURSO PLATAFORMA ONLINE", "120.00"),
+            ("DESCONTO NA FATURA - PO", "-10.00"),
+            ("PAGAMENTO EFETUADO", "-110.00"),
+        ],
+        total_amount_brl="0.00",
+    )
+    items = db_session.scalars(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id).order_by(CreditCardInvoiceItem.id.asc())
+    ).all()
+    items[0].category = "Não Categorizado"
+    items[0].categorization_method = "fallback"
+    items[0].categorization_confidence = 0.3
+    items[1].category = "Supermercado"
+    items[1].categorization_method = "legacy"
+    items[1].categorization_confidence = 1.0
+    items[1].applied_rule = "legacy"
+    items[2].category = "Supermercado"
+    items[2].categorization_method = "legacy"
+    items[2].categorization_confidence = 1.0
+    items[2].applied_rule = "legacy"
+    db_session.commit()
+
+    result = recategorize_credit_card_invoice_items(db_session, invoice_id=invoice.id)
+
+    refreshed_items = db_session.scalars(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id).order_by(CreditCardInvoiceItem.id.asc())
+    ).all()
+    assert result == {"checked_count": 3, "updated_count": 3}
+    assert refreshed_items[0].category == "Educação"
+    assert refreshed_items[0].categorization_method == "rule"
+    assert refreshed_items[0].categorization_rule_id is not None
+    assert refreshed_items[1].category is None
+    assert refreshed_items[1].categorization_method is None
+    assert refreshed_items[1].categorization_rule_id is None
+    assert refreshed_items[2].category is None
+    assert refreshed_items[2].categorization_method is None
+    assert refreshed_items[2].categorization_rule_id is None
 
 
 def test_credit_card_invoice_detail_summary_excludes_payments_from_composed_total(db_session):

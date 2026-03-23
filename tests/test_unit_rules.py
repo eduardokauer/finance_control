@@ -2,7 +2,7 @@ from app.parsers.csv_parser import parse_csv
 from app.parsers.ofx_parser import parse_ofx, validate_ofx_structure
 from app.repositories.models import CategorizationRule
 from app.services.categorization import categorize
-from app.services.classification import classify_transaction
+from app.services.classification import classify_credit_card_invoice_charge, classify_transaction
 from app.services.reconciliation import infer_transaction_kind, reconciliation_flags
 from app.utils.bank_codes import bank_name_from_description, extract_bank_code
 from app.utils.hashing import canonical_hash, file_hash
@@ -142,6 +142,12 @@ def test_manual_rule_flow_uses_expense_for_negative_amount(db_session):
     assert result["transaction_kind"] == "expense"
 
 
+def test_bank_statement_classification_remains_independent_from_invoice_category_validation(db_session):
+    result = classify_transaction(db_session, "bank_statement", "Compra Ifood pedido", -35.0)
+    assert result["category"] == "Alimentação"
+    assert result["transaction_kind"] == "expense"
+
+
 def test_manual_rule_transfer_forces_transfer_kind(db_session):
     db_session.add(
         CategorizationRule(
@@ -158,4 +164,48 @@ def test_manual_rule_transfer_forces_transfer_kind(db_session):
     result = classify_transaction(db_session, "bank_statement", "ITAU BLACK 3101 1291", -10445.27)
     assert result["category"] == "Pagamento de Fatura"
     assert result["transaction_kind"] == "transfer"
+
+
+def test_manual_rule_source_scope_can_target_only_invoice_items(db_session):
+    db_session.add(
+        CategorizationRule(
+            rule_type="contains",
+            pattern="curso plataforma",
+            category_name="Educação",
+            kind_mode="flow",
+            source_scope="credit_card_invoice_item",
+            priority=0,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+
+    invoice_result = classify_credit_card_invoice_charge(db_session, "CURSO PLATAFORMA ONLINE")
+    bank_result = classify_transaction(db_session, "bank_statement", "CURSO PLATAFORMA ONLINE", -120.0)
+
+    assert invoice_result["category"] == "Educação"
+    assert invoice_result["method"] == "rule"
+    assert bank_result["category"] in {"Não Categorizado", "Nao Categorizado"}
+
+
+def test_manual_rule_source_scope_preserves_bank_statement_behavior(db_session):
+    db_session.add(
+        CategorizationRule(
+            rule_type="contains",
+            pattern="favorecido raro",
+            category_name="Moradia",
+            kind_mode="flow",
+            source_scope="bank_statement",
+            priority=0,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+
+    bank_result = classify_transaction(db_session, "bank_statement", "PIX FAVORECIDO RARO", -850.0)
+    invoice_result = classify_credit_card_invoice_charge(db_session, "PIX FAVORECIDO RARO")
+
+    assert bank_result["category"] == "Moradia"
+    assert bank_result["method"] == "rule"
+    assert invoice_result["category"] in {"Não Categorizado", "Nao Categorizado"}
 

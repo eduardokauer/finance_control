@@ -153,6 +153,7 @@ def admin_update_transaction(
             rule_type=rule_match_mode,
             category_name=category,
             kind_mode=kind_mode_from_transaction_kind(transaction_kind),
+            source_scope="bank_statement",
             priority=0,
             is_active=True,
         )
@@ -218,6 +219,7 @@ def admin_bulk_apply(
                 rule_type=rule_match_mode,
                 category_name=category,
                 kind_mode=kind_mode_from_transaction_kind(transaction_kind),
+                source_scope="bank_statement",
                 priority=0,
                 is_active=True,
             )

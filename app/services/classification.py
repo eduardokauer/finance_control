@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -17,15 +18,23 @@ def _match_rule(rule: CategorizationRule, normalized_description: str) -> bool:
     return rule.pattern in normalized_description
 
 
+def _source_scope_for_transaction(source_type: str) -> str:
+    if source_type == "bank_statement":
+        return "bank_statement"
+    return "both"
+
+
 def find_matching_rule(
     db: Session,
     normalized_description: str,
     *,
+    source_scope: str = "both",
     allowed_rule_ids: list[int] | None = None,
 ) -> CategorizationRule | None:
     query = (
         select(CategorizationRule)
         .where(CategorizationRule.is_active.is_(True))
+        .where(CategorizationRule.source_scope.in_(("both", source_scope)))
         .order_by(CategorizationRule.priority.asc(), CategorizationRule.id.asc())
     )
     if allowed_rule_ids:
@@ -52,7 +61,12 @@ def classify_transaction(
     allowed_rule_ids: list[int] | None = None,
 ) -> dict:
     normalized = normalize_description(description)
-    rule = find_matching_rule(db, normalized, allowed_rule_ids=allowed_rule_ids)
+    rule = find_matching_rule(
+        db,
+        normalized,
+        source_scope=_source_scope_for_transaction(source_type),
+        allowed_rule_ids=allowed_rule_ids,
+    )
     inferred_kind = infer_transaction_kind(source_type, description, amount)
 
     if rule:
@@ -76,6 +90,41 @@ def classify_transaction(
         "rule": fallback["rule"],
         "rule_id": None,
         "rule_kind_mode": None,
+        "normalized_description": normalized,
+    }
+
+
+def classify_credit_card_invoice_charge(
+    db: Session,
+    description: str,
+    *,
+    allowed_rule_ids: list[int] | None = None,
+) -> dict:
+    normalized = normalize_description(description)
+    rule = find_matching_rule(
+        db,
+        normalized,
+        source_scope="credit_card_invoice_item",
+        allowed_rule_ids=allowed_rule_ids,
+    )
+
+    if rule:
+        return {
+            "category": rule.category_name,
+            "method": "rule",
+            "confidence": 1.0,
+            "rule": rule.pattern,
+            "rule_id": rule.id,
+            "normalized_description": normalized,
+        }
+
+    fallback = categorize(description, transaction_kind="expense")
+    return {
+        "category": fallback["category"],
+        "method": fallback["method"],
+        "confidence": float(Decimal(str(fallback["confidence"]))),
+        "rule": fallback["rule"],
+        "rule_id": None,
         "normalized_description": normalized,
     }
 
