@@ -70,7 +70,8 @@ class CreditCardInvoiceListEntry:
 @dataclass
 class CreditCardInvoiceImportChartPoint:
     competence_label: str
-    invoice_count: int
+    total_amount_brl: Decimal
+    total_amount_value: float
 
 
 @dataclass
@@ -263,7 +264,7 @@ def build_credit_card_invoice_import_chart(
         select(
             CreditCardInvoice.billing_year,
             CreditCardInvoice.billing_month,
-            func.count(CreditCardInvoice.id),
+            func.coalesce(func.sum(CreditCardInvoice.total_amount_brl), 0),
         )
         .where(
             or_(
@@ -279,9 +280,9 @@ def build_credit_card_invoice_import_chart(
         .group_by(CreditCardInvoice.billing_year, CreditCardInvoice.billing_month)
     ).all()
 
-    counts_by_competence = {
-        (int(billing_year), int(billing_month)): int(invoice_count or 0)
-        for billing_year, billing_month, invoice_count in rows
+    totals_by_competence = {
+        (int(billing_year), int(billing_month)): _quantize(total_amount_brl or Decimal("0.00"))
+        for billing_year, billing_month, total_amount_brl in rows
     }
 
     points: list[CreditCardInvoiceImportChartPoint] = []
@@ -290,7 +291,8 @@ def build_credit_card_invoice_import_chart(
         points.append(
             CreditCardInvoiceImportChartPoint(
                 competence_label=f"{current_month.month:02d}/{current_month.year}",
-                invoice_count=counts_by_competence.get((current_month.year, current_month.month), 0),
+                total_amount_brl=totals_by_competence.get((current_month.year, current_month.month), Decimal("0.00")),
+                total_amount_value=float(totals_by_competence.get((current_month.year, current_month.month), Decimal("0.00"))),
             )
         )
     return points

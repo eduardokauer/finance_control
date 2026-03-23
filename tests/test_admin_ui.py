@@ -812,11 +812,12 @@ def test_admin_credit_card_invoice_list_shows_imported_invoices(client, db_sessi
 
     assert response.status_code == 200
     assert "Faturas importadas" in response.text
-    assert "Faturas importadas por competência" in response.text
-    assert "Últimas 12 competências, com lacunas preenchidas com zero." in response.text
+    assert "Valor total das faturas importadas por competência" in response.text
+    assert "Últimas 12 competências, com lacunas preenchidas com R$ 0,00." in response.text
     assert "invoice-imports-chart" in response.text
     assert "Itaú Visa final 1234" in response.text
     assert '"02/2026"' in response.text
+    assert "130.45" in response.text
     assert "03/2026" in response.text
     assert "imported" in response.text
     assert "conflict" in response.text
