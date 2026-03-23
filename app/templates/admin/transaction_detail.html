@@ -12,6 +12,13 @@
   {% if current_rule %}
     <div class="badge">Regra atual: {{ current_rule.pattern }} ? {{ current_rule.category_name }}</div>
   {% endif %}
+  {% if transaction.is_conciliated_bank_payment %}
+    <div class="card stack" style="margin-bottom:0; padding:12px 14px;">
+      <div><span class="badge warn">bank_payment conciliado</span></div>
+      <div class="subtle">Este lançamento está vinculado à fatura #{{ transaction.conciliation_signal.invoice_id }} · {{ transaction.conciliation_signal.card_label }} · {{ "%02d/%04d"|format(transaction.conciliation_signal.billing_month, transaction.conciliation_signal.billing_year) }}</div>
+      <div class="subtle">Status da conciliação: {{ transaction.conciliation_signal.conciliation_status }} · vencimento {{ transaction.conciliation_signal.due_date }}</div>
+    </div>
+  {% endif %}
 </div>
 
 <section class="grid grid-2">

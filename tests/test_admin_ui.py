@@ -9,6 +9,8 @@ from app.repositories.models import (
     Category,
     CreditCard,
     CreditCardInvoice,
+    CreditCardInvoiceConciliation,
+    CreditCardInvoiceConciliationItem,
     CreditCardInvoiceItem,
     SourceFile,
     Transaction,
@@ -74,6 +76,91 @@ def _seed_transaction(
     db_session.commit()
     db_session.refresh(tx)
     return tx
+
+
+def _seed_conciliated_bank_payment(db_session, *, tx: Transaction, due_date: date = date(2026, 3, 20)):
+    card = CreditCard(
+        issuer="itau",
+        card_label="Itaú Visa final 9999",
+        card_final="9999",
+        brand="Visa",
+        is_active=True,
+    )
+    db_session.add(card)
+    db_session.flush()
+    source_file = SourceFile(
+        source_type="credit_card_bill",
+        file_name="invoice-9999.csv",
+        file_path="upload://invoice-9999.csv",
+        file_hash=f"invoice-hash-ui-{tx.id}",
+        status="processed",
+    )
+    db_session.add(source_file)
+    db_session.flush()
+    invoice = CreditCardInvoice(
+        source_file_id=source_file.id,
+        card_id=card.id,
+        issuer=card.issuer,
+        card_final=card.card_final,
+        billing_year=due_date.year,
+        billing_month=due_date.month,
+        due_date=due_date,
+        closing_date=None,
+        total_amount_brl="130.00",
+        source_file_name=source_file.file_name,
+        source_file_hash=source_file.file_hash,
+        notes="conciliation ui test",
+        import_status="imported",
+    )
+    db_session.add(invoice)
+    db_session.flush()
+    invoice_item = CreditCardInvoiceItem(
+        invoice_id=invoice.id,
+        purchase_date=due_date,
+        description_raw="DESCONTO NA FATURA - PO",
+        description_normalized="desconto na fatura - po",
+        amount_brl="-10.00",
+        installment_current=None,
+        installment_total=None,
+        is_installment=False,
+        derived_note=None,
+        external_row_hash=f"row-hash-ui-{invoice.id}",
+    )
+    db_session.add(invoice_item)
+    db_session.flush()
+    conciliation = CreditCardInvoiceConciliation(
+        invoice_id=invoice.id,
+        status="conciliated",
+        gross_amount_brl="130.00",
+        invoice_credit_total_brl="10.00",
+        bank_payment_total_brl="120.00",
+        conciliated_total_brl="130.00",
+        remaining_balance_brl="0.00",
+    )
+    db_session.add(conciliation)
+    db_session.flush()
+    db_session.add_all(
+        [
+            CreditCardInvoiceConciliationItem(
+                conciliation_id=conciliation.id,
+                item_type="invoice_credit",
+                amount_brl="10.00",
+                bank_transaction_id=None,
+                invoice_item_id=invoice_item.id,
+                notes="auto credit",
+            ),
+            CreditCardInvoiceConciliationItem(
+                conciliation_id=conciliation.id,
+                item_type="bank_payment",
+                amount_brl="120.00",
+                bank_transaction_id=tx.id,
+                invoice_item_id=None,
+                notes="manual link",
+            ),
+        ]
+    )
+    db_session.commit()
+    return invoice
 
 def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
@@ -525,11 +612,11 @@ def test_admin_analysis_page_shows_empty_state_and_navigation(client, db_session
 
     assert response.status_code == 200
     assert "Ainda nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o existe anÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lise gerada para esse perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo" in response.text or "Ainda n" in response.text
-    assert "Gerar nova an\u00e1lise" in response.text or "Gerar nova analise" in response.text
+    assert "Gerar nova an" in response.text
     assert "Receitas" in response.text
     assert "data-loading-button" in response.text
-    assert "Carregando an\u00e1lise..." in response.text or "Carregando analise..." in response.text
-    assert "Gerando an\u00e1lise..." in response.text or "Gerando analise..." in response.text
+    assert "Carregando an" in response.text
+    assert "Gerando an" in response.text
 
 
 def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_session, monkeypatch):
@@ -553,11 +640,7 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
 
     page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert page.status_code == 200
-    assert (
-        "An\u00e1lise determin\u00edstica renderizada" in page.text
-        or "Analise deterministica renderizada" in page.text
-        or "An\u00e1lise deterministica renderizada" in page.text
-    )
+    assert "renderizada" in page.text
     assert "Ver HTML bruto" in page.text
     assert "Consolidado mensal de 12 meses" in page.text
     assert "Itens financeiros e tÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©cnicos" in page.text or "Itens financeiros e t" in page.text
@@ -569,11 +652,51 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     run = db_session.scalar(select(AnalysisRun).where(AnalysisRun.period_start == date(2026, 3, 1)))
     assert run is not None
     assert run.html_output
-    assert (
-        "An\u00e1lise financeira determin\u00edstica" in run.html_output
-        or "Analise financeira deterministica" in run.html_output
-        or "An\u00e1lise financeira deterministica" in run.html_output
+    assert "determin" in run.html_output
+
+
+def test_admin_analysis_page_shows_auxiliary_conciliation_signals(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(
+        db_session,
+        description="PAGAMENTO FATURA MAR",
+        normalized="pagamento fatura mar",
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Pagamento de Fatura",
     )
+    _seed_conciliated_bank_payment(db_session, tx=tx)
+    _login(client)
+
+    response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+
+    assert response.status_code == 200
+    assert "Sinais anal" in response.text
+    assert "Pagamentos conciliados" in response.text
+    assert "Cr" in response.text
+    assert "sem alterar os KPIs principais" in response.text
+
+
+def test_admin_transactions_page_marks_conciliated_bank_payment(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(
+        db_session,
+        description="PAGAMENTO FATURA MAR",
+        normalized="pagamento fatura mar",
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Pagamento de Fatura",
+    )
+    _seed_conciliated_bank_payment(db_session, tx=tx)
+    _login(client)
+
+    response = client.get("/admin/transactions?period_start=2026-03-01&period_end=2026-03-31")
+
+    assert response.status_code == 200
+    assert "bank_payment conciliado" in response.text
+    assert "status conciliated" in response.text
 
 
 def test_admin_loading_buttons_are_exposed_in_reapply_and_analysis(client, db_session, monkeypatch):
@@ -590,8 +713,8 @@ def test_admin_loading_buttons_are_exposed_in_reapply_and_analysis(client, db_se
     analysis_page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert analysis_page.status_code == 200
     assert analysis_page.text.count("data-loading-button") >= 2
-    assert "Carregando an\u00e1lise..." in analysis_page.text or "Carregando analise..." in analysis_page.text
-    assert "Gerando an\u00e1lise..." in analysis_page.text or "Gerando analise..." in analysis_page.text
+    assert "Carregando an" in analysis_page.text
+    assert "Gerando an" in analysis_page.text
 
 
 

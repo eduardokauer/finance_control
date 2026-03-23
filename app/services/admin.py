@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.repositories.models import AnalysisRun, CategorizationRule, Category, Transaction, TransactionAuditLog
 from app.services.analysis import run_analysis
 from app.services.classification import apply_transaction_classification, classify_transaction, create_audit_log
+from app.services.credit_card_bills import map_conciliated_bank_payment_signals
 from app.utils.normalization import normalize_description
 
 UNCATEGORIZED_NAMES = ("NÃƒÂ£o Categorizado", "NÃ£o Categorizado", "Não Categorizado")
@@ -128,6 +129,11 @@ def list_transactions_for_admin(db: Session, filters: TransactionFilters, *, lim
         query = query.order_by(Transaction.transaction_date.desc(), Transaction.id.desc())
 
     items = db.scalars(query.limit(limit).offset(offset)).all()
+    conciliation_signals = map_conciliated_bank_payment_signals(db, transaction_ids=[tx.id for tx in items]) if items else {}
+    for tx in items:
+        signal = conciliation_signals.get(tx.id)
+        setattr(tx, "conciliation_signal", signal)
+        setattr(tx, "is_conciliated_bank_payment", signal is not None)
     return items, int(total)
 
 

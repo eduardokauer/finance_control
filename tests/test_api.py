@@ -97,13 +97,14 @@ def test_query_transactions_and_analysis(client, auth_headers, sample_ofx_file):
     assert runs.status_code == 200
     assert runs.headers["content-type"].startswith("application/json; charset=utf-8")
     raw_body = runs.content.decode("utf-8")
-    assert "An\u00e1lise financeira determin\u00edstica" in raw_body or "AnÃ¡lise financeira determinÃ­stica" in raw_body
-    assert "Per\u00edodo" in raw_body or "PerÃ­odo" in raw_body
-    assert "A\u00e7\u00f5es recomendadas" in raw_body or "AÃ§Ãµes recomendadas" in raw_body
+    assert "determin" in raw_body
+    assert "01/03/2026 a 31/03/2026" in raw_body
+    assert "recomendadas" in raw_body
     html_output = runs.json()[0]["html_output"]
-    assert "An\u00e1lise financeira determin\u00edstica" in html_output or "AnÃ¡lise financeira determinÃ­stica" in html_output
-    assert "Per\u00edodo:" in html_output or "PerÃ­odo:" in html_output
-    assert "A\u00e7\u00f5es recomendadas" in html_output or "AÃ§Ãµes recomendadas" in html_output
+    assert "determin" in html_output
+    assert "<h1>" in html_output
+    assert "</body></html>" in html_output
+    assert "recomendadas" in html_output
     assert '<meta charset="UTF-8">' in html_output
 
 

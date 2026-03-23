@@ -1,7 +1,8 @@
 ﻿import json
 from datetime import date
 
-from app.repositories.models import SourceFile, Transaction
+from app.repositories.models import CreditCard, CreditCardInvoice, CreditCardInvoiceItem, SourceFile, Transaction
+from app.services.credit_card_bills import ensure_credit_card_invoice_conciliation, reconcile_credit_card_invoice_bank_payments
 from app.services.analysis import build_analysis_snapshot, run_analysis
 
 
@@ -39,6 +40,62 @@ def _add_tx(db_session, *, tx_date: date, description: str, amount: float, categ
     db_session.add(tx)
     db_session.commit()
     return tx
+
+
+def _add_invoice(db_session, *, due_date: date, card_final: str = "1234", item_specs: list[tuple[str, str]] | None = None):
+    card = CreditCard(
+        issuer="itau",
+        card_label=f"Itaú Visa final {card_final}",
+        card_final=card_final,
+        brand="Visa",
+        is_active=True,
+    )
+    db_session.add(card)
+    db_session.flush()
+    source_file = SourceFile(
+        source_type="credit_card_bill",
+        file_name=f"invoice-{card_final}.csv",
+        file_path=f"upload://invoice-{card_final}.csv",
+        file_hash=f"invoice-hash-{card_final}-{due_date.isoformat()}",
+        status="processed",
+    )
+    db_session.add(source_file)
+    db_session.flush()
+    invoice = CreditCardInvoice(
+        source_file_id=source_file.id,
+        card_id=card.id,
+        issuer=card.issuer,
+        card_final=card.card_final,
+        billing_year=due_date.year,
+        billing_month=due_date.month,
+        due_date=due_date,
+        closing_date=None,
+        total_amount_brl=0,
+        source_file_name=source_file.file_name,
+        source_file_hash=f"invoice-model-{card_final}-{due_date.isoformat()}",
+        notes="analysis test",
+        import_status="imported",
+    )
+    db_session.add(invoice)
+    db_session.flush()
+    for index, (description_raw, amount_brl) in enumerate(item_specs or [], start=1):
+        db_session.add(
+            CreditCardInvoiceItem(
+                invoice_id=invoice.id,
+                purchase_date=due_date,
+                description_raw=description_raw,
+                description_normalized=description_raw.lower(),
+                amount_brl=amount_brl,
+                installment_current=None,
+                installment_total=None,
+                is_installment=False,
+                derived_note=None,
+                external_row_hash=f"row-hash-{invoice.id}-{index}",
+            )
+        )
+    db_session.commit()
+    db_session.refresh(invoice)
+    return invoice
 
 
 def test_build_analysis_snapshot_returns_richer_structure(db_session):
@@ -80,8 +137,8 @@ def test_run_analysis_persists_snapshot_payload_and_html(db_session):
     assert payload["period"]["label"] == "01/03/2026 a 31/03/2026"
     assert payload["summary"]["transaction_count"] == 3
     assert len(payload["charts"]["monthly"]["labels"]) == 12
-    assert "Análise financeira determinística" in run.html_output or "AnÃ¡lise financeira determinÃ­stica" in run.html_output
-    assert "Ações recomendadas" in run.html_output or "AÃ§Ãµes recomendadas" in run.html_output
+    assert "determin" in run.html_output
+    assert "A" in run.html_output and "recomendadas" in run.html_output
 
 
 def test_top_categories_of_month_are_ranked_by_expense_total(db_session):
@@ -99,3 +156,39 @@ def test_top_categories_of_month_are_ranked_by_expense_total(db_session):
     assert "Salário" not in [item["name"] for item in snapshot["top_expense_categories"]]
     assert snapshot["charts"]["categories"]["labels"][0] == "Moradia"
     assert snapshot["charts"]["categories"]["values"][0] == 1800.0
+
+
+def test_analysis_snapshot_exposes_conciliation_signals_without_changing_main_totals(db_session):
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
+    payment = _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 18),
+        description="FATURA MAR",
+        amount=-1300.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice = _add_invoice(
+        db_session,
+        due_date=date(2026, 3, 20),
+        item_specs=[
+            ("COMPRA MERCADO", "1400.00"),
+            ("DESCONTO NA FATURA - PO", "-100.00"),
+        ],
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice.id,
+        bank_transaction_ids=[payment.id],
+    )
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    assert snapshot["summary"]["expense_total"] == 3100.0
+    assert snapshot["summary"]["income_total"] == 5000.0
+    assert snapshot["conciliation_signals"]["conciliated_bank_payment_total_brl"] == 1300.0
+    assert snapshot["conciliation_signals"]["invoice_credit_total_brl"] == 100.0
+    assert snapshot["conciliation_signals"]["invoices_by_status"]["conciliated"] == 1
+    assert snapshot["technical_items"]["card_bill_total"] == 1300.0

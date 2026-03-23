@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import date
 
@@ -56,6 +56,8 @@ def admin_analysis_page(
     analysis_run = latest_analysis_run_for_period(db, period_start=resolved_start, period_end=resolved_end)
     live_snapshot = build_analysis_snapshot(db, period_start=resolved_start, period_end=resolved_end)
     payload_snapshot = parse_analysis_payload(analysis_run.payload) if analysis_run else None
+    if payload_snapshot and "conciliation_signals" not in payload_snapshot:
+        payload_snapshot["conciliation_signals"] = live_snapshot["conciliation_signals"]
     analysis_data = payload_snapshot or live_snapshot
     html_fragment = renderable_analysis_html(analysis_run.html_output) if analysis_run else None
     return render_admin(

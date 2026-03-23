@@ -14,10 +14,12 @@ from app.repositories.models import (
     Transaction,
 )
 from app.services.credit_card_bills import (
+    build_conciliation_analytics_snapshot,
     CreditCardInvoiceConciliationError,
     ensure_credit_card_invoice_conciliation,
     get_credit_card_invoice_detail,
     list_invoice_payment_candidates,
+    map_conciliated_bank_payment_signals,
     reconcile_credit_card_invoice_bank_payments,
     unlink_credit_card_invoice_bank_payment,
 )
@@ -502,6 +504,87 @@ def test_unlink_invoice_payment_recomputes_balance_and_status(db_session):
     assert updated.invoice_credit_total_brl == Decimal("20.00")
     assert updated.conciliated_total_brl == Decimal("20.00")
     assert updated.remaining_balance_brl == Decimal("180.00")
+
+
+def test_map_conciliated_bank_payment_signals_marks_linked_transaction(db_session):
+    invoice = _create_invoice(
+        db_session,
+        item_specs=[
+            ("COMPRA A", "200.00"),
+            ("DESCONTO NA FATURA - PO", "-20.00"),
+        ],
+    )
+    payment = _add_bank_transaction(
+        db_session,
+        tx_key="signal-map",
+        tx_date=date(2026, 3, 18),
+        description="PAGAMENTO FATURA ITAUCARD",
+        normalized="pagamento fatura itaucard",
+        amount=-180.0,
+        is_card_bill_payment=True,
+        category="Pagamento de Fatura",
+    )
+
+    reconcile_credit_card_invoice_bank_payments(db_session, invoice_id=invoice.id, bank_transaction_ids=[payment.id])
+
+    signals = map_conciliated_bank_payment_signals(db_session, transaction_ids=[payment.id])
+
+    assert payment.id in signals
+    signal = signals[payment.id]
+    assert signal.transaction_id == payment.id
+    assert signal.invoice_id == invoice.id
+    assert signal.item_type == "bank_payment"
+    assert signal.conciliation_status == "conciliated"
+    assert signal.card_label == "Itaú Visa final 1234"
+    assert signal.amount_brl == Decimal("180.00")
+
+
+def test_build_conciliation_analytics_snapshot_exposes_auxiliary_metrics(db_session):
+    invoice_a = _create_invoice(
+        db_session,
+        card_final="1234",
+        due_date=date(2026, 3, 20),
+        item_specs=[
+            ("COMPRA A", "200.00"),
+            ("DESCONTO NA FATURA - PO", "-20.00"),
+        ],
+    )
+    invoice_b = _create_invoice(
+        db_session,
+        card_final="5678",
+        due_date=date(2026, 3, 25),
+        item_specs=[
+            ("COMPRA B", "300.00"),
+            ("DESCONTO NA FATURA - PO", "-30.00"),
+        ],
+    )
+    payment = _add_bank_transaction(
+        db_session,
+        tx_key="analytics-payment",
+        tx_date=date(2026, 3, 21),
+        description="PAGAMENTO FATURA ITAUCARD",
+        normalized="pagamento fatura itaucard",
+        amount=-180.0,
+        is_card_bill_payment=True,
+        category="Pagamento de Fatura",
+    )
+
+    reconcile_credit_card_invoice_bank_payments(db_session, invoice_id=invoice_a.id, bank_transaction_ids=[payment.id])
+    ensure_credit_card_invoice_conciliation(db_session, invoice_id=invoice_b.id)
+
+    snapshot = build_conciliation_analytics_snapshot(
+        db_session,
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+    )
+
+    assert snapshot.conciliated_bank_payment_total_brl == Decimal("180.00")
+    assert snapshot.conciliated_bank_payment_count == 1
+    assert snapshot.invoice_credit_total_brl == Decimal("50.00")
+    assert snapshot.invoices_total == 2
+    assert snapshot.invoices_by_status["conciliated"] == 1
+    assert snapshot.invoices_by_status["partially_conciliated"] == 1
+    assert snapshot.invoices_by_status["pending_review"] == 0
 
 
 def test_invoice_payment_items_are_not_used_as_official_conciliation_source(db_session):
