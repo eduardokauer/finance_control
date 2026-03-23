@@ -120,6 +120,7 @@
               <th>origem</th>
               <th>categoria</th>
               <th>tipo</th>
+              <th>sinal analítico</th>
               <th>valor</th>
             </tr>
           </thead>
@@ -136,7 +137,7 @@
                   <a href="/admin/transactions/{{ tx.id }}?return_to={{ encoded_current_url }}" style="text-decoration:none;">
                     <strong>{{ tx.description_raw }}</strong>
                   </a>
-                  {% if tx.category == 'Não Categorizado' or tx.category == 'NÃ£o Categorizado' or tx.category == 'NÃƒÂ£o Categorizado' %}
+                  {% if tx.category == 'Não Categorizado' or tx.category == 'Nao Categorizado' %}
                     <div style="margin-top:6px;"><span class="badge warn">não categorizado</span></div>
                   {% endif %}
                   {% if tx.manual_notes %}
@@ -146,6 +147,14 @@
                 <td class="subtle">{{ tx.source_type }}</td>
                 <td>{{ tx.category }}</td>
                 <td><span class="badge">{{ tx.transaction_kind }}</span></td>
+                <td>
+                  {% if tx.is_conciliated_bank_payment %}
+                    <span class="badge warn">bank_payment conciliado</span>
+                    <div class="subtle" style="margin-top:6px;">{{ tx.conciliation_signal.card_label }} · {{ "%02d/%04d"|format(tx.conciliation_signal.billing_month, tx.conciliation_signal.billing_year) }} · status {{ tx.conciliation_signal.conciliation_status }}</div>
+                  {% else %}
+                    <span class="subtle">-</span>
+                  {% endif %}
+                </td>
                 <td class="{% if tx.amount < 0 %}amount-negative{% else %}amount-positive{% endif %}">
                   {{ '%.2f'|format(tx.amount) }}
                 </td>

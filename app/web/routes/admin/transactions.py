@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import date
 from urllib.parse import quote, unquote
@@ -23,6 +23,7 @@ from app.services.admin import (
     reclassify_transactions_manual,
     upsert_rule,
 )
+from app.services.credit_card_bills import map_conciliated_bank_payment_signals
 
 from .helpers import render_admin, templates
 
@@ -83,6 +84,9 @@ def admin_transaction_detail(
     tx = db.get(Transaction, transaction_id)
     if tx is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    signal = map_conciliated_bank_payment_signals(db, transaction_ids=[tx.id]).get(tx.id)
+    setattr(tx, "conciliation_signal", signal)
+    setattr(tx, "is_conciliated_bank_payment", signal is not None)
     return_to_value = unquote(return_to or "/admin/transactions")
     current_rule = db.get(CategorizationRule, tx.categorization_rule_id) if tx.categorization_rule_id else None
     context = {

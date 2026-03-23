@@ -117,6 +117,15 @@ make test
 - vínculos ativos podem ser desfeitos na própria tela de detalhe da fatura
 - uma transação bancária não pode ser conciliada em duas faturas diferentes
 
+## Sinais analíticos de conciliação
+- a aplicação agora expõe sinais auxiliares derivados da conciliação sem alterar os totais finais do consolidado principal
+- no admin de lançamentos, transações do extrato já vinculadas como `bank_payment` conciliado aparecem identificadas como item técnico
+- na tela de análise, há um bloco auxiliar com:
+  - pagamentos de fatura conciliados no período
+  - créditos técnicos de fatura no período
+  - quantidade de faturas por status de conciliação
+- esta etapa é preparatória para futura integração completa da fatura na análise consolidada; neste PR os KPIs principais continuam iguais
+
 ## Desenvolvimento
 Parar a stack:
 

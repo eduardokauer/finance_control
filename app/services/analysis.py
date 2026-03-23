@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date, timedelta
@@ -9,9 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.repositories.models import AnalysisRun, Transaction
+from app.services.credit_card_bills import build_conciliation_analytics_snapshot
 from app.utils.normalization import normalize_description
 
-UNCATEGORIZED_NAMES = ("NÃƒÂ£o Categorizado", "NÃ£o Categorizado", "Não Categorizado")
+UNCATEGORIZED_NAMES = ("Não Categorizado", "Nao Categorizado")
 MONTH_LABELS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
 TECHNICAL_TRANSFER_KEYS = {"transferencias"}
 TECHNICAL_CARD_BILL_KEYS = {"pagamento de fatura", "pagamento fatura"}
@@ -147,13 +148,15 @@ def _build_monthly_series(db: Session, *, anchor_month: date) -> list[dict]:
 
 
 def _build_category_rows(txs: list[Transaction], *, expense_total: float) -> list[dict]:
-    grouped: dict[str, dict] = defaultdict(lambda: {
-        "expense_total": 0.0,
-        "income_total": 0.0,
-        "transaction_count": 0,
-        "is_transfer_technical": False,
-        "is_card_bill_technical": False,
-    })
+    grouped: dict[str, dict] = defaultdict(
+        lambda: {
+            "expense_total": 0.0,
+            "income_total": 0.0,
+            "transaction_count": 0,
+            "is_transfer_technical": False,
+            "is_card_bill_technical": False,
+        }
+    )
     for tx in txs:
         bucket = grouped[tx.category]
         bucket["expense_total"] += _expense_amount(tx)
@@ -409,6 +412,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         previous_categories=previous_categories,
     )
     monthly_series = _build_monthly_series(db, anchor_month=anchor_month)
+    conciliation_signals = build_conciliation_analytics_snapshot(db, period_start=period_start, period_end=period_end)
 
     top_expense_categories = [item for item in category_rows if item["expense_total"] > 0][:8]
     return {
@@ -424,6 +428,16 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         "categories": category_rows,
         "top_expense_categories": top_expense_categories,
         "technical_items": technical_items,
+        "conciliation_signals": {
+            "conciliated_bank_payment_total_brl": float(conciliation_signals.conciliated_bank_payment_total_brl),
+            "conciliated_bank_payment_count": conciliation_signals.conciliated_bank_payment_count,
+            "conciliated_bank_payment_display": format_currency_br(float(conciliation_signals.conciliated_bank_payment_total_brl)),
+            "invoice_credit_total_brl": float(conciliation_signals.invoice_credit_total_brl),
+            "invoice_credit_display": format_currency_br(float(conciliation_signals.invoice_credit_total_brl)),
+            "invoices_by_status": conciliation_signals.invoices_by_status,
+            "invoices_total": conciliation_signals.invoices_total,
+            "note": conciliation_signals.note,
+        },
         "quality": quality,
         "alerts": alerts,
         "actions": actions,
@@ -446,20 +460,14 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
 def _render_alert_items(items: list[dict]) -> str:
     if not items:
         return "<p>Nenhum alerta determinístico relevante para este período.</p>"
-    rows = "".join(
-        f"<li><strong>{item['title']}</strong><br>{item['body']}</li>"
-        for item in items
-    )
+    rows = "".join(f"<li><strong>{item['title']}</strong><br>{item['body']}</li>" for item in items)
     return f"<ul>{rows}</ul>"
 
 
 def _render_action_items(items: list[dict]) -> str:
     if not items:
         return "<p>Nenhuma ação prioritária sugerida no momento.</p>"
-    rows = "".join(
-        f"<li><strong>{item['title']}</strong><br>{item['body']}</li>"
-        for item in items
-    )
+    rows = "".join(f"<li><strong>{item['title']}</strong><br>{item['body']}</li>" for item in items)
     return f"<ul>{rows}</ul>"
 
 
@@ -467,9 +475,7 @@ def _render_category_items(items: list[dict]) -> str:
     rows = []
     for item in items[:5]:
         note = f" <em>({item['technical_label']})</em>" if item["is_technical"] else ""
-        rows.append(
-            f"<li><strong>{item['name']}</strong>: {item['display_total']} · {item['flow_label']}{note}</li>"
-        )
+        rows.append(f"<li><strong>{item['name']}</strong>: {item['display_total']} · {item['flow_label']}{note}</li>")
     return f"<ul>{''.join(rows)}</ul>" if rows else "<p>Sem categorias relevantes no mês-base.</p>"
 
 
@@ -527,5 +533,3 @@ def run_analysis(db: Session, period_start: date, period_end: date, trigger_sour
     db.commit()
     db.refresh(run)
     return run
-
-

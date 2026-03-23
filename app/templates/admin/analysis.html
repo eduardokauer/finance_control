@@ -1,4 +1,4 @@
-{% extends "admin/base.html" %}
+﻿{% extends "admin/base.html" %}
 {% block title %}Análise{% endblock %}
 {% block content %}
 <style>
@@ -138,6 +138,25 @@
   <div class="card">
     <div class="subtle">Transações</div>
     <div class="metric-value">{{ summary.transaction_count }}</div>
+  </div>
+</section>
+
+<section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
+  <div class="card stack" style="margin-bottom:0;">
+    <div>
+      <strong>Sinais analíticos de conciliação</strong>
+      <div class="subtle">Bloco auxiliar: expõe itens técnicos já conciliados, sem alterar os KPIs principais acima.</div>
+    </div>
+    <div class="kv-grid">
+      <div class="subtle">Pagamentos conciliados</div><div>{{ analysis_data.conciliation_signals.conciliated_bank_payment_display }} · {{ analysis_data.conciliation_signals.conciliated_bank_payment_count }} lançamento(s)</div>
+      <div class="subtle">Créditos técnicos de fatura</div><div>{{ analysis_data.conciliation_signals.invoice_credit_display }}</div>
+      <div class="subtle">Faturas no período</div><div>{{ analysis_data.conciliation_signals.invoices_total }}</div>
+      <div class="subtle">Pendentes</div><div>{{ analysis_data.conciliation_signals.invoices_by_status.pending_review }}</div>
+      <div class="subtle">Parcialmente conciliadas</div><div>{{ analysis_data.conciliation_signals.invoices_by_status.partially_conciliated }}</div>
+      <div class="subtle">Conciliadas</div><div>{{ analysis_data.conciliation_signals.invoices_by_status.conciliated }}</div>
+      <div class="subtle">Conflito</div><div>{{ analysis_data.conciliation_signals.invoices_by_status.conflict }}</div>
+    </div>
+    <div class="subtle">{{ analysis_data.conciliation_signals.note }}</div>
   </div>
 </section>
 
@@ -461,20 +480,19 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'bottom' },
-          tooltip: {
-            callbacks: {
-              label(context) {
-                return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
-              },
-            },
-          },
-        },
         scales: {
           y: {
             ticks: {
-              callback(value) { return formatCurrency(value); },
+              callback: formatCurrency,
+            },
+          },
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label(context) {
+                return `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`;
+              },
             },
           },
         },
@@ -482,30 +500,34 @@
     });
 
     new Chart(categoriesCanvas, {
-      type: 'doughnut',
+      type: 'bar',
       data: {
         labels: categoriesData.labels,
         datasets: [
           {
+            label: 'Despesas',
             data: categoriesData.values,
-            backgroundColor: categoriesData.technical.map((isTechnical, index) => {
-              if (isTechnical) return '#f0b45a';
-              const palette = ['#0f766e', '#5ca68d', '#9fc490', '#d97757', '#e8b96f', '#335c67', '#6c8ead', '#8b5e83'];
-              return palette[index % palette.length];
-            }),
-            borderWidth: 0,
+            backgroundColor: categoriesData.technical.map((isTechnical) => isTechnical ? '#d4a373' : '#7c9f71'),
+            borderRadius: 10,
           },
         ],
       },
       options: {
+        indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
+        scales: {
+          x: {
+            ticks: {
+              callback: formatCurrency,
+            },
+          },
+        },
         plugins: {
-          legend: { position: 'bottom' },
           tooltip: {
             callbacks: {
               label(context) {
-                return `${context.label}: ${formatCurrency(context.raw)}`;
+                return `${context.dataset.label}: ${formatCurrency(context.parsed.x)}`;
               },
             },
           },
@@ -516,6 +538,3 @@
 </script>
 {% endif %}
 {% endblock %}
-
-
-

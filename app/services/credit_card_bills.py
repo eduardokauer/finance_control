@@ -114,6 +114,30 @@ class CreditCardInvoiceCandidateOverview:
 
 
 @dataclass
+class ConciliatedBankPaymentSignal:
+    transaction_id: int
+    invoice_id: int
+    invoice_status: str
+    conciliation_status: str
+    item_type: str
+    card_label: str
+    billing_year: int
+    billing_month: int
+    due_date: date
+    amount_brl: Decimal
+
+
+@dataclass
+class ConciliationAnalyticsSnapshot:
+    conciliated_bank_payment_total_brl: Decimal
+    conciliated_bank_payment_count: int
+    invoice_credit_total_brl: Decimal
+    invoices_by_status: dict[str, int]
+    invoices_total: int
+    note: str
+
+
+@dataclass
 class CreditCardInvoiceConciliationSummary:
     conciliation: CreditCardInvoiceConciliation
     gross_amount_brl: Decimal
@@ -140,6 +164,15 @@ class CreditCardInvoiceDetail:
 
 def _quantize(value: Decimal) -> Decimal:
     return Decimal(value).quantize(CENT_VALUE)
+
+
+def _empty_invoice_status_counts() -> dict[str, int]:
+    return {
+        "pending_review": 0,
+        "partially_conciliated": 0,
+        "conciliated": 0,
+        "conflict": 0,
+    }
 
 
 def list_credit_cards(db: Session, *, active_only: bool = False) -> list[CreditCard]:
@@ -187,6 +220,137 @@ def list_recent_credit_card_invoices(db: Session, *, limit: int = 10) -> list[di
         }
         for invoice, card_label, item_count_value in rows
     ]
+
+
+def map_conciliated_bank_payment_signals(
+    db: Session,
+    *,
+    transaction_ids: list[int] | None = None,
+) -> dict[int, ConciliatedBankPaymentSignal]:
+    query = (
+        select(
+            CreditCardInvoiceConciliationItem.bank_transaction_id,
+            CreditCardInvoice.id,
+            CreditCardInvoice.import_status,
+            CreditCardInvoiceConciliation.status,
+            CreditCardInvoiceConciliationItem.item_type,
+            CreditCard.card_label,
+            CreditCardInvoice.billing_year,
+            CreditCardInvoice.billing_month,
+            CreditCardInvoice.due_date,
+            CreditCardInvoiceConciliationItem.amount_brl,
+        )
+        .join(
+            CreditCardInvoiceConciliation,
+            CreditCardInvoiceConciliation.id == CreditCardInvoiceConciliationItem.conciliation_id,
+        )
+        .join(CreditCardInvoice, CreditCardInvoice.id == CreditCardInvoiceConciliation.invoice_id)
+        .join(CreditCard, CreditCard.id == CreditCardInvoice.card_id)
+        .where(
+            CreditCardInvoiceConciliationItem.item_type == "bank_payment",
+            CreditCardInvoiceConciliationItem.bank_transaction_id.is_not(None),
+        )
+    )
+    if transaction_ids:
+        query = query.where(CreditCardInvoiceConciliationItem.bank_transaction_id.in_(transaction_ids))
+
+    rows = db.execute(query).all()
+    return {
+        int(transaction_id): ConciliatedBankPaymentSignal(
+            transaction_id=int(transaction_id),
+            invoice_id=int(invoice_id),
+            invoice_status=invoice_status,
+            conciliation_status=conciliation_status,
+            item_type=item_type,
+            card_label=card_label,
+            billing_year=int(billing_year),
+            billing_month=int(billing_month),
+            due_date=due_date,
+            amount_brl=_quantize(amount_brl),
+        )
+        for (
+            transaction_id,
+            invoice_id,
+            invoice_status,
+            conciliation_status,
+            item_type,
+            card_label,
+            billing_year,
+            billing_month,
+            due_date,
+            amount_brl,
+        ) in rows
+    }
+
+
+def build_conciliation_analytics_snapshot(
+    db: Session,
+    *,
+    period_start: date,
+    period_end: date,
+) -> ConciliationAnalyticsSnapshot:
+    bank_payment_total = db.scalar(
+        select(func.coalesce(func.sum(CreditCardInvoiceConciliationItem.amount_brl), 0))
+        .select_from(CreditCardInvoiceConciliationItem)
+        .join(Transaction, Transaction.id == CreditCardInvoiceConciliationItem.bank_transaction_id)
+        .where(
+            CreditCardInvoiceConciliationItem.item_type == "bank_payment",
+            Transaction.transaction_date >= period_start,
+            Transaction.transaction_date <= period_end,
+        )
+    ) or Decimal("0.00")
+    bank_payment_count = db.scalar(
+        select(func.count(CreditCardInvoiceConciliationItem.id))
+        .select_from(CreditCardInvoiceConciliationItem)
+        .join(Transaction, Transaction.id == CreditCardInvoiceConciliationItem.bank_transaction_id)
+        .where(
+            CreditCardInvoiceConciliationItem.item_type == "bank_payment",
+            Transaction.transaction_date >= period_start,
+            Transaction.transaction_date <= period_end,
+        )
+    ) or 0
+    invoice_credit_total = db.scalar(
+        select(func.coalesce(func.sum(CreditCardInvoiceConciliationItem.amount_brl), 0))
+        .select_from(CreditCardInvoiceConciliationItem)
+        .join(
+            CreditCardInvoiceConciliation,
+            CreditCardInvoiceConciliation.id == CreditCardInvoiceConciliationItem.conciliation_id,
+        )
+        .join(CreditCardInvoice, CreditCardInvoice.id == CreditCardInvoiceConciliation.invoice_id)
+        .where(
+            CreditCardInvoiceConciliationItem.item_type == "invoice_credit",
+            CreditCardInvoice.due_date >= period_start,
+            CreditCardInvoice.due_date <= period_end,
+        )
+    ) or Decimal("0.00")
+
+    status_counts = _empty_invoice_status_counts()
+    status_rows = db.execute(
+        select(
+            CreditCardInvoiceConciliation.status,
+            func.count(CreditCardInvoice.id),
+        )
+        .select_from(CreditCardInvoice)
+        .outerjoin(CreditCardInvoiceConciliation, CreditCardInvoiceConciliation.invoice_id == CreditCardInvoice.id)
+        .where(
+            CreditCardInvoice.due_date >= period_start,
+            CreditCardInvoice.due_date <= period_end,
+        )
+        .group_by(CreditCardInvoiceConciliation.status)
+    ).all()
+    for raw_status, count_value in status_rows:
+        status = raw_status or "pending_review"
+        if status in status_counts:
+            status_counts[status] = int(count_value or 0)
+
+    return ConciliationAnalyticsSnapshot(
+        conciliated_bank_payment_total_brl=_quantize(bank_payment_total),
+        conciliated_bank_payment_count=int(bank_payment_count or 0),
+        invoice_credit_total_brl=_quantize(invoice_credit_total),
+        invoices_by_status=status_counts,
+        invoices_total=sum(status_counts.values()),
+        note="Sinais auxiliares de conciliação: mostram itens técnicos já vinculados, sem alterar o consolidado principal.",
+    )
 
 
 def list_credit_card_invoices(db: Session) -> list[CreditCardInvoiceListEntry]:
@@ -947,7 +1111,7 @@ def import_credit_card_bill(
         db.commit()
         return {
             "status": "processed",
-            "message": f"Fatura importada com {len(items)} lancamentos.",
+            "message": f"Fatura importada com {len(items)} lançamentos.",
             "invoice_id": invoice.id,
             "imported_items": len(items),
         }

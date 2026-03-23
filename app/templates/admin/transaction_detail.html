@@ -1,16 +1,23 @@
-{% extends "admin/base.html" %}
+﻿{% extends "admin/base.html" %}
 {% block title %}Lançamento #{{ transaction.id }}{% endblock %}
 {% block content %}
 <div class="card stack">
   <div class="inline">
     <a class="button" href="{{ return_to }}">Voltar</a>
-    <span class="badge {% if transaction.category == 'NÃ£o Categorizado' %}warn{% endif %}">#{{ transaction.id }}</span>
+    <span class="badge {% if transaction.category == 'Não Categorizado' or transaction.category == 'Nao Categorizado' %}warn{% endif %}">#{{ transaction.id }}</span>
   </div>
   <h1>{{ transaction.description_raw }}</h1>
   <div class="subtle">{{ transaction.transaction_date }} · {{ transaction.source_type }} · {{ transaction.amount }}</div>
   <div class="subtle">Descrição normalizada: <code>{{ transaction.description_normalized }}</code></div>
   {% if current_rule %}
-    <div class="badge">Regra atual: {{ current_rule.pattern }} ? {{ current_rule.category_name }}</div>
+    <div class="badge">Regra atual: {{ current_rule.pattern }} → {{ current_rule.category_name }}</div>
+  {% endif %}
+  {% if transaction.is_conciliated_bank_payment %}
+    <div class="card stack" style="margin-bottom:0; padding:12px 14px;">
+      <div><span class="badge warn">bank_payment conciliado</span></div>
+      <div class="subtle">Este lançamento está vinculado à fatura #{{ transaction.conciliation_signal.invoice_id }} · {{ transaction.conciliation_signal.card_label }} · {{ "%02d/%04d"|format(transaction.conciliation_signal.billing_month, transaction.conciliation_signal.billing_year) }}</div>
+      <div class="subtle">Status da conciliação: {{ transaction.conciliation_signal.conciliation_status }} · vencimento {{ transaction.conciliation_signal.due_date }}</div>
+    </div>
   {% endif %}
 </div>
 
@@ -102,5 +109,3 @@
   <div id="similar-preview"></div>
 </div>
 {% endblock %}
-
-
