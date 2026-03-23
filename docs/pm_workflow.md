@@ -50,7 +50,9 @@ Todo prompt deve deixar explícito:
 - as decisões já fechadas relevantes;
 - o DoD;
 - a exigência de testes;
-- a exigência de atualização de documentação;
+- a exigência de atualização de documentação/contexto/processo;
+- quais arquivos precisam ser atualizados naquele trabalho, quando aplicável;
+- o formato esperado da entrega final;
 - a regra de commit + PR só no final.
 
 ## Como Definir o DoD
@@ -92,5 +94,18 @@ Antes de enviar um prompt ao Codex, confirmar que ele inclui:
 5. DoD explícito.
 6. Exigência de testes.
 7. Exigência de atualização de documentação/contexto/processo quando aplicável.
-8. Exigência de higiene final.
-9. Regra de commit + PR só no final.
+8. Indicação explícita de quais arquivos precisam ser atualizados naquele PR, quando aplicável.
+9. Formato esperado da entrega final do Codex.
+10. Exigência de higiene final.
+11. Regra de commit + PR só no final.
+
+### Formato esperado da entrega final do Codex
+
+Quando fizer sentido para o PR, o PM deve pedir explicitamente que a resposta final do Codex traga:
+
+1. Resumo do que foi feito.
+2. Arquivos alterados.
+3. Validação explícita do DoD.
+4. Resultado da suíte.
+5. Commit realizado.
+6. Link ou nome do PR aberto.
