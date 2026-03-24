@@ -221,6 +221,7 @@
             <th>parcela atual</th>
             <th>total de parcelas</th>
             <th>observação derivada</th>
+            <th>ação</th>
           </tr>
         </thead>
         <tbody>
@@ -236,6 +237,8 @@
                     {{ item_detail.item.categorization_method or '-' }}
                     {% if item_detail.item.applied_rule %}| regra: {{ item_detail.item.applied_rule }}{% endif %}
                   </div>
+                {% elif item_detail.item_type == 'charge' %}
+                  <span class="subtle">Não Categorizado</span>
                 {% else %}
                   <span class="subtle">-</span>
                 {% endif %}
@@ -245,6 +248,13 @@
               <td>{{ item_detail.item.installment_current or '-' }}</td>
               <td>{{ item_detail.item.installment_total or '-' }}</td>
               <td>{{ item_detail.item.derived_note or '-' }}</td>
+              <td>
+                {% if item_detail.item_type == 'charge' %}
+                  <a class="button" href="/admin/credit-card-invoices/{{ detail.invoice.id }}/items/{{ item_detail.item.id }}/category">Editar categoria</a>
+                {% else %}
+                  <span class="subtle">item técnico</span>
+                {% endif %}
+              </td>
             </tr>
           {% endfor %}
         </tbody>

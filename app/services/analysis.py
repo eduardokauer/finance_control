@@ -152,39 +152,47 @@ def _build_monthly_series(db: Session, *, anchor_month: date) -> list[dict]:
     return items
 
 
-def _build_category_rows(txs: list[Transaction], *, expense_total: float) -> list[dict]:
-    grouped: dict[str, dict] = defaultdict(
-        lambda: {
-            "expense_total": 0.0,
-            "income_total": 0.0,
-            "transaction_count": 0,
-            "is_transfer_technical": False,
-            "is_card_bill_technical": False,
-        }
-    )
-    for tx in txs:
-        bucket = grouped[tx.category]
-        bucket["expense_total"] += _expense_amount(tx)
-        bucket["income_total"] += _income_amount(tx)
-        bucket["transaction_count"] += 1
-        bucket["is_transfer_technical"] = bucket["is_transfer_technical"] or _is_transfer_technical(tx)
-        bucket["is_card_bill_technical"] = bucket["is_card_bill_technical"] or _is_card_bill_technical(tx)
+def _analysis_category_name(value: str | None) -> str:
+    return value or "Não Categorizado"
 
+
+def _empty_category_bucket() -> dict:
+    return {
+        "expense_total": 0.0,
+        "income_total": 0.0,
+        "movement_total": None,
+        "transaction_count": 0,
+        "is_transfer_technical": False,
+        "is_card_bill_technical": False,
+        "technical_label": None,
+        "flow_label": None,
+    }
+
+
+def _materialize_category_rows(grouped: dict[str, dict], *, expense_total: float) -> list[dict]:
     rows: list[dict] = []
     for category, values in grouped.items():
-        movement_total = values["expense_total"] + values["income_total"]
-        if values["expense_total"] > values["income_total"]:
-            flow_label = "Despesa"
-        elif values["income_total"] > values["expense_total"]:
-            flow_label = "Receita"
-        else:
-            flow_label = "Misto"
-        technical_label = None
-        if values["is_transfer_technical"]:
-            technical_label = "Transferências"
-        elif values["is_card_bill_technical"]:
-            technical_label = "Pagamento de Fatura"
-        share_of_expense = values["expense_total"] / expense_total if expense_total else 0.0
+        movement_total = values["movement_total"]
+        if movement_total is None:
+            movement_total = values["expense_total"] + values["income_total"]
+
+        flow_label = values["flow_label"]
+        if not flow_label:
+            if values["expense_total"] > values["income_total"]:
+                flow_label = "Despesa"
+            elif values["income_total"] > values["expense_total"]:
+                flow_label = "Receita"
+            else:
+                flow_label = "Misto"
+
+        technical_label = values["technical_label"]
+        if technical_label is None:
+            if values["is_transfer_technical"]:
+                technical_label = "Transferências"
+            elif values["is_card_bill_technical"]:
+                technical_label = "Pagamento de Fatura"
+
+        share_of_expense = values["expense_total"] / expense_total if expense_total and values["expense_total"] > 0 else 0.0
         rows.append(
             {
                 "name": category,
@@ -196,7 +204,7 @@ def _build_category_rows(txs: list[Transaction], *, expense_total: float) -> lis
                 "expense_display": format_currency_br(values["expense_total"]),
                 "income_display": format_currency_br(values["income_total"]),
                 "share_of_expense": share_of_expense,
-                "share_of_expense_display": format_percent_br(share_of_expense if values["expense_total"] else None),
+                "share_of_expense_display": format_percent_br(share_of_expense if values["expense_total"] > 0 else None),
                 "transaction_count": values["transaction_count"],
                 "is_technical": technical_label is not None,
                 "technical_label": technical_label,
@@ -204,6 +212,19 @@ def _build_category_rows(txs: list[Transaction], *, expense_total: float) -> lis
         )
     rows.sort(key=lambda item: (item["expense_total"], item["movement_total"], item["income_total"]), reverse=True)
     return rows
+
+
+def _build_category_rows(txs: list[Transaction], *, expense_total: float) -> list[dict]:
+    grouped: dict[str, dict] = defaultdict(_empty_category_bucket)
+    for tx in txs:
+        bucket = grouped[_analysis_category_name(tx.category)]
+        bucket["expense_total"] += _expense_amount(tx)
+        bucket["income_total"] += _income_amount(tx)
+        bucket["transaction_count"] += 1
+        bucket["is_transfer_technical"] = bucket["is_transfer_technical"] or _is_transfer_technical(tx)
+        bucket["is_card_bill_technical"] = bucket["is_card_bill_technical"] or _is_card_bill_technical(tx)
+
+    return _materialize_category_rows(grouped, expense_total=expense_total)
 
 
 def _build_technical_items(txs: list[Transaction], *, expense_total: float) -> dict:
@@ -227,6 +248,91 @@ def _build_technical_items(txs: list[Transaction], *, expense_total: float) -> d
         "combined_share": combined_share,
         "combined_share_display": format_percent_br(combined_share),
         "note": "Transferências e pagamento de fatura continuam no consolidado, mas podem distorcer a leitura do consumo real.",
+    }
+
+
+def _build_conciliated_category_breakdown(
+    db: Session,
+    *,
+    period_start: date,
+    period_end: date,
+    current_txs: list[Transaction],
+) -> dict:
+    conciliated_invoice_rows = db.execute(
+        select(CreditCardInvoice, CreditCardInvoiceConciliation)
+        .join(CreditCardInvoiceConciliation, CreditCardInvoiceConciliation.invoice_id == CreditCardInvoice.id)
+        .where(
+            CreditCardInvoice.due_date >= period_start,
+            CreditCardInvoice.due_date <= period_end,
+            CreditCardInvoiceConciliation.status == "conciliated",
+        )
+    ).all()
+    included_invoice_ids = {invoice.id for invoice, _ in conciliated_invoice_rows}
+    invoice_item_rows = db.execute(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id.in_(included_invoice_ids))
+        .order_by(CreditCardInvoiceItem.invoice_id.asc(), CreditCardInvoiceItem.id.asc())
+    ).scalars().all() if included_invoice_ids else []
+    invoice_credit_total = sum(float(conciliation.invoice_credit_total_brl) for _, conciliation in conciliated_invoice_rows)
+
+    signal_map = map_conciliated_bank_payment_signals(db, transaction_ids=[tx.id for tx in current_txs])
+    excluded_payment_ids = {
+        tx.id
+        for tx in current_txs
+        if tx.id in signal_map and signal_map[tx.id].conciliation_status == "conciliated" and signal_map[tx.id].invoice_id in included_invoice_ids
+    }
+
+    grouped: dict[str, dict] = defaultdict(_empty_category_bucket)
+    for tx in current_txs:
+        if tx.id in excluded_payment_ids:
+            continue
+        bucket = grouped[_analysis_category_name(tx.category)]
+        bucket["expense_total"] += _expense_amount(tx)
+        bucket["income_total"] += _income_amount(tx)
+        bucket["transaction_count"] += 1
+        bucket["is_transfer_technical"] = bucket["is_transfer_technical"] or _is_transfer_technical(tx)
+        bucket["is_card_bill_technical"] = bucket["is_card_bill_technical"] or _is_card_bill_technical(tx)
+
+    credit_item_count = 0
+    for item in invoice_item_rows:
+        item_type = classify_credit_card_invoice_item(item)
+        if item_type == "charge":
+            bucket = grouped[_analysis_category_name(item.category)]
+            bucket["expense_total"] += float(item.amount_brl)
+            bucket["transaction_count"] += 1
+        elif item_type == "credit":
+            credit_item_count += 1
+
+    if invoice_credit_total > 0:
+        grouped["Créditos de Fatura"] = {
+            "expense_total": 0.0,
+            "income_total": 0.0,
+            "movement_total": -invoice_credit_total,
+            "transaction_count": credit_item_count or 1,
+            "is_transfer_technical": False,
+            "is_card_bill_technical": False,
+            "technical_label": "Crédito de Fatura",
+            "flow_label": "Ajuste técnico",
+        }
+
+    expense_total = sum(values["expense_total"] for values in grouped.values() if values["expense_total"] > 0)
+    rows = _materialize_category_rows(grouped, expense_total=expense_total)
+    top_expense_categories = [item for item in rows if item["expense_total"] > 0][:8]
+    excluded_bank_payment_total = sum(_expense_amount(tx) for tx in current_txs if tx.id in excluded_payment_ids)
+
+    return {
+        "mode": "conciliated",
+        "rows": rows,
+        "top_expense_categories": top_expense_categories,
+        "included_invoice_count": len(included_invoice_ids),
+        "invoice_credit_adjustment_total": invoice_credit_total,
+        "invoice_credit_adjustment_display": format_currency_br(invoice_credit_total),
+        "excluded_bank_payment_total": excluded_bank_payment_total,
+        "excluded_bank_payment_display": format_currency_br(excluded_bank_payment_total),
+        "note": (
+            "Base conciliada do mês-base: inclui transações válidas da conta e itens charge de faturas conciliadas. "
+            "Créditos técnicos de fatura aparecem como ajuste separado e pagamentos técnicos ficam fora das categorias de consumo."
+        ),
     }
 
 
@@ -545,7 +651,14 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         select(Transaction).where(Transaction.transaction_date >= current_month_start, Transaction.transaction_date <= current_month_end)
     ).all()
     current_month_summary = _build_summary(current_month_txs)
-    category_rows = _build_category_rows(current_month_txs, expense_total=current_month_summary["expense_total"])
+    raw_category_rows = _build_category_rows(current_month_txs, expense_total=current_month_summary["expense_total"])
+    category_breakdown = _build_conciliated_category_breakdown(
+        db,
+        period_start=current_month_start,
+        period_end=current_month_end,
+        current_txs=current_month_txs,
+    )
+    category_rows = category_breakdown["rows"]
     technical_items = _build_technical_items(current_month_txs, expense_total=current_month_summary["expense_total"])
     quality = _build_quality(summary)
 
@@ -555,14 +668,14 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
     alerts = _build_alerts(
         summary=summary,
         comparison=comparison,
-        categories=category_rows,
+        categories=raw_category_rows,
         technical_items=technical_items,
         quality=quality,
     )
     actions = _build_actions(
         summary=summary,
         comparison=comparison,
-        categories=category_rows,
+        categories=raw_category_rows,
         technical_items=technical_items,
         quality=quality,
         previous_categories=previous_categories,
@@ -577,7 +690,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
     )
     primary_summary = _build_primary_summary(conciliated_month=conciliated_month)
 
-    top_expense_categories = [item for item in category_rows if item["expense_total"] > 0][:8]
+    top_expense_categories = category_breakdown["top_expense_categories"]
     return {
         "period": {
             "start": period_start.isoformat(),
@@ -589,6 +702,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         "summary": summary,
         "comparison": comparison,
         "monthly_series": monthly_series,
+        "category_breakdown": category_breakdown,
         "categories": category_rows,
         "top_expense_categories": top_expense_categories,
         "technical_items": technical_items,
@@ -650,6 +764,7 @@ def render_analysis_html(snapshot: dict) -> str:
     comparison = snapshot["comparison"]
     technical = snapshot["technical_items"]
     conciliated_month = snapshot["conciliated_month"]
+    category_breakdown = snapshot.get("category_breakdown", {})
     return (
         "<!DOCTYPE html>"
         "<html><head><meta charset=\"UTF-8\"></head><body>"
@@ -662,6 +777,9 @@ def render_analysis_html(snapshot: dict) -> str:
         f"<p>Receitas brutas em {summary['income_display']}, despesas brutas em {summary['expense_display']} e saldo bruto de {summary['balance_display']}.</p>"
         f"<p>Contra {comparison['reference_label']}, as despesas brutas {comparison['expense']['trend_label']} {comparison['expense']['percent_display']} ({comparison['expense']['delta_display']}).</p>"
         f"<p>Itens t\u00e9cnicos do m\u00eas-base: {technical['combined_display']} ({technical['combined_share_display']} das despesas brutas).</p>"
+        "<h2>Categorias do m\u00eas-base na vis\u00e3o conciliada</h2>"
+        f"<p>{category_breakdown.get('note', 'Breakdown mensal por categoria usando a base conciliada atual.')}</p>"
+        f"<p>Cr\u00e9ditos t\u00e9cnicos de fatura fora das categorias de consumo: {category_breakdown.get('invoice_credit_adjustment_display', 'R$ 0,00')}.</p>"
         "<h2>Cobertura da vis\u00e3o conciliada</h2>"
         f"<p>Receitas da conta em {conciliated_month['bank_income_display']}, despesas l\u00edquidas conciliadas em {conciliated_month['net_conciliated_expense_display']} e saldo conciliado de {conciliated_month['conciliated_balance_display']}.</p>"
         f"<p>Faturas conciliadas consideradas: {conciliated_month['included_invoice_count']}. Faturas fora da leitura principal: {conciliated_month['outside_invoices_total']}.</p>"

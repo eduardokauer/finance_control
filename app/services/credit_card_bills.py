@@ -47,6 +47,10 @@ class CreditCardInvoiceConciliationError(CreditCardBillError):
     status_code = 409
 
 
+class CreditCardInvoiceCategoryEditError(CreditCardBillError):
+    status_code = 422
+
+
 @dataclass
 class CreditCardBillUploadInput:
     card_id: int
@@ -178,6 +182,27 @@ class CreditCardInvoiceDetail:
     conciliation_items: list[CreditCardInvoiceConciliationItemDetail]
     payment_candidates: list[CreditCardInvoicePaymentCandidate]
     candidate_overview: CreditCardInvoiceCandidateOverview
+
+
+@dataclass
+class CreditCardInvoiceItemCategoryEditor:
+    invoice: CreditCardInvoice
+    card: CreditCard
+    item: CreditCardInvoiceItem
+    item_type: str
+    conciliation_status: str
+    available_categories: list[Category]
+
+
+@dataclass
+class CreditCardInvoiceItemCategoryPreview:
+    current_category: str | None
+    selected_category: str
+    item_amount_brl: Decimal
+    month_reference_label: str
+    is_visible_in_analysis: bool
+    impact_summary: str
+    visibility_note: str
 
 
 def _quantize(value: Decimal) -> Decimal:
@@ -913,6 +938,153 @@ def get_credit_card_invoice_detail(db: Session, *, invoice_id: int) -> CreditCar
     )
 
 
+def _load_invoice_item_edit_row(db: Session, *, invoice_id: int, item_id: int):
+    return db.execute(
+        select(
+            CreditCardInvoice,
+            CreditCard,
+            CreditCardInvoiceItem,
+            CreditCardInvoiceConciliation.status,
+        )
+        .join(CreditCard, CreditCard.id == CreditCardInvoice.card_id)
+        .join(CreditCardInvoiceItem, CreditCardInvoiceItem.invoice_id == CreditCardInvoice.id)
+        .outerjoin(CreditCardInvoiceConciliation, CreditCardInvoiceConciliation.invoice_id == CreditCardInvoice.id)
+        .where(
+            CreditCardInvoice.id == invoice_id,
+            CreditCardInvoiceItem.id == item_id,
+        )
+    ).one_or_none()
+
+
+def _list_manual_invoice_item_categories(db: Session) -> list[Category]:
+    return db.scalars(
+        select(Category)
+        .where(
+            Category.is_active.is_(True),
+            Category.transaction_kind == "expense",
+            Category.name != "Pagamento de Fatura",
+        )
+        .order_by(Category.name.asc(), Category.id.asc())
+    ).all()
+
+
+def _manual_invoice_item_month_label(invoice: CreditCardInvoice) -> str:
+    return f"{MONTH_LABELS_PT[invoice.billing_month - 1]}/{invoice.billing_year}"
+
+
+def _validated_manual_invoice_item_category_name(
+    db: Session,
+    *,
+    category_name: str,
+) -> str:
+    normalized_name = (category_name or "").strip()
+    active_category_kinds = _category_kind_map(db, active_only=True)
+    category_kind = active_category_kinds.get(normalized_name)
+    if category_kind is None:
+        raise CreditCardInvoiceCategoryEditError("Categoria inválida ou inativa para item de fatura.")
+    if category_kind in {"income", "transfer"} or normalized_name == "Pagamento de Fatura":
+        raise CreditCardInvoiceCategoryEditError("Categoria inválida para item de fatura.")
+    return normalized_name
+
+
+def get_credit_card_invoice_item_category_editor(
+    db: Session,
+    *,
+    invoice_id: int,
+    item_id: int,
+) -> CreditCardInvoiceItemCategoryEditor | None:
+    row = _load_invoice_item_edit_row(db, invoice_id=invoice_id, item_id=item_id)
+    if row is None:
+        return None
+    invoice, card, item, conciliation_status = row
+    return CreditCardInvoiceItemCategoryEditor(
+        invoice=invoice,
+        card=card,
+        item=item,
+        item_type=classify_credit_card_invoice_item(item),
+        conciliation_status=conciliation_status or "pending_review",
+        available_categories=_list_manual_invoice_item_categories(db),
+    )
+
+
+def preview_manual_credit_card_invoice_item_category_change(
+    db: Session,
+    *,
+    invoice_id: int,
+    item_id: int,
+    category_name: str,
+) -> CreditCardInvoiceItemCategoryPreview:
+    editor = get_credit_card_invoice_item_category_editor(db, invoice_id=invoice_id, item_id=item_id)
+    if editor is None:
+        raise CreditCardInvoiceCategoryEditError("Item de fatura não encontrado.")
+    if editor.item_type != "charge":
+        raise CreditCardInvoiceCategoryEditError("Somente itens charge aceitam categoria manual de consumo.")
+
+    selected_category = _validated_manual_invoice_item_category_name(db, category_name=category_name)
+    current_category = editor.item.category
+    item_amount_brl = _quantize(abs(editor.item.amount_brl))
+    month_reference_label = _manual_invoice_item_month_label(editor.invoice)
+
+    if editor.conciliation_status == "conciliated":
+        if current_category == selected_category:
+            impact_summary = (
+                f"Nenhum bucket muda no breakdown conciliado de {month_reference_label}. "
+                f"A confirmação apenas registra a escolha manual em {selected_category}."
+            )
+        else:
+            from_category = current_category or "Não Categorizado"
+            impact_summary = (
+                f"No breakdown conciliado de {month_reference_label}, {from_category} perde "
+                f"{item_amount_brl:.2f} e {selected_category} ganha {item_amount_brl:.2f}."
+            )
+        visibility_note = "A fatura já está conciliada, então o efeito aparece imediatamente na leitura mensal por categoria."
+        is_visible_in_analysis = True
+    else:
+        impact_summary = (
+            f"A alteração fica salva agora, mas só entra na leitura principal por categoria quando esta fatura estiver "
+            f"com status conciliated. Status atual: {editor.conciliation_status}."
+        )
+        visibility_note = "O preview mostra o impacto esperado, mas a leitura principal continua conservadora até a conciliação completa."
+        is_visible_in_analysis = False
+
+    return CreditCardInvoiceItemCategoryPreview(
+        current_category=current_category,
+        selected_category=selected_category,
+        item_amount_brl=item_amount_brl,
+        month_reference_label=month_reference_label,
+        is_visible_in_analysis=is_visible_in_analysis,
+        impact_summary=impact_summary,
+        visibility_note=visibility_note,
+    )
+
+
+def apply_manual_credit_card_invoice_item_category_change(
+    db: Session,
+    *,
+    invoice_id: int,
+    item_id: int,
+    category_name: str,
+) -> CreditCardInvoiceItem:
+    preview = preview_manual_credit_card_invoice_item_category_change(
+        db,
+        invoice_id=invoice_id,
+        item_id=item_id,
+        category_name=category_name,
+    )
+    editor = get_credit_card_invoice_item_category_editor(db, invoice_id=invoice_id, item_id=item_id)
+    if editor is None:
+        raise CreditCardInvoiceCategoryEditError("Item de fatura não encontrado.")
+
+    editor.item.category = preview.selected_category
+    editor.item.categorization_method = "manual"
+    editor.item.categorization_confidence = 1.0
+    editor.item.applied_rule = None
+    editor.item.categorization_rule_id = None
+    db.commit()
+    db.refresh(editor.item)
+    return editor.item
+
+
 def reconcile_credit_card_invoice_bank_payments(
     db: Session,
     *,
@@ -924,7 +1096,7 @@ def reconcile_credit_card_invoice_bank_payments(
 
     row = _load_invoice_row(db, invoice_id=invoice_id)
     if row is None:
-        raise CreditCardInvoiceConciliationError("Fatura nao encontrada.")
+        raise CreditCardInvoiceConciliationError("Fatura não encontrada.")
 
     invoice, _, _ = row
     item_details = _load_invoice_item_details(db, invoice_id=invoice.id)
@@ -951,9 +1123,9 @@ def reconcile_credit_card_invoice_bank_payments(
             continue
         candidate = candidate_map.get(transaction_id)
         if candidate is None:
-            raise CreditCardInvoiceConciliationError("Pagamento selecionado nao e um candidato valido para esta fatura.")
+            raise CreditCardInvoiceConciliationError("Pagamento selecionado não é um candidato válido para esta fatura.")
         if candidate.linked_invoice_id is not None and candidate.linked_invoice_id != invoice.id:
-            raise CreditCardInvoiceConciliationError("Transacao bancaria ja conciliada em outra fatura.")
+            raise CreditCardInvoiceConciliationError("Transação bancária já conciliada em outra fatura.")
         selected_total_brl += _quantize(abs(Decimal(str(candidate.transaction.amount))))
 
     projected_total = conciliation.conciliated_total_brl + selected_total_brl
@@ -980,7 +1152,7 @@ def reconcile_credit_card_invoice_bank_payments(
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise CreditCardInvoiceConciliationError("Nao foi possivel salvar a conciliacao da fatura.") from exc
+        raise CreditCardInvoiceConciliationError("Não foi possível salvar a conciliação da fatura.") from exc
     db.refresh(conciliation)
     return conciliation
 
@@ -993,7 +1165,7 @@ def unlink_credit_card_invoice_bank_payment(
 ) -> CreditCardInvoiceConciliation:
     row = _load_invoice_row(db, invoice_id=invoice_id)
     if row is None:
-        raise CreditCardInvoiceConciliationError("Fatura nao encontrada.")
+        raise CreditCardInvoiceConciliationError("Fatura não encontrada.")
 
     invoice, _, _ = row
     item_details = _load_invoice_item_details(db, invoice_id=invoice.id)
@@ -1007,7 +1179,7 @@ def unlink_credit_card_invoice_bank_payment(
         )
     )
     if conciliation_item is None:
-        raise CreditCardInvoiceConciliationError("Vinculo de pagamento nao encontrado.")
+        raise CreditCardInvoiceConciliationError("Vínculo de pagamento não encontrado.")
 
     db.delete(conciliation_item)
     db.flush()
@@ -1084,8 +1256,11 @@ def _build_row_hash(
     )
 
 
-def _category_kind_map(db: Session) -> dict[str, str]:
-    rows = db.execute(select(Category.name, Category.transaction_kind)).all()
+def _category_kind_map(db: Session, *, active_only: bool = False) -> dict[str, str]:
+    query = select(Category.name, Category.transaction_kind)
+    if active_only:
+        query = query.where(Category.is_active.is_(True))
+    rows = db.execute(query).all()
     return {name: kind for name, kind in rows}
 
 

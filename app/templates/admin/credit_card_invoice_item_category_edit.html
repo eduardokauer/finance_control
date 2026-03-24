@@ -1,0 +1,110 @@
+{% extends "admin/base.html" %}
+{% block title %}Editar categoria do item da fatura{% endblock %}
+{% block content %}
+<style>
+  .preview-list {
+    display: grid;
+    gap: 10px;
+  }
+  .preview-item {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px 14px;
+    background: var(--surface);
+  }
+  .preview-item p {
+    margin: 6px 0 0;
+    color: var(--muted);
+  }
+</style>
+<section class="card stack">
+  <div class="inline" style="justify-content: space-between; align-items: flex-start;">
+    <div>
+      <h1 style="margin: 0 0 6px 0;">Editar categoria do item da fatura</h1>
+      <div class="subtle">{{ editor.card.card_label }} · {{ "%02d/%04d"|format(editor.invoice.billing_month, editor.invoice.billing_year) }}</div>
+    </div>
+    <div class="inline">
+      <a class="button" href="/admin/credit-card-invoices/{{ editor.invoice.id }}">Voltar para a fatura</a>
+      <a class="button" href="/admin/credit-card-invoices">Listagem</a>
+    </div>
+  </div>
+</section>
+
+{% if form_error %}
+  <section class="flash" style="background: var(--danger-soft); color: var(--danger); border-color: #f7b4ae;">
+    {{ form_error }}
+  </section>
+{% endif %}
+
+<section class="grid grid-2">
+  <div class="card stack">
+    <h2>Item selecionado</h2>
+    <div class="kv-grid">
+      <div class="subtle">Fatura</div><div>#{{ editor.invoice.id }}</div>
+      <div class="subtle">Data</div><div>{{ editor.item.purchase_date }}</div>
+      <div class="subtle">Descrição</div><div>{{ editor.item.description_raw }}</div>
+      <div class="subtle">Tipo técnico</div><div><span class="badge">{{ editor.item_type }}</span></div>
+      <div class="subtle">Categoria atual</div><div>{{ editor.item.category or 'Não Categorizado' }}</div>
+      <div class="subtle">Método atual</div><div>{{ editor.item.categorization_method or '-' }}</div>
+      <div class="subtle">Valor</div><div>R$ {{ "%.2f"|format(editor.item.amount_brl) }}</div>
+      <div class="subtle">Status da conciliação</div><div><span class="badge {{ status_variant(editor.conciliation_status) }}">{{ editor.conciliation_status }}</span></div>
+    </div>
+  </div>
+
+  <div class="card stack">
+    <h2>Editar categoria</h2>
+    {% if editor.item_type != 'charge' %}
+      <div class="subtle">Somente itens <code>charge</code> aceitam edição manual de categoria de consumo. Itens <code>credit</code> e <code>payment</code> continuam técnicos.</div>
+    {% elif not editor.available_categories %}
+      <div class="subtle">Nenhuma categoria oficial elegível está disponível para seleção.</div>
+    {% else %}
+      <form method="post" action="/admin/credit-card-invoices/{{ editor.invoice.id }}/items/{{ editor.item.id }}/category/preview" class="stack">
+        <label>Categoria oficial
+          <select name="category" required>
+            {% for category in editor.available_categories %}
+              <option value="{{ category.name }}" {% if category.name == selected_category %}selected{% endif %}>{{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <div class="subtle">O preview mostra o efeito esperado antes de qualquer persistência.</div>
+        <div class="actions">
+          <button type="submit" class="button button-primary">Gerar preview do impacto</button>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+</section>
+
+{% if preview %}
+  <section class="card stack">
+    <div>
+      <strong>Preview antes de aplicar</strong>
+      <div class="subtle">A alteração só será persistida após confirmação explícita.</div>
+    </div>
+    <div class="kv-grid">
+      <div class="subtle">Categoria atual</div><div>{{ preview.current_category or 'Não Categorizado' }}</div>
+      <div class="subtle">Nova categoria</div><div>{{ preview.selected_category }}</div>
+      <div class="subtle">Valor do item</div><div>R$ {{ "%.2f"|format(preview.item_amount_brl) }}</div>
+      <div class="subtle">Mês de referência</div><div>{{ preview.month_reference_label }}</div>
+      <div class="subtle">Impacta a análise agora?</div><div>{{ 'sim' if preview.is_visible_in_analysis else 'não' }}</div>
+    </div>
+    <div class="preview-list">
+      <div class="preview-item">
+        <strong>Impacto esperado</strong>
+        <p>{{ preview.impact_summary }}</p>
+      </div>
+      <div class="preview-item">
+        <strong>Leitura principal</strong>
+        <p>{{ preview.visibility_note }}</p>
+      </div>
+    </div>
+    <form method="post" action="/admin/credit-card-invoices/{{ editor.invoice.id }}/items/{{ editor.item.id }}/category/apply" class="stack">
+      <input type="hidden" name="category" value="{{ preview.selected_category }}">
+      <input type="hidden" name="confirm_apply" value="true">
+      <div class="actions">
+        <button type="submit" class="button button-primary">Confirmar alteração de categoria</button>
+      </div>
+    </form>
+  </section>
+{% endif %}
+{% endblock %}
