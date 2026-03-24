@@ -1087,6 +1087,8 @@ def test_admin_credit_card_invoice_item_manual_category_flow_shows_preview_and_p
     edit_page = client.get(f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category")
     assert edit_page.status_code == 200
     assert "Gerar preview do impacto" in edit_page.text
+    assert "Alterar somente este item" in edit_page.text
+    assert "Aplicar na base" in edit_page.text
     assert "Não Categorizado" in edit_page.text
 
     preview = client.post(
@@ -1096,7 +1098,7 @@ def test_admin_credit_card_invoice_item_manual_category_flow_shows_preview_and_p
     assert preview.status_code == 200
     assert "Preview antes de aplicar" in preview.text
     assert "Outros" in preview.text
-    assert "A alteração só será persistida após confirmação explícita." in preview.text
+    assert "Fluxo pontual" in preview.text
     assert "Confirmar alteração de categoria" in preview.text
 
     applied = client.post(
@@ -1113,6 +1115,75 @@ def test_admin_credit_card_invoice_item_manual_category_flow_shows_preview_and_p
     assert refreshed is not None
     assert refreshed.category == "Outros"
     assert refreshed.categorization_method == "manual"
+
+
+def test_admin_credit_card_invoice_item_apply_to_base_shows_preview_and_persists_rule(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    invoice = _seed_credit_card_invoice(db_session, status="pending_review")
+    second_invoice = _seed_credit_card_invoice(
+        db_session,
+        card_label="Itaú Visa final 5678",
+        card_final="5678",
+        billing_month=4,
+        total_amount="130.45",
+        status="conciliated",
+    )
+    first_item = db_session.scalar(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == invoice.id, CreditCardInvoiceItem.description_raw == "SUPERMERCADO TESTE")
+    )
+    second_item = db_session.scalar(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == second_invoice.id, CreditCardInvoiceItem.description_raw == "SUPERMERCADO TESTE")
+    )
+    assert first_item is not None
+    assert second_item is not None
+    _login(client)
+
+    preview = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/items/{first_item.id}/category/preview",
+        data={
+            "category": "Outros",
+            "apply_mode": "base",
+            "rule_pattern": "supermercado teste",
+            "rule_match_mode": "exact_normalized",
+        },
+    )
+
+    assert preview.status_code == 200
+    assert "Aplicar na base" in preview.text
+    assert "Preview antes de aplicar na base" in preview.text
+    assert "Itens impactados" in preview.text
+    assert "Distribuição atual dos itens afetados" in preview.text
+    assert "Importações futuras" in preview.text
+    assert "supermercado teste" in preview.text
+    assert "2" in preview.text
+
+    applied = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/items/{first_item.id}/category/apply",
+        data={
+            "category": "Outros",
+            "apply_mode": "base",
+            "rule_pattern": "supermercado teste",
+            "rule_match_mode": "exact_normalized",
+            "confirm_apply": "true",
+        },
+        follow_redirects=True,
+    )
+
+    assert applied.status_code == 200
+    assert "Regra aplicada na base." in applied.text
+
+    db_session.expire_all()
+    refreshed_first = db_session.get(CreditCardInvoiceItem, first_item.id)
+    refreshed_second = db_session.get(CreditCardInvoiceItem, second_item.id)
+    assert refreshed_first is not None
+    assert refreshed_second is not None
+    assert refreshed_first.category == "Outros"
+    assert refreshed_second.category == "Outros"
+    assert refreshed_first.categorization_method == "rule"
+    assert refreshed_second.categorization_method == "rule"
 
 
 def test_admin_credit_card_invoice_item_manual_category_blocks_non_eligible_item(client, db_session, monkeypatch):

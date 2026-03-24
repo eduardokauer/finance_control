@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.parsers.credit_card_bill_parser import parse_itau_credit_card_csv
 from app.repositories.models import (
     Category,
+    CategorizationRule,
     CreditCard,
     CreditCardInvoice,
     CreditCardInvoiceConciliation,
@@ -19,6 +20,7 @@ from app.repositories.models import (
     SourceFile,
     Transaction,
 )
+from app.services.categorization import categorize
 from app.services.classification import classify_credit_card_invoice_charge
 from app.utils.hashing import canonical_hash, file_hash
 from app.utils.normalization import normalize_description
@@ -203,6 +205,72 @@ class CreditCardInvoiceItemCategoryPreview:
     is_visible_in_analysis: bool
     impact_summary: str
     visibility_note: str
+
+
+@dataclass
+class CreditCardInvoiceItemCategoryBulkDistributionEntry:
+    category_name: str
+    item_count: int
+    total_amount_brl: Decimal
+
+
+@dataclass
+class CreditCardInvoiceItemCategoryBulkImpactItem:
+    item_id: int
+    invoice_id: int
+    card_label: str
+    purchase_date: date
+    description_raw: str
+    amount_brl: Decimal
+    billing_month: int
+    billing_year: int
+    current_category: str | None
+    conciliation_status: str
+    is_visible_in_analysis: bool
+
+
+@dataclass
+class CreditCardInvoiceItemCategoryBulkPreview:
+    selected_category: str
+    rule_pattern: str
+    rule_type: str
+    rule_action_label: str
+    rule_id_to_update: int | None
+    affected_count: int
+    affected_total_brl: Decimal
+    impact_summary: str
+    visibility_note: str
+    future_imports_note: str
+    category_distribution: list[CreditCardInvoiceItemCategoryBulkDistributionEntry] = field(default_factory=list)
+    impacted_items: list[CreditCardInvoiceItemCategoryBulkImpactItem] = field(default_factory=list)
+    evaluated_item_ids: list[int] = field(default_factory=list)
+
+
+@dataclass
+class CreditCardInvoiceItemCategoryBulkApplyResult:
+    rule: CategorizationRule
+    preview: CreditCardInvoiceItemCategoryBulkPreview
+    reapply_result: dict
+
+
+@dataclass
+class _ManualInvoiceItemRulePlan:
+    rule_id: int | None
+    pattern: str
+    rule_type: str
+    category_name: str
+    priority: int
+    source_scope: str
+    rule_action_label: str
+
+
+@dataclass
+class _SimulatedInvoiceRule:
+    rule_id: int | None
+    rule_type: str
+    pattern: str
+    category_name: str
+    priority: int
 
 
 def _quantize(value: Decimal) -> Decimal:
@@ -987,6 +1055,196 @@ def _validated_manual_invoice_item_category_name(
     return normalized_name
 
 
+def _validated_invoice_item_rule_type(rule_type: str) -> str:
+    normalized_rule_type = (rule_type or "").strip()
+    if normalized_rule_type not in {"exact_normalized", "contains"}:
+        raise CreditCardInvoiceCategoryEditError("Modo de regra inválido para item de fatura.")
+    return normalized_rule_type
+
+
+def _validated_invoice_item_rule_pattern(pattern: str) -> str:
+    normalized_pattern = normalize_description(pattern or "")
+    if not normalized_pattern:
+        raise CreditCardInvoiceCategoryEditError("Informe um padrão válido para aplicar na base.")
+    return normalized_pattern
+
+
+def _next_manual_invoice_rule_priority(db: Session) -> int:
+    current_min_priority = db.scalar(
+        select(func.min(CategorizationRule.priority)).where(
+            CategorizationRule.source_scope.in_(("both", "credit_card_invoice_item"))
+        )
+    )
+    if current_min_priority is None:
+        return 0
+    return int(current_min_priority) - 1
+
+
+def _current_invoice_item_rule(db: Session, *, editor: CreditCardInvoiceItemCategoryEditor) -> CategorizationRule | None:
+    if not editor.item.categorization_rule_id:
+        return None
+    return db.get(CategorizationRule, editor.item.categorization_rule_id)
+
+
+def _resolve_manual_invoice_item_rule_plan(
+    db: Session,
+    *,
+    editor: CreditCardInvoiceItemCategoryEditor,
+    category_name: str,
+    rule_pattern: str,
+    rule_type: str,
+) -> _ManualInvoiceItemRulePlan:
+    current_rule = _current_invoice_item_rule(db, editor=editor)
+    if current_rule is not None and current_rule.source_scope == "credit_card_invoice_item":
+        return _ManualInvoiceItemRulePlan(
+            rule_id=current_rule.id,
+            pattern=rule_pattern,
+            rule_type=rule_type,
+            category_name=category_name,
+            priority=current_rule.priority,
+            source_scope="credit_card_invoice_item",
+            rule_action_label=f"A regra #{current_rule.id} específica de item de fatura será atualizada e continuará ativa.",
+        )
+
+    return _ManualInvoiceItemRulePlan(
+        rule_id=None,
+        pattern=rule_pattern,
+        rule_type=rule_type,
+        category_name=category_name,
+        priority=_next_manual_invoice_rule_priority(db),
+        source_scope="credit_card_invoice_item",
+        rule_action_label="Uma nova regra específica para item de fatura será criada e continuará valendo nas importações futuras.",
+    )
+
+
+def _match_rule_spec(rule_type: str, pattern: str, normalized_description: str) -> bool:
+    if rule_type == "exact_normalized":
+        return normalized_description == pattern
+    return pattern in normalized_description
+
+
+def _load_bulk_invoice_item_preview_rows(
+    db: Session,
+    *,
+    plan: _ManualInvoiceItemRulePlan,
+) -> list[tuple[CreditCardInvoiceItem, CreditCardInvoice, CreditCard, str]]:
+    query = (
+        select(
+            CreditCardInvoiceItem,
+            CreditCardInvoice,
+            CreditCard,
+            CreditCardInvoiceConciliation.status,
+        )
+        .join(CreditCardInvoice, CreditCardInvoice.id == CreditCardInvoiceItem.invoice_id)
+        .join(CreditCard, CreditCard.id == CreditCardInvoice.card_id)
+        .outerjoin(CreditCardInvoiceConciliation, CreditCardInvoiceConciliation.invoice_id == CreditCardInvoice.id)
+    )
+
+    if plan.rule_type == "exact_normalized":
+        description_predicate = CreditCardInvoiceItem.description_normalized == plan.pattern
+    else:
+        description_predicate = CreditCardInvoiceItem.description_normalized.contains(plan.pattern)
+
+    if plan.rule_id is not None:
+        query = query.where(
+            or_(
+                description_predicate,
+                CreditCardInvoiceItem.categorization_rule_id == plan.rule_id,
+            )
+        )
+    else:
+        query = query.where(description_predicate)
+
+    rows = db.execute(
+        query.order_by(
+            CreditCardInvoice.billing_year.desc(),
+            CreditCardInvoice.billing_month.desc(),
+            CreditCardInvoiceItem.purchase_date.desc(),
+            CreditCardInvoiceItem.id.desc(),
+        )
+    ).all()
+    return [
+        (item, invoice, card, conciliation_status or "pending_review")
+        for item, invoice, card, conciliation_status in rows
+        if classify_credit_card_invoice_item(item) == "charge"
+    ]
+
+
+def _simulated_invoice_rules(
+    db: Session,
+    *,
+    plan: _ManualInvoiceItemRulePlan,
+) -> list[_SimulatedInvoiceRule]:
+    existing_rules = db.scalars(
+        select(CategorizationRule)
+        .where(
+            CategorizationRule.is_active.is_(True),
+            CategorizationRule.source_scope.in_(("both", "credit_card_invoice_item")),
+        )
+        .order_by(CategorizationRule.priority.asc(), CategorizationRule.id.asc())
+    ).all()
+
+    rules = [
+        _SimulatedInvoiceRule(
+            rule_id=rule.id,
+            rule_type=rule.rule_type,
+            pattern=rule.pattern,
+            category_name=rule.category_name,
+            priority=rule.priority,
+        )
+        for rule in existing_rules
+        if rule.id != plan.rule_id
+    ]
+    rules.append(
+        _SimulatedInvoiceRule(
+            rule_id=plan.rule_id or 0,
+            rule_type=plan.rule_type,
+            pattern=plan.pattern,
+            category_name=plan.category_name,
+            priority=plan.priority,
+        )
+    )
+    return sorted(rules, key=lambda rule: (rule.priority, rule.rule_id or 0))
+
+
+def _simulate_invoice_item_classification(
+    db: Session,
+    *,
+    item: CreditCardInvoiceItem,
+    category_kinds: dict[str, str],
+    simulated_rules: list[_SimulatedInvoiceRule],
+) -> dict:
+    normalized_description = item.description_normalized or normalize_description(item.description_raw or "")
+    uncategorized_name = _ensure_official_uncategorized_name(db, category_kinds)
+
+    for rule in simulated_rules:
+        if _match_rule_spec(rule.rule_type, rule.pattern, normalized_description):
+            return _resolve_official_invoice_item_category(
+                {
+                    "category": rule.category_name,
+                    "method": "rule",
+                    "confidence": 1.0,
+                    "rule": rule.pattern,
+                    "rule_id": rule.rule_id,
+                },
+                category_kinds=category_kinds,
+                uncategorized_name=uncategorized_name,
+            )
+
+    fallback = categorize(item.description_raw, transaction_kind="expense")
+    return _resolve_official_invoice_item_category(
+        {
+            "category": fallback["category"],
+            "method": fallback["method"],
+            "confidence": float(Decimal(str(fallback["confidence"]))),
+            "rule": fallback["rule"],
+            "rule_id": None,
+        },
+        category_kinds=category_kinds,
+        uncategorized_name=uncategorized_name,
+    )
+
+
 def get_credit_card_invoice_item_category_editor(
     db: Session,
     *,
@@ -1083,6 +1341,221 @@ def apply_manual_credit_card_invoice_item_category_change(
     db.commit()
     db.refresh(editor.item)
     return editor.item
+
+
+def preview_manual_credit_card_invoice_item_category_rule_application(
+    db: Session,
+    *,
+    invoice_id: int,
+    item_id: int,
+    category_name: str,
+    rule_pattern: str,
+    rule_type: str,
+) -> CreditCardInvoiceItemCategoryBulkPreview:
+    editor = get_credit_card_invoice_item_category_editor(db, invoice_id=invoice_id, item_id=item_id)
+    if editor is None:
+        raise CreditCardInvoiceCategoryEditError("Item de fatura não encontrado.")
+    if editor.item_type != "charge":
+        raise CreditCardInvoiceCategoryEditError("Somente itens charge aceitam categoria manual de consumo.")
+
+    selected_category = _validated_manual_invoice_item_category_name(db, category_name=category_name)
+    validated_rule_type = _validated_invoice_item_rule_type(rule_type)
+    validated_rule_pattern = _validated_invoice_item_rule_pattern(rule_pattern)
+    plan = _resolve_manual_invoice_item_rule_plan(
+        db,
+        editor=editor,
+        category_name=selected_category,
+        rule_pattern=validated_rule_pattern,
+        rule_type=validated_rule_type,
+    )
+
+    rows = _load_bulk_invoice_item_preview_rows(db, plan=plan)
+    category_kinds = _category_kind_map(db)
+    simulated_rules = _simulated_invoice_rules(db, plan=plan)
+    uncategorized_name = _ensure_official_uncategorized_name(db, category_kinds)
+
+    distribution_map: dict[str, dict[str, Decimal | int]] = {}
+    impacted_items: list[CreditCardInvoiceItemCategoryBulkImpactItem] = []
+    evaluated_item_ids: list[int] = []
+    visible_count = 0
+    pending_count = 0
+    affected_total_brl = Decimal("0.00")
+
+    for item, invoice, card, conciliation_status in rows:
+        evaluated_item_ids.append(item.id)
+        classification = _simulate_invoice_item_classification(
+            db,
+            item=item,
+            category_kinds=category_kinds,
+            simulated_rules=simulated_rules,
+        )
+        current_state = (
+            item.category,
+            item.categorization_method,
+            item.applied_rule,
+            item.categorization_rule_id,
+        )
+        next_state = (
+            classification["category"],
+            classification["method"],
+            classification["rule"],
+            classification["rule_id"],
+        )
+        if current_state == next_state:
+            continue
+
+        current_category = item.category or uncategorized_name
+        bucket = distribution_map.setdefault(
+            current_category,
+            {"count": 0, "total": Decimal("0.00")},
+        )
+        bucket["count"] = int(bucket["count"]) + 1
+        bucket["total"] = Decimal(bucket["total"]) + _quantize(abs(item.amount_brl))
+
+        item_amount_brl = _quantize(abs(item.amount_brl))
+        is_visible_in_analysis = conciliation_status == "conciliated"
+        if is_visible_in_analysis:
+            visible_count += 1
+        else:
+            pending_count += 1
+        affected_total_brl += item_amount_brl
+        impacted_items.append(
+            CreditCardInvoiceItemCategoryBulkImpactItem(
+                item_id=item.id,
+                invoice_id=invoice.id,
+                card_label=card.card_label,
+                purchase_date=item.purchase_date,
+                description_raw=item.description_raw,
+                amount_brl=item_amount_brl,
+                billing_month=invoice.billing_month,
+                billing_year=invoice.billing_year,
+                current_category=item.category,
+                conciliation_status=conciliation_status,
+                is_visible_in_analysis=is_visible_in_analysis,
+            )
+        )
+
+    distribution = [
+        CreditCardInvoiceItemCategoryBulkDistributionEntry(
+            category_name=category_name,
+            item_count=int(data["count"]),
+            total_amount_brl=_quantize(Decimal(data["total"])),
+        )
+        for category_name, data in distribution_map.items()
+    ]
+    distribution.sort(key=lambda entry: (-entry.total_amount_brl, -entry.item_count, entry.category_name))
+    impacted_items.sort(
+        key=lambda item: (
+            0 if item.is_visible_in_analysis else 1,
+            -item.billing_year,
+            -item.billing_month,
+            item.purchase_date,
+            item.item_id,
+        )
+    )
+    affected_total_brl = _quantize(affected_total_brl)
+
+    if impacted_items:
+        impact_summary = (
+            f"{len(impacted_items)} item(ns) existente(s) passarão a refletir {selected_category}, "
+            f"com impacto total de R$ {affected_total_brl:.2f}."
+        )
+    else:
+        impact_summary = (
+            f"Nenhum item existente mudará agora com essa regra. Ainda assim, {selected_category} ficará salva "
+            "para futuras importações elegíveis após a confirmação."
+        )
+
+    if visible_count and pending_count:
+        visibility_note = (
+            f"{visible_count} item(ns) já aparecem imediatamente na leitura principal porque pertencem a faturas "
+            f"conciliated. Outros {pending_count} item(ns) ficam salvos agora, mas só entram na leitura principal "
+            "quando suas faturas forem totalmente conciliadas."
+        )
+    elif visible_count:
+        visibility_note = (
+            "Todos os itens impactados pertencem a faturas conciliadas, então o efeito aparece imediatamente "
+            "na leitura mensal principal por categoria."
+        )
+    else:
+        visibility_note = (
+            "Os itens impactados pertencem apenas a faturas ainda fora da leitura principal. A regra fica salva agora, "
+            "mas o efeito analítico principal só aparece quando essas faturas chegarem a conciliated."
+        )
+
+    future_imports_note = (
+        f"Após a confirmação, a regra {validated_rule_type} com padrão “{validated_rule_pattern}” continuará ativa "
+        "para novos itens de fatura elegíveis nas importações futuras."
+    )
+
+    return CreditCardInvoiceItemCategoryBulkPreview(
+        selected_category=selected_category,
+        rule_pattern=validated_rule_pattern,
+        rule_type=validated_rule_type,
+        rule_action_label=plan.rule_action_label,
+        rule_id_to_update=plan.rule_id,
+        affected_count=len(impacted_items),
+        affected_total_brl=affected_total_brl,
+        impact_summary=impact_summary,
+        visibility_note=visibility_note,
+        future_imports_note=future_imports_note,
+        category_distribution=distribution,
+        impacted_items=impacted_items,
+        evaluated_item_ids=evaluated_item_ids,
+    )
+
+
+def apply_manual_credit_card_invoice_item_category_rule_application(
+    db: Session,
+    *,
+    invoice_id: int,
+    item_id: int,
+    category_name: str,
+    rule_pattern: str,
+    rule_type: str,
+) -> CreditCardInvoiceItemCategoryBulkApplyResult:
+    preview = preview_manual_credit_card_invoice_item_category_rule_application(
+        db,
+        invoice_id=invoice_id,
+        item_id=item_id,
+        category_name=category_name,
+        rule_pattern=rule_pattern,
+        rule_type=rule_type,
+    )
+    editor = get_credit_card_invoice_item_category_editor(db, invoice_id=invoice_id, item_id=item_id)
+    if editor is None:
+        raise CreditCardInvoiceCategoryEditError("Item de fatura não encontrado.")
+
+    plan = _resolve_manual_invoice_item_rule_plan(
+        db,
+        editor=editor,
+        category_name=preview.selected_category,
+        rule_pattern=preview.rule_pattern,
+        rule_type=preview.rule_type,
+    )
+
+    from app.services.admin import upsert_rule
+
+    rule = upsert_rule(
+        db,
+        rule_id=plan.rule_id,
+        pattern=plan.pattern,
+        rule_type=plan.rule_type,
+        category_name=plan.category_name,
+        kind_mode="flow",
+        source_scope=plan.source_scope,
+        priority=plan.priority,
+        is_active=True,
+    )
+    reapply_result = recategorize_credit_card_invoice_items(
+        db,
+        item_ids=preview.evaluated_item_ids,
+    )
+    return CreditCardInvoiceItemCategoryBulkApplyResult(
+        rule=rule,
+        preview=preview,
+        reapply_result=reapply_result,
+    )
 
 
 def reconcile_credit_card_invoice_bank_payments(
@@ -1339,11 +1812,16 @@ def recategorize_credit_card_invoice_items(
     db: Session,
     *,
     invoice_id: int | None = None,
+    item_ids: list[int] | None = None,
     allowed_rule_ids: list[int] | None = None,
 ) -> dict:
     query = select(CreditCardInvoiceItem)
     if invoice_id is not None:
         query = query.where(CreditCardInvoiceItem.invoice_id == invoice_id)
+    if item_ids is not None:
+        if not item_ids:
+            return {"checked_count": 0, "updated_count": 0}
+        query = query.where(CreditCardInvoiceItem.id.in_(item_ids))
 
     items = db.scalars(
         query.order_by(CreditCardInvoiceItem.purchase_date.asc(), CreditCardInvoiceItem.id.asc())

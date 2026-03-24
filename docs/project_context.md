@@ -65,6 +65,7 @@ Ordem de leitura recomendada:
 - Exibição operacional da categoria dos itens de fatura no detalhe da fatura implementada.
 - Edição manual direta da categoria de item `charge` de fatura na UI implementada.
 - Preview de impacto e confirmação explícita antes de persistir a categoria manual de item de fatura implementados.
+- Aplicação na base com preview, confirmação explícita, criação/atualização de regra e reaplicação dos itens de fatura existentes implementadas.
 - Leitura mensal por categoria promovida para a base conciliada do mês-base.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
 - Deduplicação forte implementada:
@@ -75,7 +76,6 @@ Ordem de leitura recomendada:
 
 - Conciliação automática de faturas.
 - Vínculo automático ou definitivo com pagamento de conta além da conciliação manual assistida.
-- Aplicação manual de regra em massa para itens de fatura com preview e confirmação explícita na UI.
 - Gráficos mês a mês / ano a ano por categoria usando a base conciliada.
 - Alertas e ações recomendadas recalculados sobre a nova base categorial de faturas.
 - Migração ampla de toda a análise histórica para base conciliada.
@@ -171,7 +171,7 @@ Ordem de leitura recomendada:
 - As próximas evoluções devem preferir incrementos já úteis para a análise ou para a operação principal, evitando preparações isoladas como destino final de um PR.
 - Comparações mês a mês / ano a ano por categoria na base conciliada.
 - Alertas e ações recomendadas sobre a base categorial conciliada, só depois da leitura mensal estar estável.
-- Aplicação de regra com confirmação explícita para itens de fatura, se a operação manual pontual precisar ganhar escala.
+- Consolidação final da operação manual de categorias na UI, se surgir nova lacuna real após o fluxo de aplicação na base já implementado.
 
 ## 6. Operação Admin Atual
 
@@ -198,7 +198,8 @@ Ordem de leitura recomendada:
   - listar faturas importadas;
   - ver detalhe da fatura;
   - ver itens, tipo técnico e categoria quando aplicável;
-  - editar manualmente a categoria de item `charge` com preview de impacto e confirmação explícita.
+  - editar manualmente a categoria de item `charge` com preview de impacto e confirmação explícita;
+  - aplicar a categoria na base com preview explícito dos itens impactados, confirmação, criação/atualização de regra e reaplicação dos itens elegíveis existentes.
 - **Conciliação**
   - visualizar candidatos de pagamento;
   - vincular manualmente pagamentos do extrato;
@@ -208,13 +209,14 @@ Ordem de leitura recomendada:
   - categorização determinística de `charge` no serviço;
   - reaplicação em nível de serviço;
   - visualização da categoria no detalhe da fatura;
-  - correção manual pontual via UI usando a base oficial de categorias.
+  - correção manual pontual via UI usando a base oficial de categorias;
+  - criação/atualização de regra manual a partir do item de fatura com persistência para importações futuras elegíveis.
 
 ### Limitações operacionais atuais
 
 - A decisão de conciliação ainda é manual.
-- A operação manual atual de categoria em itens de fatura é pontual; ainda não existe aplicação de regra em massa com preview e confirmação explícita na UI.
 - A leitura por categoria conciliada está centrada no mês-base atual; comparações históricas por categoria ainda não foram promovidas.
+- A operação manual atual de categoria em itens de fatura já cobre ajuste pontual e aplicação na base, mas ainda depende de revisão humana caso o padrão desejado não seja recorrente o suficiente para virar regra.
 
 ## 7. Próximo Passo Atual e Sequência Recomendada
 
@@ -227,17 +229,17 @@ Ordem de leitura recomendada:
 
 ### Próximo passo atual do projeto
 
-- Evoluir a leitura por categoria já conciliada para comparações mês a mês / ano a ano, preservando a leitura mensal atual como base principal.
+- Evoluir a leitura por categoria já conciliada para comparações mês a mês / ano a ano, agora que a operação manual de categoria em itens de fatura já cobre correção pontual e aplicação na base com regra persistida.
 
 ### Sequência recomendada a partir daqui
 
 1. Evoluir para comparações mês a mês / ano a ano por categoria usando a visão conciliada já adotada no mês-base.
-2. Se houver necessidade operacional clara, adicionar aplicação de regra para itens de fatura com preview e confirmação explícita.
-3. Só depois recalcular alertas e ações recomendadas sobre a base categorial confiável.
+2. Só depois recalcular alertas e ações recomendadas sobre a base categorial confiável.
+3. Ajustar eventuais refinamentos operacionais residuais da categorização de faturas apenas se surgirem lacunas reais após o uso do fluxo atual.
 
 ## 8. Riscos e Limitações Conhecidas
 
-- A análise por categoria ainda não foi totalmente migrada para a base conciliada.
+- A leitura mensal por categoria já usa a base conciliada, mas a análise histórica por categoria ainda não foi promovida para essa mesma base.
 - Alertas e ações ainda não foram recalculados sobre a base categorial nova.
 - A competência mensal continua conservadora.
 - A visão bruta ainda é necessária para auditoria.

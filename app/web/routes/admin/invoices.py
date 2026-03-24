@@ -11,11 +11,13 @@ from app.services.credit_card_bills import (
     CreditCardInvoiceCategoryEditError,
     CreditCardInvoiceConciliationError,
     apply_manual_credit_card_invoice_item_category_change,
+    apply_manual_credit_card_invoice_item_category_rule_application,
     get_credit_card_invoice_item_category_editor,
     get_credit_card_invoice_detail,
     list_credit_cards,
     list_credit_card_invoices,
     preview_manual_credit_card_invoice_item_category_change,
+    preview_manual_credit_card_invoice_item_category_rule_application,
     reconcile_credit_card_invoice_bank_payments,
     unlink_credit_card_invoice_bank_payment,
 )
@@ -42,7 +44,11 @@ def _render_invoice_item_category_editor(
     request: Request,
     db: Session,
     selected_category: str | None = None,
-    preview=None,
+    selected_apply_mode: str = "single",
+    selected_rule_pattern: str | None = None,
+    selected_rule_match_mode: str = "exact_normalized",
+    single_preview=None,
+    base_preview=None,
     form_error: str | None = None,
     status_code: int = 200,
 ):
@@ -52,13 +58,18 @@ def _render_invoice_item_category_editor(
     resolved_category = selected_category or editor.item.category
     if resolved_category is None and editor.available_categories:
         resolved_category = editor.available_categories[0].name
+    resolved_rule_pattern = selected_rule_pattern or editor.item.description_normalized or editor.item.description_raw
     return render_admin(
         request,
         "admin/credit_card_invoice_item_category_edit.html",
         {
             "editor": editor,
             "selected_category": resolved_category,
-            "preview": preview,
+            "selected_apply_mode": selected_apply_mode,
+            "selected_rule_pattern": resolved_rule_pattern,
+            "selected_rule_match_mode": selected_rule_match_mode,
+            "single_preview": single_preview,
+            "base_preview": base_preview,
             "form_error": form_error,
             "status_variant": _status_variant,
         },
@@ -144,16 +155,31 @@ def admin_credit_card_invoice_item_category_preview(
     item_id: int,
     request: Request,
     category: str = Form(...),
+    apply_mode: str = Form("single"),
+    rule_pattern: str | None = Form(default=None),
+    rule_match_mode: str = Form("exact_normalized"),
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
     try:
-        preview = preview_manual_credit_card_invoice_item_category_change(
-            db,
-            invoice_id=invoice_id,
-            item_id=item_id,
-            category_name=category,
-        )
+        if apply_mode == "base":
+            base_preview = preview_manual_credit_card_invoice_item_category_rule_application(
+                db,
+                invoice_id=invoice_id,
+                item_id=item_id,
+                category_name=category,
+                rule_pattern=rule_pattern or "",
+                rule_type=rule_match_mode,
+            )
+            single_preview = None
+        else:
+            single_preview = preview_manual_credit_card_invoice_item_category_change(
+                db,
+                invoice_id=invoice_id,
+                item_id=item_id,
+                category_name=category,
+            )
+            base_preview = None
     except CreditCardInvoiceCategoryEditError as exc:
         return _render_invoice_item_category_editor(
             invoice_id=invoice_id,
@@ -161,6 +187,9 @@ def admin_credit_card_invoice_item_category_preview(
             request=request,
             db=db,
             selected_category=category,
+            selected_apply_mode=apply_mode,
+            selected_rule_pattern=rule_pattern,
+            selected_rule_match_mode=rule_match_mode,
             form_error=str(exc),
             status_code=exc.status_code,
         )
@@ -170,7 +199,11 @@ def admin_credit_card_invoice_item_category_preview(
         request=request,
         db=db,
         selected_category=category,
-        preview=preview,
+        selected_apply_mode=apply_mode,
+        selected_rule_pattern=rule_pattern,
+        selected_rule_match_mode=rule_match_mode,
+        single_preview=single_preview,
+        base_preview=base_preview,
     )
 
 
@@ -180,6 +213,9 @@ def admin_credit_card_invoice_item_category_apply(
     item_id: int,
     request: Request,
     category: str = Form(...),
+    apply_mode: str = Form("single"),
+    rule_pattern: str | None = Form(default=None),
+    rule_match_mode: str = Form("exact_normalized"),
     confirm_apply: bool = Form(False),
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
@@ -191,16 +227,30 @@ def admin_credit_card_invoice_item_category_apply(
             request=request,
             db=db,
             selected_category=category,
+            selected_apply_mode=apply_mode,
+            selected_rule_pattern=rule_pattern,
+            selected_rule_match_mode=rule_match_mode,
             form_error="Confirme explicitamente a alteração antes de salvar.",
             status_code=422,
         )
     try:
-        apply_manual_credit_card_invoice_item_category_change(
-            db,
-            invoice_id=invoice_id,
-            item_id=item_id,
-            category_name=category,
-        )
+        if apply_mode == "base":
+            result = apply_manual_credit_card_invoice_item_category_rule_application(
+                db,
+                invoice_id=invoice_id,
+                item_id=item_id,
+                category_name=category,
+                rule_pattern=rule_pattern or "",
+                rule_type=rule_match_mode,
+            )
+        else:
+            apply_manual_credit_card_invoice_item_category_change(
+                db,
+                invoice_id=invoice_id,
+                item_id=item_id,
+                category_name=category,
+            )
+            result = None
     except CreditCardInvoiceCategoryEditError as exc:
         return _render_invoice_item_category_editor(
             invoice_id=invoice_id,
@@ -208,11 +258,19 @@ def admin_credit_card_invoice_item_category_apply(
             request=request,
             db=db,
             selected_category=category,
+            selected_apply_mode=apply_mode,
+            selected_rule_pattern=rule_pattern,
+            selected_rule_match_mode=rule_match_mode,
             form_error=str(exc),
             status_code=exc.status_code,
         )
 
-    request.session["flash"] = "Categoria do item de fatura atualizada."
+    if apply_mode == "base" and result is not None:
+        request.session["flash"] = (
+            f"Regra aplicada na base. {result.reapply_result['updated_count']} item(ns) existente(s) foram reavaliados."
+        )
+    else:
+        request.session["flash"] = "Categoria do item de fatura atualizada."
     return RedirectResponse(url=f"/admin/credit-card-invoices/{invoice_id}", status_code=303)
 
 
