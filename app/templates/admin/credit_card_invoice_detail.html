@@ -1,13 +1,82 @@
 {% extends "admin/base.html" %}
 {% block title %}Detalhe da Fatura{% endblock %}
 {% block content %}
+<style>
+  .invoice-detail-header {
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .invoice-detail-page-actions {
+    justify-content: flex-end;
+  }
+  .invoice-item-category {
+    display: grid;
+    gap: 6px;
+  }
+  .invoice-item-date {
+    white-space: nowrap;
+    width: 1%;
+  }
+  .invoice-item-category-cell {
+    min-width: 190px;
+  }
+  .invoice-item-category-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+  .invoice-item-category-edit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 1rem;
+    line-height: 1;
+    flex: 0 0 auto;
+  }
+  .invoice-item-category-edit:hover {
+    background: var(--accent-soft);
+    border-color: #a8dfd5;
+  }
+  .invoice-detail-table-actions {
+    white-space: nowrap;
+    width: 1%;
+  }
+  .invoice-detail-table-actions .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 138px;
+    white-space: nowrap;
+  }
+  .invoice-items-table {
+    min-width: 1140px;
+  }
+  @media (max-width: 920px) {
+    .invoice-detail-page-actions {
+      justify-content: flex-start;
+    }
+    .invoice-items-table {
+      min-width: 0;
+    }
+  }
+</style>
+
 <section class="card stack">
-  <div class="inline" style="justify-content: space-between; align-items: flex-start;">
+  <div class="inline invoice-detail-header">
     <div>
       <h1 style="margin: 0 0 6px 0;">Fatura #{{ detail.invoice.id }}</h1>
       <div class="subtle">{{ detail.card.card_label }} · {{ "%02d/%04d"|format(detail.invoice.billing_month, detail.invoice.billing_year) }}</div>
     </div>
-    <div class="inline">
+    <div class="inline invoice-detail-page-actions">
       <a class="button" href="/admin/credit-card-invoices">Voltar para listagem</a>
       <a class="button" href="/admin">Home</a>
     </div>
@@ -81,7 +150,7 @@
               <th>origem</th>
               <th>valor</th>
               <th>notes</th>
-              <th></th>
+              <th class="invoice-detail-table-actions"></th>
             </tr>
           </thead>
           <tbody>
@@ -99,7 +168,7 @@
                 </td>
                 <td>R$ {{ "%.2f"|format(item_detail.conciliation_item.amount_brl) }}</td>
                 <td>{{ item_detail.conciliation_item.notes or '-' }}</td>
-                <td>
+                <td class="invoice-detail-table-actions">
                   {% if item_detail.conciliation_item.item_type == 'bank_payment' %}
                     <form method="post" action="/admin/credit-card-invoices/{{ detail.invoice.id }}/conciliation/items/{{ item_detail.conciliation_item.id }}/unlink">
                       <button type="submit" class="button button-danger">Desfazer vínculo</button>
@@ -209,52 +278,59 @@
   <h2>Lançamentos da fatura</h2>
   {% if detail.items %}
     <div class="table-wrap">
-      <table>
+      <table class="invoice-items-table">
         <thead>
           <tr>
-            <th>data</th>
+            <th class="invoice-item-date">data</th>
             <th>descrição</th>
             <th>tipo</th>
-            <th>categoria</th>
+            <th class="invoice-item-category-cell">categoria</th>
             <th>valor</th>
             <th>parcelado</th>
             <th>parcela atual</th>
             <th>total de parcelas</th>
             <th>observação derivada</th>
-            <th>ação</th>
           </tr>
         </thead>
         <tbody>
           {% for item_detail in detail.items %}
             <tr>
-              <td>{{ item_detail.item.purchase_date }}</td>
+              <td class="invoice-item-date">{{ item_detail.item.purchase_date }}</td>
               <td>{{ item_detail.item.description_raw }}</td>
               <td><span class="badge">{{ item_detail.item_type }}</span></td>
-              <td>
-                {% if item_detail.item.category %}
-                  {{ item_detail.item.category }}
-                  <div class="subtle">
-                    {{ item_detail.item.categorization_method or '-' }}
-                    {% if item_detail.item.applied_rule %}| regra: {{ item_detail.item.applied_rule }}{% endif %}
+              <td class="invoice-item-category-cell">
+                <div class="invoice-item-category">
+                  <div class="invoice-item-category-line">
+                    {% if item_detail.item.category %}
+                      <span>{{ item_detail.item.category }}</span>
+                    {% elif item_detail.item_type == 'charge' %}
+                      <span class="subtle">Não Categorizado</span>
+                    {% else %}
+                      <span class="subtle">-</span>
+                    {% endif %}
+                    {% if item_detail.item_type == 'charge' %}
+                      <a
+                        class="invoice-item-category-edit"
+                        href="/admin/credit-card-invoices/{{ detail.invoice.id }}/items/{{ item_detail.item.id }}/category"
+                        aria-label="Editar categoria"
+                        title="Editar categoria">&#9998;</a>
+                    {% endif %}
                   </div>
-                {% elif item_detail.item_type == 'charge' %}
-                  <span class="subtle">Não Categorizado</span>
-                {% else %}
-                  <span class="subtle">-</span>
-                {% endif %}
+                  {% if item_detail.item.category %}
+                    <div class="subtle">
+                      {{ item_detail.item.categorization_method or '-' }}
+                      {% if item_detail.item.applied_rule %}| regra: {{ item_detail.item.applied_rule }}{% endif %}
+                    </div>
+                  {% elif item_detail.item_type != 'charge' %}
+                    <div class="subtle">item técnico</div>
+                  {% endif %}
+                </div>
               </td>
               <td>R$ {{ "%.2f"|format(item_detail.item.amount_brl) }}</td>
               <td>{{ 'sim' if item_detail.item.is_installment else 'não' }}</td>
               <td>{{ item_detail.item.installment_current or '-' }}</td>
               <td>{{ item_detail.item.installment_total or '-' }}</td>
               <td>{{ item_detail.item.derived_note or '-' }}</td>
-              <td>
-                {% if item_detail.item_type == 'charge' %}
-                  <a class="button" href="/admin/credit-card-invoices/{{ detail.invoice.id }}/items/{{ item_detail.item.id }}/category">Editar categoria</a>
-                {% else %}
-                  <span class="subtle">item técnico</span>
-                {% endif %}
-              </td>
             </tr>
           {% endfor %}
         </tbody>
@@ -265,5 +341,3 @@
   {% endif %}
 </section>
 {% endblock %}
-
-
