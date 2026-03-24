@@ -25,6 +25,7 @@ Ordem de leitura recomendada:
   - Leitura bruta continua disponível para apoio e auditoria.
   - Leitura conciliada evolui sem reclassificar fisicamente o domínio bruto.
   - Deduplicação precisa ser forte em ingestão e reprocessamento.
+  - As próximas iterações devem priorizar o menor incremento seguro que já entregue valor funcional perceptível, preferencialmente na análise financeira, na leitura gerencial ou na operação principal do usuário.
 
 ## 2. Stack e Infraestrutura
 
@@ -161,6 +162,7 @@ Ordem de leitura recomendada:
 
 ### Dependências para próximas evoluções
 
+- As próximas evoluções devem preferir incrementos já úteis para a análise ou para a operação principal, evitando preparações isoladas como destino final de um PR.
 - Operação manual segura de categoria dos itens de fatura.
 - Preview de impacto antes de aplicar regra ou correção de categoria.
 - Uso da visão conciliada como base para leituras por categoria.
@@ -209,17 +211,23 @@ Ordem de leitura recomendada:
 
 ## 7. Próximo Passo Atual e Sequência Recomendada
 
+### Critério de evolução a partir daqui
+
+- Priorizar o menor incremento seguro que já entregue valor perceptível ao usuário.
+- Preferir entregas mais completas e úteis a fatias excessivamente fragmentadas.
+- Evitar PRs que terminem apenas em preparação estrutural sem benefício funcional claro.
+- Quando uma etapa preparatória for inevitável, mantê-la mínima e, de preferência, embutida em uma entrega maior que já exponha valor analítico ou operacional.
+
 ### Próximo passo atual do projeto
 
-- Implementar operação manual de categoria dos itens de fatura com preview de impacto e confirmação explícita antes de ampliar a leitura analítica por categoria.
+- Entregar uma operação manual útil de categoria dos itens de fatura, com preview de impacto e confirmação explícita, como base imediata para a próxima leitura analítica por categoria.
 
 ### Sequência recomendada a partir daqui
 
-1. Implementar operação manual de categoria dos itens de fatura com preview de impacto.
-2. Permitir aplicação de regra em itens de fatura com confirmação explícita.
-3. Promover leitura analítica por categoria usando a visão conciliada.
-4. Evoluir para comparações mês a mês / ano a ano por categoria.
-5. Só depois recalcular alertas e ações recomendadas sobre a base categorial confiável.
+1. Entregar operação manual de categoria dos itens de fatura com preview de impacto e confirmação explícita, agrupando dependências próximas necessárias para que a entrega já seja útil ao usuário.
+2. Promover leitura analítica por categoria usando a visão conciliada.
+3. Evoluir para comparações mês a mês / ano a ano por categoria.
+4. Só depois recalcular alertas e ações recomendadas sobre a base categorial confiável.
 
 ## 8. Riscos e Limitações Conhecidas
 

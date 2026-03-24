@@ -18,15 +18,17 @@ Leitura obrigatória antes de executar:
 3. Sempre ler também os arquivos adicionais indicados no prompt.
 4. Não ler `docs/pm_workflow.md` por padrão; só fazê-lo se o prompt mandar explicitamente por motivo específico.
 5. Não contradizer decisões já tomadas em `docs/project_context.md`.
-6. Respeitar objetivo, fora de escopo e DoD do prompt.
+6. Respeitar objetivo, fora de escopo e DoD do prompt, preservando o valor funcional prometido para a entrega.
 7. Não abrir escopo por conta própria.
-8. Transformar itens críticos do DoD em testes sempre que possível.
-9. Revisar os arquivos alterados quanto a:
+8. Não reduzir o escopo por conta própria a ponto de sobrar apenas preparação interna quando o objetivo do PR exigir valor funcional visível.
+9. Usar ajustes estruturais apenas como suporte à entrega principal do mesmo PR, e não como substituto dela.
+10. Transformar itens críticos do DoD em testes sempre que possível.
+11. Revisar os arquivos alterados quanto a:
    - mojibake;
    - encoding incorreto;
    - BOM residual;
    - problemas de formatação.
-10. Executar a suíte completa antes de considerar a entrega concluída.
+12. Executar a suíte completa antes de considerar a entrega concluída.
 
 ## Regra Crítica de Atualização dos Arquivos
 
@@ -38,6 +40,7 @@ O Codex deve manter estes arquivos atualizados sempre que necessário.
 - decisões do projeto;
 - operação atual;
 - próximos passos recomendados;
+- critério de priorização das próximas iterações;
 - limitações relevantes.
 
 ### Atualizar `docs/pm_workflow.md` quando mudar
@@ -51,6 +54,7 @@ O Codex deve manter estes arquivos atualizados sempre que necessário.
 ### Atualizar `docs/codex_workflow.md` quando mudar
 
 - o processo esperado do executor técnico;
+- o critério esperado de fatiamento e preservação de valor da entrega;
 - regras de validação;
 - regras de testes;
 - regras de documentação;
@@ -66,17 +70,20 @@ O Codex deve manter estes arquivos atualizados sempre que necessário.
 1. Ler os arquivos obrigatórios.
 2. Entender objetivo, fora de escopo e DoD.
 3. Confirmar no código o estado real antes de alterar qualquer coisa.
-4. Implementar somente o necessário para o objetivo do PR.
-5. Atualizar testes quando o DoD ou o risco exigir.
-6. Atualizar documentação/contexto/processo quando necessário.
-7. Fazer higiene final dos arquivos alterados.
-8. Rodar a suíte completa.
-9. Só então considerar commit e PR.
+4. Implementar somente o necessário para o objetivo do PR, preservando o incremento funcional prometido.
+5. Não parar em preparação interna quando o prompt pedir valor funcional visível; incorporar os ajustes estruturais necessários na mesma entrega sempre que isso continuar seguro e revisável.
+6. Atualizar testes quando o DoD ou o risco exigir.
+7. Atualizar documentação/contexto/processo quando necessário.
+8. Validar se o valor prometido ficou perceptível ao final da entrega, além de checar testes e documentação.
+9. Fazer higiene final dos arquivos alterados.
+10. Rodar a suíte completa.
+11. Só então considerar commit e PR.
 
 ## Regras para Commit e PR
 
 O Codex só pode commitar e abrir PR depois de:
 - DoD cumprido;
+- valor prometido pela entrega efetivamente refletido no resultado final do PR;
 - arquivos de contexto/processo atualizados quando necessário;
 - suíte completa verde;
 - higiene final concluída.
