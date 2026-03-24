@@ -26,6 +26,9 @@ def _login(client):
 def _seed_categories(db_session):
     for name, kind in [
         ("N\u00e3o Categorizado", "expense"),
+        ("Moradia", "expense"),
+        ("Supermercado", "expense"),
+        ("Educa\u00e7\u00e3o", "expense"),
         ("Transporte", "expense"),
         ("Outros", "expense"),
         ("Sal\u00e1rio", "income"),
@@ -710,6 +713,102 @@ def test_admin_analysis_page_shows_auxiliary_conciliation_signals(client, db_ses
 
 
 
+def test_admin_analysis_page_shows_conciliated_category_breakdown(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(db_session, description="SALARIO MAR", normalized="salario mar", amount=5000.0, transaction_kind="income", category="Sal\u00e1rio")
+    _seed_transaction(db_session, description="ALUGUEL MAR", normalized="aluguel mar", amount=-1800.0, transaction_kind="expense", category="Moradia")
+    payment = _seed_transaction(
+        db_session,
+        description="PAGAMENTO FATURA MAR",
+        normalized="pagamento fatura mar",
+        amount=-120.45,
+        transaction_kind="expense",
+        category="Pagamento de Fatura",
+    )
+
+    invoice = _seed_credit_card_invoice(db_session, status="pending_review")
+    invoice_items = db_session.scalars(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id).order_by(CreditCardInvoiceItem.id.asc())
+    ).all()
+    invoice_items[0].category = "Supermercado"
+    invoice_items[0].categorization_method = "manual"
+    invoice_items[0].categorization_confidence = 1.0
+    invoice_items[1].category = "Educa\u00e7\u00e3o"
+    invoice_items[1].categorization_method = "manual"
+    invoice_items[1].categorization_confidence = 1.0
+    credit_item = CreditCardInvoiceItem(
+        invoice_id=invoice.id,
+        purchase_date=date(2026, 3, 8),
+        description_raw="DESCONTO NA FATURA - PO",
+        description_normalized="desconto na fatura - po",
+        amount_brl="-10.00",
+        installment_current=None,
+        installment_total=None,
+        is_installment=False,
+        derived_note="credito tecnico",
+        external_row_hash=f"row-hash-{invoice.id}-credit",
+    )
+    payment_item = CreditCardInvoiceItem(
+        invoice_id=invoice.id,
+        purchase_date=date(2026, 3, 9),
+        description_raw="PAGAMENTO EFETUADO",
+        description_normalized="pagamento efetuado",
+        amount_brl="-120.45",
+        installment_current=None,
+        installment_total=None,
+        is_installment=False,
+        derived_note="pagamento tecnico",
+        external_row_hash=f"row-hash-{invoice.id}-payment",
+    )
+    db_session.add_all([credit_item, payment_item])
+    db_session.flush()
+    conciliation = CreditCardInvoiceConciliation(
+        invoice_id=invoice.id,
+        status="conciliated",
+        gross_amount_brl="130.45",
+        invoice_credit_total_brl="10.00",
+        bank_payment_total_brl="120.45",
+        conciliated_total_brl="130.45",
+        remaining_balance_brl="0.00",
+    )
+    db_session.add(conciliation)
+    db_session.flush()
+    db_session.add_all(
+        [
+            CreditCardInvoiceConciliationItem(
+                conciliation_id=conciliation.id,
+                item_type="invoice_credit",
+                amount_brl="10.00",
+                bank_transaction_id=None,
+                invoice_item_id=credit_item.id,
+                notes="credito tecnico",
+            ),
+            CreditCardInvoiceConciliationItem(
+                conciliation_id=conciliation.id,
+                item_type="bank_payment",
+                amount_brl="120.45",
+                bank_transaction_id=payment.id,
+                invoice_item_id=None,
+                notes="pagamento conciliado",
+            ),
+        ]
+    )
+    db_session.commit()
+    _login(client)
+
+    response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+
+    assert response.status_code == 200
+    assert "Categorias conciliadas do m\u00eas-base" in response.text
+    assert "Base conciliada do m\u00eas-base" in response.text
+    assert "Supermercado" in response.text
+    assert "Educa\u00e7\u00e3o" in response.text
+    assert "Moradia" in response.text
+    assert "Cr\u00e9ditos t\u00e9cnicos de fatura" in response.text
+    assert "pagamentos banc\u00e1rios exclu\u00eddos" in response.text
+
+
 def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
@@ -968,6 +1067,127 @@ def test_admin_credit_card_invoice_detail_shows_items_and_summary(client, db_ses
     assert "30.45" in response.text
     assert "2" in response.text
     assert "3" in response.text
+
+
+def test_admin_credit_card_invoice_item_manual_category_flow_shows_preview_and_persists(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    invoice = _seed_credit_card_invoice(db_session, status="pending_review")
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == invoice.id, CreditCardInvoiceItem.description_raw == "SUPERMERCADO TESTE")
+    )
+    assert item is not None
+    _login(client)
+
+    detail = client.get(f"/admin/credit-card-invoices/{invoice.id}")
+    assert detail.status_code == 200
+    assert "Editar categoria" in detail.text
+
+    edit_page = client.get(f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category")
+    assert edit_page.status_code == 200
+    assert "Gerar preview do impacto" in edit_page.text
+    assert "Não Categorizado" in edit_page.text
+
+    preview = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category/preview",
+        data={"category": "Outros"},
+    )
+    assert preview.status_code == 200
+    assert "Preview antes de aplicar" in preview.text
+    assert "Outros" in preview.text
+    assert "A alteração só será persistida após confirmação explícita." in preview.text
+    assert "Confirmar alteração de categoria" in preview.text
+
+    applied = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category/apply",
+        data={"category": "Outros", "confirm_apply": "true"},
+        follow_redirects=True,
+    )
+    assert applied.status_code == 200
+    assert "Categoria do item de fatura atualizada." in applied.text
+    assert "Outros" in applied.text
+
+    db_session.expire_all()
+    refreshed = db_session.get(CreditCardInvoiceItem, item.id)
+    assert refreshed is not None
+    assert refreshed.category == "Outros"
+    assert refreshed.categorization_method == "manual"
+
+
+def test_admin_credit_card_invoice_item_manual_category_blocks_non_eligible_item(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    invoice = _seed_credit_card_invoice(db_session, status="pending_review")
+    payment_item = CreditCardInvoiceItem(
+        invoice_id=invoice.id,
+        purchase_date=date(2026, 3, 9),
+        description_raw="PAGAMENTO EFETUADO",
+        description_normalized="pagamento efetuado",
+        amount_brl="-130.45",
+        installment_current=None,
+        installment_total=None,
+        is_installment=False,
+        derived_note="pagamento tecnico",
+        external_row_hash=f"row-hash-{invoice.id}-payment",
+    )
+    db_session.add(payment_item)
+    db_session.commit()
+    _login(client)
+
+    response = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/items/{payment_item.id}/category/preview",
+        data={"category": "Outros"},
+    )
+
+    assert response.status_code == 422
+    assert "Somente itens charge aceitam categoria manual de consumo." in response.text
+
+
+def test_admin_credit_card_invoice_item_manual_category_requires_explicit_confirmation(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    invoice = _seed_credit_card_invoice(db_session, status="pending_review")
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == invoice.id, CreditCardInvoiceItem.description_raw == "SUPERMERCADO TESTE")
+    )
+    assert item is not None
+    _login(client)
+
+    response = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category/apply",
+        data={"category": "Outros"},
+    )
+
+    assert response.status_code == 422
+    assert "Confirme explicitamente a alteração antes de salvar." in response.text
+
+    db_session.expire_all()
+    refreshed = db_session.get(CreditCardInvoiceItem, item.id)
+    assert refreshed is not None
+    assert refreshed.category in (None, "Não Categorizado")
+    assert refreshed.categorization_method is None
+
+
+def test_admin_credit_card_invoice_item_manual_category_rejects_invalid_category(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    invoice = _seed_credit_card_invoice(db_session, status="pending_review")
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == invoice.id, CreditCardInvoiceItem.description_raw == "SUPERMERCADO TESTE")
+    )
+    assert item is not None
+    _login(client)
+
+    response = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category/preview",
+        data={"category": "Categoria Fantasma"},
+    )
+
+    assert response.status_code == 422
+    assert "Categoria inválida ou inativa para item de fatura." in response.text
 
 
 def test_admin_credit_card_invoice_detail_returns_404_for_missing_invoice(client, db_session, monkeypatch):

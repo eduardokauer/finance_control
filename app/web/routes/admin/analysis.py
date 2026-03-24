@@ -62,6 +62,12 @@ def admin_analysis_page(
         payload_snapshot["conciliated_month"] = live_snapshot["conciliated_month"]
     if payload_snapshot and "primary_summary" not in payload_snapshot:
         payload_snapshot["primary_summary"] = live_snapshot["primary_summary"]
+    if payload_snapshot:
+        payload_snapshot["category_breakdown"] = live_snapshot["category_breakdown"]
+        payload_snapshot["categories"] = live_snapshot["categories"]
+        payload_snapshot["top_expense_categories"] = live_snapshot["top_expense_categories"]
+        payload_snapshot.setdefault("charts", {})
+        payload_snapshot["charts"]["categories"] = live_snapshot["charts"]["categories"]
     analysis_data = payload_snapshot or live_snapshot
     html_fragment = renderable_analysis_html(analysis_run.html_output) if analysis_run else None
     return render_admin(

@@ -63,6 +63,9 @@ Ordem de leitura recomendada:
 - Regras manuais com `source_scope` implementadas.
 - Reaplicação de categorias para itens de fatura implementada em nível de serviço.
 - Exibição operacional da categoria dos itens de fatura no detalhe da fatura implementada.
+- Edição manual direta da categoria de item `charge` de fatura na UI implementada.
+- Preview de impacto e confirmação explícita antes de persistir a categoria manual de item de fatura implementados.
+- Leitura mensal por categoria promovida para a base conciliada do mês-base.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
 - Deduplicação forte implementada:
   - OFX usa controle por arquivo e transação canônica.
@@ -72,9 +75,7 @@ Ordem de leitura recomendada:
 
 - Conciliação automática de faturas.
 - Vínculo automático ou definitivo com pagamento de conta além da conciliação manual assistida.
-- Edição manual direta da categoria de um item específico de fatura na UI.
-- Preview de impacto para edição/correção manual de categoria em itens de fatura.
-- Leitura analítica completa por categoria baseada na visão conciliada.
+- Aplicação manual de regra em massa para itens de fatura com preview e confirmação explícita na UI.
 - Gráficos mês a mês / ano a ano por categoria usando a base conciliada.
 - Alertas e ações recomendadas recalculados sobre a nova base categorial de faturas.
 - Migração ampla de toda a análise histórica para base conciliada.
@@ -152,20 +153,25 @@ Ordem de leitura recomendada:
   - quantas faturas conciliadas entraram na leitura principal;
   - quantas ficaram fora;
   - valor de pagamentos bancários excluídos por conciliação.
+- O breakdown mensal por categoria do mês-base usa a visão conciliada:
+  - transações válidas da conta;
+  - itens `charge` de faturas `conciliated`;
+  - ajuste técnico separado para `credit`;
+  - exclusão de `payment` da própria fatura e de `bank_payment` conciliado do gasto principal.
 
 ### O que ainda não foi migrado totalmente
 
 - Gráficos históricos de 12 meses continuam apoiados na base atual.
-- Categorias mensais ainda não foram totalmente migradas para leitura conciliada com itens de fatura.
+- Comparações mês a mês / ano a ano por categoria ainda não usam a base conciliada nova.
 - Alertas e ações recomendadas ainda não foram refeitos sobre a base categorial nova.
 - A análise LLM continua separada da análise determinística e não é a leitura principal do admin.
 
 ### Dependências para próximas evoluções
 
 - As próximas evoluções devem preferir incrementos já úteis para a análise ou para a operação principal, evitando preparações isoladas como destino final de um PR.
-- Operação manual segura de categoria dos itens de fatura.
-- Preview de impacto antes de aplicar regra ou correção de categoria.
-- Uso da visão conciliada como base para leituras por categoria.
+- Comparações mês a mês / ano a ano por categoria na base conciliada.
+- Alertas e ações recomendadas sobre a base categorial conciliada, só depois da leitura mensal estar estável.
+- Aplicação de regra com confirmação explícita para itens de fatura, se a operação manual pontual precisar ganhar escala.
 
 ## 6. Operação Admin Atual
 
@@ -191,7 +197,8 @@ Ordem de leitura recomendada:
   - importar CSV Itaú;
   - listar faturas importadas;
   - ver detalhe da fatura;
-  - ver itens, tipo técnico e categoria quando aplicável.
+  - ver itens, tipo técnico e categoria quando aplicável;
+  - editar manualmente a categoria de item `charge` com preview de impacto e confirmação explícita.
 - **Conciliação**
   - visualizar candidatos de pagamento;
   - vincular manualmente pagamentos do extrato;
@@ -200,14 +207,14 @@ Ordem de leitura recomendada:
 - **Categorização de itens de fatura**
   - categorização determinística de `charge` no serviço;
   - reaplicação em nível de serviço;
-  - visualização da categoria no detalhe da fatura.
+  - visualização da categoria no detalhe da fatura;
+  - correção manual pontual via UI usando a base oficial de categorias.
 
 ### Limitações operacionais atuais
 
-- Não existe edição manual direta da categoria de um item de fatura na UI.
-- Não existe preview de impacto específico para reaplicação em itens de fatura na UI.
 - A decisão de conciliação ainda é manual.
-- A leitura por categoria baseada em faturas ainda não foi promovida para o centro da análise.
+- A operação manual atual de categoria em itens de fatura é pontual; ainda não existe aplicação de regra em massa com preview e confirmação explícita na UI.
+- A leitura por categoria conciliada está centrada no mês-base atual; comparações históricas por categoria ainda não foram promovidas.
 
 ## 7. Próximo Passo Atual e Sequência Recomendada
 
@@ -220,14 +227,13 @@ Ordem de leitura recomendada:
 
 ### Próximo passo atual do projeto
 
-- Entregar uma operação manual útil de categoria dos itens de fatura, com preview de impacto e confirmação explícita, como base imediata para a próxima leitura analítica por categoria.
+- Evoluir a leitura por categoria já conciliada para comparações mês a mês / ano a ano, preservando a leitura mensal atual como base principal.
 
 ### Sequência recomendada a partir daqui
 
-1. Entregar operação manual de categoria dos itens de fatura com preview de impacto e confirmação explícita, agrupando dependências próximas necessárias para que a entrega já seja útil ao usuário.
-2. Promover leitura analítica por categoria usando a visão conciliada.
-3. Evoluir para comparações mês a mês / ano a ano por categoria.
-4. Só depois recalcular alertas e ações recomendadas sobre a base categorial confiável.
+1. Evoluir para comparações mês a mês / ano a ano por categoria usando a visão conciliada já adotada no mês-base.
+2. Se houver necessidade operacional clara, adicionar aplicação de regra para itens de fatura com preview e confirmação explícita.
+3. Só depois recalcular alertas e ações recomendadas sobre a base categorial confiável.
 
 ## 8. Riscos e Limitações Conhecidas
 
@@ -235,5 +241,5 @@ Ordem de leitura recomendada:
 - Alertas e ações ainda não foram recalculados sobre a base categorial nova.
 - A competência mensal continua conservadora.
 - A visão bruta ainda é necessária para auditoria.
-- A UI de faturas ainda não oferece edição manual pontual de categoria por item.
+- A leitura conciliada por categoria ainda está concentrada no mês-base e depende de faturas totalmente conciliadas.
 - O MVP continua dependente do layout oficial de OFX Itaú e CSV Itaú já suportados.
