@@ -258,6 +258,112 @@
     </form>
   </div>
 
+  <section class="analysis-grid analysis-grid-2">
+    <div class="card stack" style="margin-bottom:0;">
+      <div>
+        <strong>Categorias conciliadas do mês-base</strong>
+        <div class="subtle">{{ analysis_data.category_breakdown.note }}</div>
+      </div>
+      <div class="analysis-list">
+        {% for category in analysis_data.categories %}
+          <div class="analysis-item">
+            <div class="analysis-item-title">
+              <strong>{{ category.name }}</strong>
+              {% if category.is_technical %}
+                <span class="badge warn">{{ category.technical_label }}</span>
+              {% else %}
+                <span class="badge">{{ category.flow_label }}</span>
+              {% endif %}
+            </div>
+            <p>
+              Movimento líquido: {{ category.display_total }}
+              {% if category.expense_total > 0 %}| despesa considerada: {{ category.expense_display }}{% endif %}
+              {% if category.expense_total > 0 %}| peso nas despesas: {{ category.share_of_expense_display }}{% endif %}
+              {% if category.income_total > 0 %}| entradas: {{ category.income_display }}{% endif %}
+              {% if category.technical_label == 'Crédito de Fatura' %}| abatimento técnico fora das categorias de consumo{% endif %}
+              | {{ category.transaction_count }} lançamento(s)
+            </p>
+          </div>
+        {% else %}
+          <div class="analysis-item">
+            <strong>Sem categorias conciliadas no mês-base</strong>
+            <p>Não houve movimentação categorizada na base conciliada do mês de referência.</p>
+          </div>
+        {% endfor %}
+        <div class="analysis-item">
+          <strong>Ajustes técnicos da leitura conciliada</strong>
+          <p>Créditos técnicos de fatura: {{ analysis_data.category_breakdown.invoice_credit_adjustment_display }} | pagamentos bancários excluídos: {{ analysis_data.category_breakdown.excluded_bank_payment_display }}.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card stack" style="margin-bottom:0;">
+      <div>
+        <strong>Comparações históricas por categoria</strong>
+        <div class="subtle">{{ analysis_data.category_history.note }}</div>
+      </div>
+      <div class="analysis-list">
+        {% for category in analysis_data.category_history.rows %}
+          <div class="analysis-item">
+            <div class="analysis-item-title">
+              <strong>{{ category.name }}</strong>
+              {% if category.is_technical %}
+                <span class="badge warn">{{ category.technical_label }}</span>
+              {% else %}
+                <span class="badge">{{ category.flow_label }}</span>
+              {% endif %}
+            </div>
+            <p>
+              {{ analysis_data.category_history.current_month_label }}: {{ category.current_display }}
+              {% if category.current_share_of_expense_display != 'n/a' %}| peso atual: {{ category.current_share_of_expense_display }}{% endif %}
+              | {{ analysis_data.category_history.previous_month_label }}: {{ category.previous_month_display }}
+              {% if category.previous_month_change %}| delta m/m: {{ category.previous_month_change.delta_display }} | {{ category.previous_month_change.trend_label }} {{ category.previous_month_change.percent_display }}{% else %}| m/m sem base{% endif %}
+              | {{ analysis_data.category_history.previous_year_label }}: {{ category.previous_year_display }}
+              {% if category.previous_year_change %}| delta a/a: {{ category.previous_year_change.delta_display }} | {{ category.previous_year_change.trend_label }} {{ category.previous_year_change.percent_display }}{% else %}| a/a sem base{% endif %}
+            </p>
+          </div>
+        {% else %}
+          <div class="analysis-item">
+            <strong>Sem base histórica suficiente por categoria</strong>
+            <p>O mês-base ainda não tem categorias conciliadas com histórico comparável suficiente para leitura m/m ou a/a.</p>
+          </div>
+        {% endfor %}
+        <div class="analysis-item">
+          <strong>Ajustes técnicos fora das categorias de consumo</strong>
+          <p>
+            {{ analysis_data.category_history.current_month_label }}: {{ analysis_data.category_history.technical_adjustments.current_invoice_credit_display }}
+            | {{ analysis_data.category_history.previous_month_label }}: {{ analysis_data.category_history.technical_adjustments.previous_month_invoice_credit_display }}
+            {% if analysis_data.category_history.technical_adjustments.previous_month_change %}| delta m/m: {{ analysis_data.category_history.technical_adjustments.previous_month_change.delta_display }} | {{ analysis_data.category_history.technical_adjustments.previous_month_change.trend_label }} {{ analysis_data.category_history.technical_adjustments.previous_month_change.percent_display }}{% else %}| m/m sem base{% endif %}
+            | {{ analysis_data.category_history.previous_year_label }}: {{ analysis_data.category_history.technical_adjustments.previous_year_invoice_credit_display }}
+            {% if analysis_data.category_history.technical_adjustments.previous_year_change %}| delta a/a: {{ analysis_data.category_history.technical_adjustments.previous_year_change.delta_display }} | {{ analysis_data.category_history.technical_adjustments.previous_year_change.trend_label }} {{ analysis_data.category_history.technical_adjustments.previous_year_change.percent_display }}{% else %}| a/a sem base{% endif %}
+          </p>
+          <p>{{ analysis_data.category_history.technical_adjustments.note }}</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="card stack technical-note" style="margin-bottom:0;">
+    <div>
+      <strong>Itens financeiros e técnicos</strong>
+      <div class="subtle">Eles continuam no consolidado principal, mas podem distorcer a leitura de consumo real.</div>
+    </div>
+    <div class="analysis-list">
+      <div class="analysis-item">
+        <strong>Transferências</strong>
+        <p>{{ analysis_data.technical_items.transfer_display }} | {{ analysis_data.technical_items.transfer_share_display }} do total de despesas</p>
+      </div>
+      <div class="analysis-item">
+        <strong>Pagamento de Fatura</strong>
+        <p>{{ analysis_data.technical_items.card_bill_display }} | {{ analysis_data.technical_items.card_bill_share_display }} do total de despesas</p>
+      </div>
+      <div class="analysis-item">
+        <strong>Leitura combinada</strong>
+        <p>{{ analysis_data.technical_items.combined_display }} | {{ analysis_data.technical_items.combined_share_display }} das despesas. {{ analysis_data.technical_items.note }}</p>
+      </div>
+    </div>
+  </div>
+
   {% if analysis_run %}
     <section class="comparison-grid">
       <div class="card" style="margin-bottom:0;">
@@ -342,67 +448,6 @@
       </div>
     </section>
 
-    <section class="analysis-grid analysis-grid-2">
-      <div class="card stack" style="margin-bottom:0;">
-        <div>
-          <strong>Categorias conciliadas do mês-base</strong>
-          <div class="subtle">{{ analysis_data.category_breakdown.note }}</div>
-        </div>
-        <div class="analysis-list">
-          {% for category in analysis_data.categories %}
-            <div class="analysis-item">
-              <div class="analysis-item-title">
-                <strong>{{ category.name }}</strong>
-                {% if category.is_technical %}
-                  <span class="badge warn">{{ category.technical_label }}</span>
-                {% else %}
-                  <span class="badge">{{ category.flow_label }}</span>
-                {% endif %}
-              </div>
-              <p>
-                Movimento líquido: {{ category.display_total }}
-                {% if category.expense_total > 0 %}| despesa considerada: {{ category.expense_display }}{% endif %}
-                {% if category.expense_total > 0 %}| peso nas despesas: {{ category.share_of_expense_display }}{% endif %}
-                {% if category.income_total > 0 %}| entradas: {{ category.income_display }}{% endif %}
-                {% if category.technical_label == 'Crédito de Fatura' %}| abatimento técnico fora das categorias de consumo{% endif %}
-                | {{ category.transaction_count }} lançamento(s)
-              </p>
-            </div>
-          {% else %}
-            <div class="analysis-item">
-              <strong>Sem categorias conciliadas no mês-base</strong>
-              <p>Não houve movimentação categorizada na base conciliada do mês de referência.</p>
-            </div>
-          {% endfor %}
-          <div class="analysis-item">
-            <strong>Ajustes técnicos da leitura conciliada</strong>
-            <p>Créditos técnicos de fatura: {{ analysis_data.category_breakdown.invoice_credit_adjustment_display }} | pagamentos bancários excluídos: {{ analysis_data.category_breakdown.excluded_bank_payment_display }}.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="card stack technical-note" style="margin-bottom:0;">
-        <div>
-          <strong>Itens financeiros e técnicos</strong>
-          <div class="subtle">Eles continuam no consolidado principal, mas podem distorcer a leitura de consumo real.</div>
-        </div>
-        <div class="analysis-list">
-          <div class="analysis-item">
-            <strong>Transferências</strong>
-            <p>{{ analysis_data.technical_items.transfer_display }} | {{ analysis_data.technical_items.transfer_share_display }} do total de despesas</p>
-          </div>
-          <div class="analysis-item">
-            <strong>Pagamento de Fatura</strong>
-            <p>{{ analysis_data.technical_items.card_bill_display }} | {{ analysis_data.technical_items.card_bill_share_display }} do total de despesas</p>
-          </div>
-          <div class="analysis-item">
-            <strong>Leitura combinada</strong>
-            <p>{{ analysis_data.technical_items.combined_display }} | {{ analysis_data.technical_items.combined_share_display }} das despesas. {{ analysis_data.technical_items.note }}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <div class="card stack" style="margin-bottom:0;">
       <div>
         <strong>Consolidado mensal de 12 meses</strong>
@@ -450,67 +495,6 @@
       </div>
     </details>
   {% else %}
-    <section class="analysis-grid analysis-grid-2">
-      <div class="card stack" style="margin-bottom:0;">
-        <div>
-          <strong>Categorias conciliadas do mês-base</strong>
-          <div class="subtle">{{ analysis_data.category_breakdown.note }}</div>
-        </div>
-        <div class="analysis-list">
-          {% for category in analysis_data.categories %}
-            <div class="analysis-item">
-              <div class="analysis-item-title">
-                <strong>{{ category.name }}</strong>
-                {% if category.is_technical %}
-                  <span class="badge warn">{{ category.technical_label }}</span>
-                {% else %}
-                  <span class="badge">{{ category.flow_label }}</span>
-                {% endif %}
-              </div>
-              <p>
-                Movimento líquido: {{ category.display_total }}
-                {% if category.expense_total > 0 %}| despesa considerada: {{ category.expense_display }}{% endif %}
-                {% if category.expense_total > 0 %}| peso nas despesas: {{ category.share_of_expense_display }}{% endif %}
-                {% if category.income_total > 0 %}| entradas: {{ category.income_display }}{% endif %}
-                {% if category.technical_label == 'Crédito de Fatura' %}| abatimento técnico fora das categorias de consumo{% endif %}
-                | {{ category.transaction_count }} lançamento(s)
-              </p>
-            </div>
-          {% else %}
-            <div class="analysis-item">
-              <strong>Sem categorias conciliadas no mês-base</strong>
-              <p>Não houve movimentação categorizada na base conciliada do mês de referência.</p>
-            </div>
-          {% endfor %}
-          <div class="analysis-item">
-            <strong>Ajustes técnicos da leitura conciliada</strong>
-            <p>Créditos técnicos de fatura: {{ analysis_data.category_breakdown.invoice_credit_adjustment_display }} | pagamentos bancários excluídos: {{ analysis_data.category_breakdown.excluded_bank_payment_display }}.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="card stack technical-note" style="margin-bottom:0;">
-        <div>
-          <strong>Itens financeiros e técnicos</strong>
-          <div class="subtle">Eles continuam no consolidado principal, mas podem distorcer a leitura de consumo real.</div>
-        </div>
-        <div class="analysis-list">
-          <div class="analysis-item">
-            <strong>Transferências</strong>
-            <p>{{ analysis_data.technical_items.transfer_display }} | {{ analysis_data.technical_items.transfer_share_display }} do total de despesas</p>
-          </div>
-          <div class="analysis-item">
-            <strong>Pagamento de Fatura</strong>
-            <p>{{ analysis_data.technical_items.card_bill_display }} | {{ analysis_data.technical_items.card_bill_share_display }} do total de despesas</p>
-          </div>
-          <div class="analysis-item">
-            <strong>Leitura combinada</strong>
-            <p>{{ analysis_data.technical_items.combined_display }} | {{ analysis_data.technical_items.combined_share_display }} das despesas. {{ analysis_data.technical_items.note }}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <div class="card stack" style="margin-bottom:0;">
       <strong>Análise ainda não gerada</strong>
       <div class="subtle">Os indicadores do topo já refletem o período selecionado. Use o botão acima para registrar e visualizar a análise determinística completa com gráficos, alertas e ações.</div>

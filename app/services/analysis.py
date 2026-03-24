@@ -85,6 +85,12 @@ def _income_amount(tx: Transaction) -> float:
     return float(tx.amount) if float(tx.amount) > 0 else 0.0
 
 
+def _load_transactions_for_period(db: Session, *, period_start: date, period_end: date) -> list[Transaction]:
+    return db.scalars(
+        select(Transaction).where(Transaction.transaction_date >= period_start, Transaction.transaction_date <= period_end)
+    ).all()
+
+
 def _build_summary(txs: list[Transaction]) -> dict:
     income_total = sum(_income_amount(tx) for tx in txs)
     expense_total = sum(_expense_amount(tx) for tx in txs)
@@ -333,6 +339,164 @@ def _build_conciliated_category_breakdown(
             "Base conciliada do mês-base: inclui transações válidas da conta e itens charge de faturas conciliadas. "
             "Créditos técnicos de fatura aparecem como ajuste separado e pagamentos técnicos ficam fora das categorias de consumo."
         ),
+    }
+
+
+def _earliest_history_month(db: Session) -> date | None:
+    earliest_tx_date = db.scalar(select(func.min(Transaction.transaction_date)))
+    earliest_invoice_due_date = db.scalar(select(func.min(CreditCardInvoice.due_date)))
+    candidates = [value for value in (earliest_tx_date, earliest_invoice_due_date) if value is not None]
+    if not candidates:
+        return None
+    return month_start(min(candidates))
+
+
+def _build_conciliated_category_month_snapshot(
+    db: Session,
+    *,
+    anchor_month: date,
+) -> dict:
+    period_start = month_start(anchor_month)
+    period_end = month_end(anchor_month)
+    month_txs = _load_transactions_for_period(db, period_start=period_start, period_end=period_end)
+    breakdown = _build_conciliated_category_breakdown(
+        db,
+        period_start=period_start,
+        period_end=period_end,
+        current_txs=month_txs,
+    )
+    expense_rows = [row for row in breakdown["rows"] if row["expense_total"] > 0]
+    return {
+        "month": period_start.strftime("%Y-%m"),
+        "label": format_month_label(period_start),
+        "period_start": period_start,
+        "period_end": period_end,
+        "breakdown": breakdown,
+        "expense_rows": expense_rows,
+        "expense_by_category": {row["name"]: row["expense_total"] for row in expense_rows},
+        "row_lookup": {row["name"]: row for row in breakdown["rows"]},
+        "has_activity": bool(month_txs) or breakdown["included_invoice_count"] > 0,
+    }
+
+
+def _build_conciliated_category_history(
+    db: Session,
+    *,
+    anchor_month: date,
+) -> dict:
+    current_snapshot = _build_conciliated_category_month_snapshot(db, anchor_month=anchor_month)
+    previous_month = add_months(month_start(anchor_month), -1)
+    previous_year_month = add_months(month_start(anchor_month), -12)
+    earliest_month = _earliest_history_month(db)
+
+    previous_month_available = earliest_month is not None and previous_month >= earliest_month
+    previous_year_available = earliest_month is not None and previous_year_month >= earliest_month
+
+    previous_snapshot = (
+        _build_conciliated_category_month_snapshot(db, anchor_month=previous_month)
+        if previous_month_available
+        else None
+    )
+    previous_year_snapshot = (
+        _build_conciliated_category_month_snapshot(db, anchor_month=previous_year_month)
+        if previous_year_available
+        else None
+    )
+
+    rows: list[dict] = []
+    for current_row in current_snapshot["breakdown"]["top_expense_categories"]:
+        previous_month_total = (
+            previous_snapshot["expense_by_category"].get(current_row["name"], 0.0)
+            if previous_snapshot is not None
+            else None
+        )
+        previous_year_total = (
+            previous_year_snapshot["expense_by_category"].get(current_row["name"], 0.0)
+            if previous_year_snapshot is not None
+            else None
+        )
+        previous_month_change = (
+            _build_metric_change(current_row["expense_total"], previous_month_total)
+            if previous_month_total is not None
+            else None
+        )
+        previous_year_change = (
+            _build_metric_change(current_row["expense_total"], previous_year_total)
+            if previous_year_total is not None
+            else None
+        )
+        rows.append(
+            {
+                "name": current_row["name"],
+                "flow_label": current_row["flow_label"],
+                "is_technical": current_row["is_technical"],
+                "technical_label": current_row["technical_label"],
+                "current_total": current_row["expense_total"],
+                "current_display": current_row["expense_display"],
+                "current_share_of_expense_display": current_row["share_of_expense_display"],
+                "previous_month_total": previous_month_total,
+                "previous_month_display": format_currency_br(previous_month_total) if previous_month_total is not None else "Sem base",
+                "previous_month_change": previous_month_change,
+                "previous_year_total": previous_year_total,
+                "previous_year_display": format_currency_br(previous_year_total) if previous_year_total is not None else "Sem base",
+                "previous_year_change": previous_year_change,
+            }
+        )
+
+    current_adjustment_total = current_snapshot["breakdown"]["invoice_credit_adjustment_total"]
+    previous_month_adjustment_total = (
+        previous_snapshot["breakdown"]["invoice_credit_adjustment_total"]
+        if previous_snapshot is not None
+        else None
+    )
+    previous_year_adjustment_total = (
+        previous_year_snapshot["breakdown"]["invoice_credit_adjustment_total"]
+        if previous_year_snapshot is not None
+        else None
+    )
+
+    return {
+        "current_month_label": current_snapshot["label"],
+        "previous_month_label": format_month_label(previous_month),
+        "previous_year_label": format_month_label(previous_year_month),
+        "previous_month_available": previous_month_available,
+        "previous_year_available": previous_year_available,
+        "rows": rows,
+        "note": (
+            "Comparações históricas por categoria usando a mesma base conciliada do mês-base. "
+            "Só entram transações válidas da conta e charges de faturas conciliated; créditos técnicos seguem separados e "
+            "pagamentos técnicos continuam fora do gasto real principal."
+        ),
+        "technical_adjustments": {
+            "current_invoice_credit_total": current_adjustment_total,
+            "current_invoice_credit_display": format_currency_br(current_adjustment_total),
+            "previous_month_invoice_credit_total": previous_month_adjustment_total,
+            "previous_month_invoice_credit_display": (
+                format_currency_br(previous_month_adjustment_total)
+                if previous_month_adjustment_total is not None
+                else "Sem base"
+            ),
+            "previous_month_change": (
+                _build_metric_change(current_adjustment_total, previous_month_adjustment_total)
+                if previous_month_adjustment_total is not None
+                else None
+            ),
+            "previous_year_invoice_credit_total": previous_year_adjustment_total,
+            "previous_year_invoice_credit_display": (
+                format_currency_br(previous_year_adjustment_total)
+                if previous_year_adjustment_total is not None
+                else "Sem base"
+            ),
+            "previous_year_change": (
+                _build_metric_change(current_adjustment_total, previous_year_adjustment_total)
+                if previous_year_adjustment_total is not None
+                else None
+            ),
+            "note": (
+                "Créditos de fatura continuam fora das categorias de consumo e os pagamentos bancários conciliados já saem "
+                "da despesa principal em todos os meses comparados."
+            ),
+        },
     }
 
 
@@ -622,20 +786,13 @@ def _build_actions(
 
 
 def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date) -> dict:
-    current_txs = db.scalars(
-        select(Transaction).where(Transaction.transaction_date >= period_start, Transaction.transaction_date <= period_end)
-    ).all()
+    current_txs = _load_transactions_for_period(db, period_start=period_start, period_end=period_end)
     summary = _build_summary(current_txs)
 
     comparison_month = month_start(period_start)
     previous_month_end = comparison_month - timedelta(days=1)
     previous_month_start = previous_month_end.replace(day=1)
-    previous_txs = db.scalars(
-        select(Transaction).where(
-            Transaction.transaction_date >= previous_month_start,
-            Transaction.transaction_date <= previous_month_end,
-        )
-    ).all()
+    previous_txs = _load_transactions_for_period(db, period_start=previous_month_start, period_end=previous_month_end)
     previous_summary = _build_summary(previous_txs)
     comparison = {
         "reference_label": format_month_label(previous_month_start),
@@ -647,9 +804,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
     anchor_month = month_start(period_end)
     current_month_start = anchor_month
     current_month_end = month_end(anchor_month)
-    current_month_txs = db.scalars(
-        select(Transaction).where(Transaction.transaction_date >= current_month_start, Transaction.transaction_date <= current_month_end)
-    ).all()
+    current_month_txs = _load_transactions_for_period(db, period_start=current_month_start, period_end=current_month_end)
     current_month_summary = _build_summary(current_month_txs)
     raw_category_rows = _build_category_rows(current_month_txs, expense_total=current_month_summary["expense_total"])
     category_breakdown = _build_conciliated_category_breakdown(
@@ -681,6 +836,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         previous_categories=previous_categories,
     )
     monthly_series = _build_monthly_series(db, anchor_month=anchor_month)
+    category_history = _build_conciliated_category_history(db, anchor_month=anchor_month)
     conciliation_signals = build_conciliation_analytics_snapshot(db, period_start=period_start, period_end=period_end)
     conciliated_month = _build_conciliated_month_snapshot(
         db,
@@ -703,6 +859,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         "comparison": comparison,
         "monthly_series": monthly_series,
         "category_breakdown": category_breakdown,
+        "category_history": category_history,
         "categories": category_rows,
         "top_expense_categories": top_expense_categories,
         "technical_items": technical_items,
@@ -755,7 +912,43 @@ def _render_category_items(items: list[dict]) -> str:
     for item in items[:5]:
         note = f" <em>({item['technical_label']})</em>" if item["is_technical"] else ""
         rows.append(f"<li><strong>{item['name']}</strong>: {item['display_total']} - {item['flow_label']}{note}</li>")
-    return f"<ul>{''.join(rows)}</ul>" if rows else "<p>Sem categorias relevantes no mês-base.</p>"
+    return "<ul>{}</ul>".format("".join(rows)) if rows else "<p>Sem categorias relevantes no mês-base.</p>"
+
+
+def _render_category_history_items(history: dict) -> str:
+    rows = []
+    for item in history.get("rows", [])[:5]:
+        technical_note = ""
+        if item["is_technical"] and item["technical_label"]:
+            technical_note = " <em>({})</em>".format(item["technical_label"])
+        previous_month_note = (
+            "{}: {} | delta: {}".format(
+                history["previous_month_label"],
+                item["previous_month_display"],
+                item["previous_month_change"]["delta_display"],
+            )
+            if item["previous_month_change"] is not None
+            else "{}: sem base".format(history["previous_month_label"])
+        )
+        previous_year_note = (
+            "{}: {} | delta: {}".format(
+                history["previous_year_label"],
+                item["previous_year_display"],
+                item["previous_year_change"]["delta_display"],
+            )
+            if item["previous_year_change"] is not None
+            else "{}: sem base".format(history["previous_year_label"])
+        )
+        rows.append(
+            "<li><strong>{name}</strong>{technical}: {current} | {previous_month} | {previous_year}</li>".format(
+                name=item["name"],
+                technical=technical_note,
+                current=item["current_display"],
+                previous_month=previous_month_note,
+                previous_year=previous_year_note,
+            )
+        )
+    return "<ul>{}</ul>".format("".join(rows)) if rows else "<p>Sem categorias conciliadas suficientes para comparar historicamente.</p>"
 
 
 def render_analysis_html(snapshot: dict) -> str:
@@ -765,32 +958,66 @@ def render_analysis_html(snapshot: dict) -> str:
     technical = snapshot["technical_items"]
     conciliated_month = snapshot["conciliated_month"]
     category_breakdown = snapshot.get("category_breakdown", {})
-    return (
-        "<!DOCTYPE html>"
-        "<html><head><meta charset=\"UTF-8\"></head><body>"
-        f"<h1>An\u00e1lise financeira determin\u00edstica</h1>"
-        f"<p><strong>Per\u00edodo:</strong> {snapshot['period']['label']}</p>"
-        "<h2>Resumo principal conciliado</h2>"
-        f"<p>{primary_summary['executive_summary']}</p>"
-        f"<p>{primary_summary['coverage_note']} Pagamentos banc\u00e1rios exclu\u00eddos por concilia\u00e7\u00e3o: {primary_summary['excluded_bank_payment_display']}.</p>"
-        "<h2>Vis\u00e3o bruta de apoio</h2>"
-        f"<p>Receitas brutas em {summary['income_display']}, despesas brutas em {summary['expense_display']} e saldo bruto de {summary['balance_display']}.</p>"
-        f"<p>Contra {comparison['reference_label']}, as despesas brutas {comparison['expense']['trend_label']} {comparison['expense']['percent_display']} ({comparison['expense']['delta_display']}).</p>"
-        f"<p>Itens t\u00e9cnicos do m\u00eas-base: {technical['combined_display']} ({technical['combined_share_display']} das despesas brutas).</p>"
-        "<h2>Categorias do m\u00eas-base na vis\u00e3o conciliada</h2>"
-        f"<p>{category_breakdown.get('note', 'Breakdown mensal por categoria usando a base conciliada atual.')}</p>"
-        f"<p>Cr\u00e9ditos t\u00e9cnicos de fatura fora das categorias de consumo: {category_breakdown.get('invoice_credit_adjustment_display', 'R$ 0,00')}.</p>"
-        "<h2>Cobertura da vis\u00e3o conciliada</h2>"
-        f"<p>Receitas da conta em {conciliated_month['bank_income_display']}, despesas l\u00edquidas conciliadas em {conciliated_month['net_conciliated_expense_display']} e saldo conciliado de {conciliated_month['conciliated_balance_display']}.</p>"
-        f"<p>Faturas conciliadas consideradas: {conciliated_month['included_invoice_count']}. Faturas fora da leitura principal: {conciliated_month['outside_invoices_total']}.</p>"
-        "<h2>Alertas</h2>"
-        f"{_render_alert_items(snapshot['alerts'])}"
-        "<h2>A\u00e7\u00f5es recomendadas</h2>"
-        f"{_render_action_items(snapshot['actions'])}"
-        "<h2>Categorias em destaque</h2>"
-        f"{_render_category_items(snapshot['categories'])}"
-        "</body></html>"
-    )
+    category_history = snapshot.get("category_history", {})
+    category_breakdown_note = category_breakdown.get("note") or "Breakdown mensal por categoria usando a base conciliada atual."
+    invoice_credit_adjustment_display = category_breakdown.get("invoice_credit_adjustment_display") or "R$ 0,00"
+    category_history_note = category_history.get("note") or "Comparações históricas por categoria ainda indisponíveis."
+    category_history_html = _render_category_history_items(category_history)
+    alerts_html = _render_alert_items(snapshot["alerts"])
+    actions_html = _render_action_items(snapshot["actions"])
+    categories_html = _render_category_items(snapshot["categories"])
+    parts = [
+        "<!DOCTYPE html>",
+        "<html><head><meta charset=\"UTF-8\"></head><body>",
+        "<h1>Análise financeira determinística</h1>",
+        "<p><strong>Período:</strong> {}</p>".format(snapshot["period"]["label"]),
+        "<h2>Resumo principal conciliado</h2>",
+        "<p>{}</p>".format(primary_summary["executive_summary"]),
+        "<p>{} Pagamentos bancários excluídos por conciliação: {}.</p>".format(
+            primary_summary["coverage_note"],
+            primary_summary["excluded_bank_payment_display"],
+        ),
+        "<h2>Visão bruta de apoio</h2>",
+        "<p>Receitas brutas em {}, despesas brutas em {} e saldo bruto de {}.</p>".format(
+            summary["income_display"],
+            summary["expense_display"],
+            summary["balance_display"],
+        ),
+        "<p>Contra {}, as despesas brutas {} {} ({}).</p>".format(
+            comparison["reference_label"],
+            comparison["expense"]["trend_label"],
+            comparison["expense"]["percent_display"],
+            comparison["expense"]["delta_display"],
+        ),
+        "<p>Itens técnicos do mês-base: {} ({} das despesas brutas).</p>".format(
+            technical["combined_display"],
+            technical["combined_share_display"],
+        ),
+        "<h2>Categorias do mês-base na visão conciliada</h2>",
+        "<p>{}</p>".format(category_breakdown_note),
+        "<p>Créditos técnicos de fatura fora das categorias de consumo: {}.</p>".format(invoice_credit_adjustment_display),
+        "<h2>Comparações históricas por categoria</h2>",
+        "<p>{}</p>".format(category_history_note),
+        category_history_html,
+        "<h2>Cobertura da visão conciliada</h2>",
+        "<p>Receitas da conta em {}, despesas líquidas conciliadas em {} e saldo conciliado de {}.</p>".format(
+            conciliated_month["bank_income_display"],
+            conciliated_month["net_conciliated_expense_display"],
+            conciliated_month["conciliated_balance_display"],
+        ),
+        "<p>Faturas conciliadas consideradas: {}. Faturas fora da leitura principal: {}.</p>".format(
+            conciliated_month["included_invoice_count"],
+            conciliated_month["outside_invoices_total"],
+        ),
+        "<h2>Alertas</h2>",
+        alerts_html,
+        "<h2>Ações recomendadas</h2>",
+        actions_html,
+        "<h2>Categorias em destaque</h2>",
+        categories_html,
+        "</body></html>",
+    ]
+    return "".join(parts)
 
 
 def parse_analysis_payload(payload: str) -> dict | None:
