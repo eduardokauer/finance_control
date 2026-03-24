@@ -6,13 +6,17 @@ from sqlalchemy import func, select
 
 from app.repositories.models import CategorizationRule, Category, CreditCard, CreditCardInvoice, CreditCardInvoiceItem, SourceFile
 from app.services.credit_card_bills import (
+    CreditCardBillUploadInput,
     CreditCardInvoiceCategoryEditError,
     apply_manual_credit_card_invoice_item_category_change,
+    apply_manual_credit_card_invoice_item_category_rule_application,
     classify_credit_card_invoice_item,
     create_credit_card,
     ensure_credit_card_invoice_conciliation,
     get_credit_card_invoice_detail,
+    import_credit_card_bill,
     preview_manual_credit_card_invoice_item_category_change,
+    preview_manual_credit_card_invoice_item_category_rule_application,
     recategorize_credit_card_invoice_items,
 )
 
@@ -590,6 +594,199 @@ def test_manual_credit_card_invoice_item_category_preview_and_apply_persists_man
     assert updated.categorization_confidence == 1.0
     assert updated.applied_rule is None
     assert updated.categorization_rule_id is None
+
+
+def test_manual_credit_card_invoice_item_category_apply_to_base_creates_rule_reapplies_existing_items_and_future_imports(db_session):
+    _seed_categories(db_session)
+    invoice = _create_invoice_with_items(
+        db_session,
+        descriptions_and_amounts=[
+            ("SUPERMERCADO TESTE", "120.00"),
+            ("SUPERMERCADO TESTE", "45.00"),
+            ("CURSO ONLINE", "30.00"),
+        ],
+        total_amount_brl="195.00",
+    )
+    items = db_session.scalars(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == invoice.id)
+        .order_by(CreditCardInvoiceItem.id.asc())
+    ).all()
+    target_item = items[0]
+
+    preview = preview_manual_credit_card_invoice_item_category_rule_application(
+        db_session,
+        invoice_id=invoice.id,
+        item_id=target_item.id,
+        category_name="Supermercado",
+        rule_pattern="supermercado teste",
+        rule_type="exact_normalized",
+    )
+
+    assert preview.rule_id_to_update is None
+    assert preview.affected_count == 2
+    assert preview.affected_total_brl == Decimal("165.00")
+    assert "importações futuras" in preview.future_imports_note
+    assert preview.category_distribution[0].category_name == "Não Categorizado"
+    assert {item.description_raw for item in preview.impacted_items} == {"SUPERMERCADO TESTE"}
+
+    result = apply_manual_credit_card_invoice_item_category_rule_application(
+        db_session,
+        invoice_id=invoice.id,
+        item_id=target_item.id,
+        category_name="Supermercado",
+        rule_pattern="supermercado teste",
+        rule_type="exact_normalized",
+    )
+
+    assert result.rule.category_name == "Supermercado"
+    assert result.rule.rule_type == "exact_normalized"
+    assert result.rule.source_scope == "credit_card_invoice_item"
+    assert result.rule.is_active is True
+    assert result.reapply_result["checked_count"] == 2
+
+    refreshed_items = db_session.scalars(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == invoice.id)
+        .order_by(CreditCardInvoiceItem.id.asc())
+    ).all()
+    assert refreshed_items[0].category == "Supermercado"
+    assert refreshed_items[0].categorization_method == "rule"
+    assert refreshed_items[0].categorization_rule_id == result.rule.id
+    assert refreshed_items[1].category == "Supermercado"
+    assert refreshed_items[1].categorization_method == "rule"
+    assert refreshed_items[1].categorization_rule_id == result.rule.id
+    assert refreshed_items[2].category in (None, "Não Categorizado")
+
+    imported = import_credit_card_bill(
+        db_session,
+        file_name="invoice-future.csv",
+        raw_content="data;lançamento;valor\n05/05/2026;SUPERMERCADO TESTE;80,00\n".encode("utf-8"),
+        upload_input=CreditCardBillUploadInput(
+            card_id=invoice.card_id,
+            billing_year=2026,
+            billing_month=5,
+            due_date=date(2026, 5, 20),
+            closing_date=date(2026, 5, 12),
+            total_amount_brl=Decimal("80.00"),
+            notes="future import",
+        ),
+    )
+
+    imported_item = db_session.scalar(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == imported["invoice_id"])
+    )
+    assert imported_item is not None
+    assert imported_item.category == "Supermercado"
+    assert imported_item.categorization_method == "rule"
+    assert imported_item.categorization_rule_id == result.rule.id
+
+
+def test_manual_credit_card_invoice_item_category_apply_to_base_updates_existing_invoice_rule(db_session):
+    _seed_categories(db_session)
+    existing_rule = CategorizationRule(
+        rule_type="exact_normalized",
+        pattern="supermercado teste",
+        category_name="Outros",
+        kind_mode="flow",
+        source_scope="credit_card_invoice_item",
+        priority=0,
+        is_active=True,
+    )
+    db_session.add(existing_rule)
+    db_session.commit()
+
+    invoice = _create_invoice_with_items(
+        db_session,
+        descriptions_and_amounts=[
+            ("SUPERMERCADO TESTE", "120.00"),
+            ("SUPERMERCADO TESTE", "45.00"),
+        ],
+        total_amount_brl="165.00",
+    )
+    items = db_session.scalars(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == invoice.id)
+        .order_by(CreditCardInvoiceItem.id.asc())
+    ).all()
+    for item in items:
+        item.category = "Outros"
+        item.categorization_method = "rule"
+        item.categorization_confidence = 1.0
+        item.applied_rule = existing_rule.pattern
+        item.categorization_rule_id = existing_rule.id
+    db_session.commit()
+
+    preview = preview_manual_credit_card_invoice_item_category_rule_application(
+        db_session,
+        invoice_id=invoice.id,
+        item_id=items[0].id,
+        category_name="Supermercado",
+        rule_pattern="supermercado teste",
+        rule_type="exact_normalized",
+    )
+
+    assert preview.rule_id_to_update == existing_rule.id
+    assert "será atualizada" in preview.rule_action_label
+
+    result = apply_manual_credit_card_invoice_item_category_rule_application(
+        db_session,
+        invoice_id=invoice.id,
+        item_id=items[0].id,
+        category_name="Supermercado",
+        rule_pattern="supermercado teste",
+        rule_type="exact_normalized",
+    )
+
+    assert result.rule.id == existing_rule.id
+    assert result.rule.category_name == "Supermercado"
+    assert result.reapply_result["updated_count"] == 2
+
+
+def test_manual_credit_card_invoice_item_category_apply_to_base_blocks_non_charge_items(db_session):
+    _seed_categories(db_session)
+    invoice = _create_invoice_with_items(
+        db_session,
+        descriptions_and_amounts=[("PAGAMENTO EFETUADO", "-850.00")],
+        total_amount_brl="-850.00",
+    )
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id)
+    )
+    assert item is not None
+
+    with pytest.raises(CreditCardInvoiceCategoryEditError):
+        preview_manual_credit_card_invoice_item_category_rule_application(
+            db_session,
+            invoice_id=invoice.id,
+            item_id=item.id,
+            category_name="Educação",
+            rule_pattern="pagamento efetuado",
+            rule_type="exact_normalized",
+        )
+
+
+def test_manual_credit_card_invoice_item_category_apply_to_base_rejects_invalid_category(db_session):
+    _seed_categories(db_session)
+    invoice = _create_invoice_with_items(
+        db_session,
+        descriptions_and_amounts=[("CURSO ONLINE", "120.00")],
+        total_amount_brl="120.00",
+    )
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id)
+    )
+    assert item is not None
+
+    with pytest.raises(CreditCardInvoiceCategoryEditError):
+        preview_manual_credit_card_invoice_item_category_rule_application(
+            db_session,
+            invoice_id=invoice.id,
+            item_id=item.id,
+            category_name="Categoria Fantasma",
+            rule_pattern="curso online",
+            rule_type="exact_normalized",
+        )
 
 
 def test_manual_credit_card_invoice_item_category_blocks_non_charge_items(db_session):
