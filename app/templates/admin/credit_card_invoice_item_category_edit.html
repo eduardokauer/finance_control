@@ -16,7 +16,15 @@
     margin: 6px 0 0;
     color: var(--muted);
   }
+  .preview-table th,
+  .preview-table td {
+    white-space: nowrap;
+  }
+  .preview-table td:nth-child(2) {
+    white-space: normal;
+  }
 </style>
+
 <section class="card stack">
   <div class="inline" style="justify-content: space-between; align-items: flex-start;">
     <div>
@@ -52,57 +60,196 @@
   </div>
 
   <div class="card stack">
-    <h2>Editar categoria</h2>
-    {% if editor.item_type != 'charge' %}
-      <div class="subtle">Somente itens <code>charge</code> aceitam edição manual de categoria de consumo. Itens <code>credit</code> e <code>payment</code> continuam técnicos.</div>
-    {% elif not editor.available_categories %}
-      <div class="subtle">Nenhuma categoria oficial elegível está disponível para seleção.</div>
-    {% else %}
-      <form method="post" action="/admin/credit-card-invoices/{{ editor.invoice.id }}/items/{{ editor.item.id }}/category/preview" class="stack">
-        <label>Categoria oficial
-          <select name="category" required>
-            {% for category in editor.available_categories %}
-              <option value="{{ category.name }}" {% if category.name == selected_category %}selected{% endif %}>{{ category.name }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <div class="subtle">O preview mostra o efeito esperado antes de qualquer persistência.</div>
-        <div class="actions">
-          <button type="submit" class="button button-primary">Gerar preview do impacto</button>
-        </div>
-      </form>
-    {% endif %}
+    <h2>Escolher escopo da correção</h2>
+    <div class="preview-list">
+      <div class="preview-item">
+        <strong>Alterar somente este item</strong>
+        <p>Mantém a correção pontual apenas no lançamento atual.</p>
+      </div>
+      <div class="preview-item">
+        <strong>Aplicar na base</strong>
+        <p>Cria ou atualiza uma regra oficial para itens equivalentes, reaplica nos existentes e continua valendo nas futuras importações elegíveis.</p>
+      </div>
+    </div>
   </div>
 </section>
 
-{% if preview %}
+<section class="card stack">
+  <h2>Editar categoria</h2>
+  {% if editor.item_type != 'charge' %}
+    <div class="subtle">Somente itens <code>charge</code> aceitam edição manual de categoria de consumo. Itens <code>credit</code> e <code>payment</code> continuam técnicos.</div>
+  {% elif not editor.available_categories %}
+    <div class="subtle">Nenhuma categoria oficial elegível está disponível para seleção.</div>
+  {% else %}
+    <form method="post" action="/admin/credit-card-invoices/{{ editor.invoice.id }}/items/{{ editor.item.id }}/category/preview" class="stack">
+      <label>Categoria oficial
+        <select name="category" required>
+          {% for category in editor.available_categories %}
+            <option value="{{ category.name }}" {% if category.name == selected_category %}selected{% endif %}>{{ category.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Como aplicar esta correção
+        <select name="apply_mode">
+          <option value="single" {% if selected_apply_mode == 'single' %}selected{% endif %}>Alterar somente este item</option>
+          <option value="base" {% if selected_apply_mode == 'base' %}selected{% endif %}>Aplicar na base com regra</option>
+        </select>
+      </label>
+
+      <div class="preview-item">
+        <strong>Configuração da regra para aplicar na base</strong>
+        <p>Esses campos só são usados quando você escolher “Aplicar na base”. O preview mostra todos os itens existentes que seriam afetados antes de qualquer persistência.</p>
+      </div>
+
+      <div class="grid grid-2">
+        <label>Padrão da regra
+          <input type="text" name="rule_pattern" value="{{ selected_rule_pattern or editor.item.description_normalized }}" required>
+        </label>
+        <label>Modo do match
+          <select name="rule_match_mode">
+            <option value="exact_normalized" {% if selected_rule_match_mode == 'exact_normalized' %}selected{% endif %}>exact_normalized</option>
+            <option value="contains" {% if selected_rule_match_mode == 'contains' %}selected{% endif %}>contains</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="subtle">O preview sempre acontece antes de qualquer persistência. A confirmação explícita continua obrigatória nos dois fluxos.</div>
+      <div class="actions">
+        <button type="submit" class="button button-primary">Gerar preview do impacto</button>
+      </div>
+    </form>
+  {% endif %}
+</section>
+
+{% if single_preview %}
   <section class="card stack">
     <div>
       <strong>Preview antes de aplicar</strong>
       <div class="subtle">A alteração só será persistida após confirmação explícita.</div>
+      <div class="subtle">Fluxo pontual: esta alteração afeta apenas o item atual.</div>
     </div>
     <div class="kv-grid">
-      <div class="subtle">Categoria atual</div><div>{{ preview.current_category or 'Não Categorizado' }}</div>
-      <div class="subtle">Nova categoria</div><div>{{ preview.selected_category }}</div>
-      <div class="subtle">Valor do item</div><div>R$ {{ "%.2f"|format(preview.item_amount_brl) }}</div>
-      <div class="subtle">Mês de referência</div><div>{{ preview.month_reference_label }}</div>
-      <div class="subtle">Impacta a análise agora?</div><div>{{ 'sim' if preview.is_visible_in_analysis else 'não' }}</div>
+      <div class="subtle">Categoria atual</div><div>{{ single_preview.current_category or 'Não Categorizado' }}</div>
+      <div class="subtle">Nova categoria</div><div>{{ single_preview.selected_category }}</div>
+      <div class="subtle">Valor do item</div><div>R$ {{ "%.2f"|format(single_preview.item_amount_brl) }}</div>
+      <div class="subtle">Mês de referência</div><div>{{ single_preview.month_reference_label }}</div>
+      <div class="subtle">Impacta a análise agora?</div><div>{{ 'sim' if single_preview.is_visible_in_analysis else 'não' }}</div>
     </div>
     <div class="preview-list">
       <div class="preview-item">
         <strong>Impacto esperado</strong>
-        <p>{{ preview.impact_summary }}</p>
+        <p>{{ single_preview.impact_summary }}</p>
       </div>
       <div class="preview-item">
         <strong>Leitura principal</strong>
-        <p>{{ preview.visibility_note }}</p>
+        <p>{{ single_preview.visibility_note }}</p>
       </div>
     </div>
     <form method="post" action="/admin/credit-card-invoices/{{ editor.invoice.id }}/items/{{ editor.item.id }}/category/apply" class="stack">
-      <input type="hidden" name="category" value="{{ preview.selected_category }}">
+      <input type="hidden" name="category" value="{{ single_preview.selected_category }}">
+      <input type="hidden" name="apply_mode" value="single">
+      <input type="hidden" name="rule_pattern" value="{{ selected_rule_pattern or editor.item.description_normalized }}">
+      <input type="hidden" name="rule_match_mode" value="{{ selected_rule_match_mode }}">
       <input type="hidden" name="confirm_apply" value="true">
       <div class="actions">
         <button type="submit" class="button button-primary">Confirmar alteração de categoria</button>
+      </div>
+    </form>
+  </section>
+{% endif %}
+
+{% if base_preview %}
+  <section class="card stack">
+    <div>
+      <strong>Preview antes de aplicar na base</strong>
+      <div class="subtle">Fluxo de base: a regra só será criada ou atualizada após confirmação explícita, e então será reaplicada nos itens existentes elegíveis.</div>
+    </div>
+
+    <div class="kv-grid">
+      <div class="subtle">Nova categoria</div><div>{{ base_preview.selected_category }}</div>
+      <div class="subtle">Padrão da regra</div><div><code>{{ base_preview.rule_pattern }}</code></div>
+      <div class="subtle">Modo do match</div><div>{{ base_preview.rule_type }}</div>
+      <div class="subtle">Ação na regra</div><div>{{ base_preview.rule_action_label }}</div>
+      <div class="subtle">Itens impactados</div><div>{{ base_preview.affected_count }}</div>
+      <div class="subtle">Total financeiro impactado</div><div>R$ {{ "%.2f"|format(base_preview.affected_total_brl) }}</div>
+    </div>
+
+    <div class="preview-list">
+      <div class="preview-item">
+        <strong>Impacto esperado</strong>
+        <p>{{ base_preview.impact_summary }}</p>
+      </div>
+      <div class="preview-item">
+        <strong>Leitura principal</strong>
+        <p>{{ base_preview.visibility_note }}</p>
+      </div>
+      <div class="preview-item">
+        <strong>Importações futuras</strong>
+        <p>{{ base_preview.future_imports_note }}</p>
+      </div>
+    </div>
+
+    <div class="card stack" style="margin-bottom: 0;">
+      <h3 style="margin: 0;">Distribuição atual dos itens afetados</h3>
+      {% if base_preview.category_distribution %}
+        <div class="preview-list">
+          {% for bucket in base_preview.category_distribution %}
+            <div class="preview-item">
+              <strong>{{ bucket.category_name }}</strong>
+              <p>{{ bucket.item_count }} item(ns) · R$ {{ "%.2f"|format(bucket.total_amount_brl) }}</p>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="subtle">Nenhum item existente terá mudança efetiva agora, mas a regra continuará válida para as próximas importações elegíveis.</div>
+      {% endif %}
+    </div>
+
+    <div class="card stack" style="margin-bottom: 0;">
+      <h3 style="margin: 0;">Itens impactados</h3>
+      {% if base_preview.impacted_items %}
+        <div class="table-wrap">
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th>data</th>
+                <th>descrição</th>
+                <th>valor</th>
+                <th>fatura</th>
+                <th>categoria atual</th>
+                <th>status</th>
+                <th>entra na leitura principal?</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in base_preview.impacted_items %}
+                <tr>
+                  <td>{{ item.purchase_date }}</td>
+                  <td>{{ item.description_raw }}</td>
+                  <td>R$ {{ "%.2f"|format(item.amount_brl) }}</td>
+                  <td>#{{ item.invoice_id }} · {{ "%02d/%04d"|format(item.billing_month, item.billing_year) }} · {{ item.card_label }}</td>
+                  <td>{{ item.current_category or 'Não Categorizado' }}</td>
+                  <td><span class="badge {{ status_variant(item.conciliation_status) }}">{{ item.conciliation_status }}</span></td>
+                  <td>{{ 'sim' if item.is_visible_in_analysis else 'não' }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="subtle">Nenhum item existente ficará diferente agora com essa regra.</div>
+      {% endif %}
+    </div>
+
+    <form method="post" action="/admin/credit-card-invoices/{{ editor.invoice.id }}/items/{{ editor.item.id }}/category/apply" class="stack">
+      <input type="hidden" name="category" value="{{ base_preview.selected_category }}">
+      <input type="hidden" name="apply_mode" value="base">
+      <input type="hidden" name="rule_pattern" value="{{ base_preview.rule_pattern }}">
+      <input type="hidden" name="rule_match_mode" value="{{ base_preview.rule_type }}">
+      <input type="hidden" name="confirm_apply" value="true">
+      <div class="actions">
+        <button type="submit" class="button button-primary">Confirmar aplicação na base</button>
       </div>
     </form>
   </section>
