@@ -195,10 +195,10 @@ def test_admin_can_link_and_unlink_invoice_payment_from_detail(client, db_sessio
     )
 
     assert response.status_code == 200
-    assert "Conciliacao atualizada." in response.text
+    assert "Conciliação atualizada." in response.text
     assert "conciliated" in response.text
     assert "bank_payment" in response.text
-    assert "Desfazer vínculo" in response.text or "Desfazer v\u00ednculo" in response.text
+    assert "Desfazer vínculo" in response.text
 
     conciliation = db_session.scalar(
         select(CreditCardInvoiceConciliation).where(CreditCardInvoiceConciliation.invoice_id == invoice.id)
@@ -218,7 +218,7 @@ def test_admin_can_link_and_unlink_invoice_payment_from_detail(client, db_sessio
     )
 
     assert unlink_response.status_code == 200
-    assert "Vinculo de pagamento removido." in unlink_response.text
+    assert "Vínculo de pagamento removido." in unlink_response.text
     assert "pending_review" in unlink_response.text
 
 
@@ -244,5 +244,5 @@ def test_admin_blocks_linking_transaction_already_used_by_other_invoice(client, 
     )
 
     assert second.status_code == 409
-    assert "ja conciliada em outra fatura" in second.text
+    assert "já conciliada em outra fatura" in second.text
 

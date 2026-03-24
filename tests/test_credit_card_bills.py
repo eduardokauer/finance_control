@@ -1,13 +1,18 @@
 from datetime import date
 from decimal import Decimal
 
+import pytest
 from sqlalchemy import func, select
 
 from app.repositories.models import CategorizationRule, Category, CreditCard, CreditCardInvoice, CreditCardInvoiceItem, SourceFile
 from app.services.credit_card_bills import (
+    CreditCardInvoiceCategoryEditError,
+    apply_manual_credit_card_invoice_item_category_change,
     classify_credit_card_invoice_item,
     create_credit_card,
+    ensure_credit_card_invoice_conciliation,
     get_credit_card_invoice_detail,
+    preview_manual_credit_card_invoice_item_category_change,
     recategorize_credit_card_invoice_items,
 )
 
@@ -539,6 +544,94 @@ def test_credit_card_invoice_item_recategorization_reapplies_only_charges_and_re
     assert refreshed_items[2].category is None
     assert refreshed_items[2].categorization_method is None
     assert refreshed_items[2].categorization_rule_id is None
+
+
+def test_manual_credit_card_invoice_item_category_preview_and_apply_persists_manual_choice(db_session):
+    _seed_categories(db_session)
+    invoice = _create_invoice_with_items(
+        db_session,
+        descriptions_and_amounts=[("SUPERMERCADO TESTE", "120.00")],
+        total_amount_brl="120.00",
+    )
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id)
+    )
+    assert item is not None
+    item.category = "Supermercado"
+    item.categorization_method = "rule"
+    item.categorization_confidence = 0.9
+    conciliation = ensure_credit_card_invoice_conciliation(db_session, invoice_id=invoice.id)
+    assert conciliation is not None
+    conciliation.status = "conciliated"
+    db_session.commit()
+
+    preview = preview_manual_credit_card_invoice_item_category_change(
+        db_session,
+        invoice_id=invoice.id,
+        item_id=item.id,
+        category_name="Educação",
+    )
+
+    assert preview.current_category == "Supermercado"
+    assert preview.selected_category == "Educação"
+    assert preview.is_visible_in_analysis is True
+    assert "Supermercado" in preview.impact_summary
+    assert "Educação" in preview.impact_summary
+
+    updated = apply_manual_credit_card_invoice_item_category_change(
+        db_session,
+        invoice_id=invoice.id,
+        item_id=item.id,
+        category_name="Educação",
+    )
+
+    assert updated.category == "Educação"
+    assert updated.categorization_method == "manual"
+    assert updated.categorization_confidence == 1.0
+    assert updated.applied_rule is None
+    assert updated.categorization_rule_id is None
+
+
+def test_manual_credit_card_invoice_item_category_blocks_non_charge_items(db_session):
+    _seed_categories(db_session)
+    invoice = _create_invoice_with_items(
+        db_session,
+        descriptions_and_amounts=[("PAGAMENTO EFETUADO", "-850.00")],
+        total_amount_brl="-850.00",
+    )
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id)
+    )
+    assert item is not None
+
+    with pytest.raises(CreditCardInvoiceCategoryEditError):
+        preview_manual_credit_card_invoice_item_category_change(
+            db_session,
+            invoice_id=invoice.id,
+            item_id=item.id,
+            category_name="Educação",
+        )
+
+
+def test_manual_credit_card_invoice_item_category_rejects_invalid_or_unknown_category(db_session):
+    _seed_categories(db_session)
+    invoice = _create_invoice_with_items(
+        db_session,
+        descriptions_and_amounts=[("CURSO ONLINE", "120.00")],
+        total_amount_brl="120.00",
+    )
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id)
+    )
+    assert item is not None
+
+    with pytest.raises(CreditCardInvoiceCategoryEditError):
+        preview_manual_credit_card_invoice_item_category_change(
+            db_session,
+            invoice_id=invoice.id,
+            item_id=item.id,
+            category_name="Categoria Fantasma",
+        )
 
 
 def test_credit_card_invoice_detail_summary_excludes_payments_from_composed_total(db_session):

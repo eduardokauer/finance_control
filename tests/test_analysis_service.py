@@ -265,6 +265,57 @@ def test_analysis_snapshot_builds_conciliated_month_view_without_changing_main_t
     assert snapshot["primary_summary"]["excluded_bank_payment_count"] == 1
 
 
+def test_analysis_snapshot_builds_conciliated_category_breakdown_from_account_and_invoice_items(db_session):
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
+    payment = _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 18),
+        description="FATURA MAR",
+        amount=-1300.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice = _add_invoice(
+        db_session,
+        due_date=date(2026, 3, 20),
+        item_specs=[
+            ("SUPERMERCADO TESTE", "900.00"),
+            ("CURSO ONLINE", "500.00"),
+            ("DESCONTO NA FATURA - PO", "-100.00"),
+            ("PAGAMENTO EFETUADO", "-1300.00"),
+        ],
+    )
+    invoice_items = db_session.scalars(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id).order_by(CreditCardInvoiceItem.id.asc())
+    ).all()
+    invoice_items[0].category = "Supermercado"
+    invoice_items[1].category = "Educação"
+    db_session.commit()
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice.id,
+        bank_transaction_ids=[payment.id],
+    )
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    category_map = {item["name"]: item for item in snapshot["categories"]}
+    assert category_map["Moradia"]["expense_total"] == 1800.0
+    assert category_map["Supermercado"]["expense_total"] == 900.0
+    assert category_map["Educação"]["expense_total"] == 500.0
+    assert "Pagamento de Fatura" not in category_map
+    assert category_map["Créditos de Fatura"]["technical_label"] == "Crédito de Fatura"
+    assert category_map["Créditos de Fatura"]["movement_total"] == -100.0
+    assert snapshot["category_breakdown"]["invoice_credit_adjustment_total"] == 100.0
+    assert snapshot["category_breakdown"]["excluded_bank_payment_total"] == 1300.0
+    assert snapshot["top_expense_categories"][0]["name"] == "Moradia"
+    assert snapshot["top_expense_categories"][1]["name"] == "Supermercado"
+    assert snapshot["top_expense_categories"][2]["name"] == "Educação"
+    assert snapshot["charts"]["categories"]["labels"][:3] == ["Moradia", "Supermercado", "Educação"]
+
+
 def test_analysis_snapshot_only_includes_fully_conciliated_invoices_in_conciliated_view(db_session):
     _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Sal\u00e1rio", transaction_kind="income")
     payment = _add_tx(

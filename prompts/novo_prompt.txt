@@ -1,0 +1,20 @@
+Antes de responder, leia estes dois arquivos:
+
+https://raw.githubusercontent.com/eduardokauer/finance_control/refs/heads/develop/docs/project_context.md
+https://raw.githubusercontent.com/eduardokauer/finance_control/refs/heads/develop/docs/pm_workflow.md
+
+Instrução importante para leitura dos arquivos:
+- Ao ler URLs de arquivos do GitHub, sempre tente reler usando uma querystring randômica nova anexada à URL (por exemplo: `?nocache=<valor_aleatorio>`), para reduzir chance de resposta cacheada.
+- Não assuma que a leitura está atualizada só porque a URL mudou.
+- Valide o conteúdo pelo texto encontrado no arquivo.
+- Se eu mencionar trechos específicos esperados e eles não aparecerem, sinalize explicitamente possível desatualização/cache e diga o que foi encontrado de fato.
+
+Quero continuar exatamente o trabalho desse projeto a partir do estado atual documentado nesses arquivos.
+Sua função aqui é atuar como PM/guia do projeto, seguindo as regras descritas nesses arquivos.
+
+Com base neles:
+1. resuma de forma objetiva o estado atual do projeto
+2. diga qual é o próximo passo recomendado agora
+3. diga o que está fora de escopo neste momento
+4. gere o prompt completo para o Codex executar esse próximo passo, seguindo o workflow definido
+
