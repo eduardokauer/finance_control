@@ -51,7 +51,13 @@ def _add_tx(db_session, *, tx_date: date, description: str, amount: float, categ
     return tx
 
 
-def _add_invoice(db_session, *, due_date: date, card_final: str = "1234", item_specs: list[tuple[str, str]] | None = None):
+def _add_invoice(
+    db_session,
+    *,
+    due_date: date,
+    card_final: str = "1234",
+    item_specs: list[tuple[str, str] | tuple[str, str, date]] | None = None,
+):
     card = CreditCard(
         issuer="itau",
         card_label=f"Ita\u00fa Visa final {card_final}",
@@ -87,11 +93,16 @@ def _add_invoice(db_session, *, due_date: date, card_final: str = "1234", item_s
     )
     db_session.add(invoice)
     db_session.flush()
-    for index, (description_raw, amount_brl) in enumerate(item_specs or [], start=1):
+    for index, item_spec in enumerate(item_specs or [], start=1):
+        if len(item_spec) == 3:
+            description_raw, amount_brl, purchase_date = item_spec
+        else:
+            description_raw, amount_brl = item_spec
+            purchase_date = due_date
         db_session.add(
             CreditCardInvoiceItem(
                 invoice_id=invoice.id,
-                purchase_date=due_date,
+                purchase_date=purchase_date,
                 description_raw=description_raw,
                 description_normalized=description_raw.lower(),
                 amount_brl=amount_brl,
@@ -333,6 +344,108 @@ def test_analysis_snapshot_builds_conciliated_category_breakdown_from_account_an
     assert snapshot["charts"]["categories"]["labels"][:3] == ["Moradia", "Supermercado", "Educação"]
 
 
+def test_analysis_snapshot_anchors_invoice_consumption_by_purchase_date(db_session):
+    payment = _add_tx(
+        db_session,
+        tx_date=date(2026, 2, 18),
+        description="FATURA FEV",
+        amount=-800.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice = _add_invoice(
+        db_session,
+        due_date=date(2026, 2, 20),
+        card_final="2222",
+        item_specs=[
+            ("SUPERMERCADO TESTE", "900.00", date(2026, 1, 28)),
+            ("DESCONTO NA FATURA - PO", "-100.00", date(2026, 1, 29)),
+            ("PAGAMENTO EFETUADO", "-800.00", date(2026, 2, 18)),
+        ],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice.id,
+        categories_by_description={"SUPERMERCADO TESTE": "Supermercado"},
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice.id,
+        bank_transaction_ids=[payment.id],
+    )
+
+    january_snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 1, 1), period_end=date(2026, 1, 31))
+    february_snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 2, 1), period_end=date(2026, 2, 28))
+
+    january_categories = {item["name"]: item for item in january_snapshot["categories"]}
+    february_categories = {item["name"]: item for item in february_snapshot["categories"]}
+
+    assert january_categories["Supermercado"]["expense_total"] == 900.0
+    assert january_categories["Créditos de Fatura"]["technical_label"] == "Crédito de Fatura"
+    assert january_categories["Créditos de Fatura"]["movement_total"] == -100.0
+    assert january_snapshot["category_breakdown"]["invoice_credit_adjustment_total"] == 100.0
+    assert january_snapshot["category_breakdown"]["excluded_bank_payment_total"] == 0.0
+    assert "Pagamento de Fatura" not in january_categories
+
+    assert "Supermercado" not in february_categories
+    assert "Créditos de Fatura" not in february_categories
+    assert february_snapshot["category_breakdown"]["excluded_bank_payment_total"] == 800.0
+    assert "Pagamento de Fatura" not in february_categories
+
+
+def test_analysis_snapshot_manual_invoice_item_category_edit_affects_purchase_month_view(db_session):
+    payment = _add_tx(
+        db_session,
+        tx_date=date(2026, 2, 18),
+        description="FATURA FEV EDIT",
+        amount=-250.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice = _add_invoice(
+        db_session,
+        due_date=date(2026, 2, 20),
+        card_final="2323",
+        item_specs=[("CURSO ONLINE", "250.00", date(2026, 1, 30))],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice.id,
+        categories_by_description={"CURSO ONLINE": "Educação"},
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice.id,
+        bank_transaction_ids=[payment.id],
+    )
+
+    january_before = build_analysis_snapshot(db_session, period_start=date(2026, 1, 1), period_end=date(2026, 1, 31))
+    assert {item["name"] for item in january_before["categories"]} == {"Educação"}
+
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem).where(
+            CreditCardInvoiceItem.invoice_id == invoice.id,
+            CreditCardInvoiceItem.description_raw == "CURSO ONLINE",
+        )
+    )
+    assert item is not None
+    item.category = "Outros"
+    item.categorization_method = "manual"
+    item.categorization_confidence = 1.0
+    db_session.commit()
+
+    january_after = build_analysis_snapshot(db_session, period_start=date(2026, 1, 1), period_end=date(2026, 1, 31))
+    february_after = build_analysis_snapshot(db_session, period_start=date(2026, 2, 1), period_end=date(2026, 2, 28))
+    january_categories = {item["name"]: item for item in january_after["categories"]}
+    february_categories = {item["name"]: item for item in february_after["categories"]}
+
+    assert "Educação" not in january_categories
+    assert january_categories["Outros"]["expense_total"] == 250.0
+    assert "Outros" not in february_categories
+
+
 def test_analysis_snapshot_builds_conciliated_category_history_from_same_base(db_session):
     _add_tx(db_session, tx_date=date(2025, 3, 5), description="SALARIO MAR 2025", amount=4800.0, category="Salário", transaction_kind="income")
     _add_tx(db_session, tx_date=date(2025, 3, 8), description="ALUGUEL MAR 2025", amount=-1500.0, category="Moradia", transaction_kind="expense")
@@ -456,6 +569,110 @@ def test_analysis_snapshot_builds_conciliated_category_history_from_same_base(db
     assert row_map["Educação"]["previous_month_total"] == 0.0
     assert row_map["Educação"]["previous_month_change"] is not None
     assert row_map["Educação"]["previous_year_total"] == 120.0
+    assert history["technical_adjustments"]["current_invoice_credit_total"] == 100.0
+    assert history["technical_adjustments"]["previous_month_invoice_credit_total"] == 50.0
+    assert history["technical_adjustments"]["previous_year_invoice_credit_total"] == 30.0
+
+
+def test_analysis_snapshot_builds_category_history_from_purchase_month_for_invoice_items(db_session):
+    payment_2025 = _add_tx(
+        db_session,
+        tx_date=date(2025, 2, 18),
+        description="FATURA FEV 2025",
+        amount=-620.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice_2025 = _add_invoice(
+        db_session,
+        due_date=date(2025, 2, 20),
+        card_final="2525",
+        item_specs=[
+            ("SUPERMERCADO TESTE", "650.00", date(2025, 1, 28)),
+            ("DESCONTO NA FATURA - PO", "-30.00", date(2025, 1, 29)),
+        ],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice_2025.id,
+        categories_by_description={"SUPERMERCADO TESTE": "Supermercado"},
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice_2025.id,
+        bank_transaction_ids=[payment_2025.id],
+    )
+
+    payment_2025_12 = _add_tx(
+        db_session,
+        tx_date=date(2026, 1, 18),
+        description="FATURA DEZ 2025",
+        amount=-650.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice_2025_12 = _add_invoice(
+        db_session,
+        due_date=date(2026, 1, 20),
+        card_final="2626",
+        item_specs=[
+            ("SUPERMERCADO TESTE", "700.00", date(2025, 12, 27)),
+            ("DESCONTO NA FATURA - PO", "-50.00", date(2025, 12, 28)),
+        ],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice_2025_12.id,
+        categories_by_description={"SUPERMERCADO TESTE": "Supermercado"},
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice_2025_12.id,
+        bank_transaction_ids=[payment_2025_12.id],
+    )
+
+    payment_2026 = _add_tx(
+        db_session,
+        tx_date=date(2026, 2, 18),
+        description="FATURA FEV 2026",
+        amount=-800.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice_2026 = _add_invoice(
+        db_session,
+        due_date=date(2026, 2, 20),
+        card_final="3636",
+        item_specs=[
+            ("SUPERMERCADO TESTE", "900.00", date(2026, 1, 28)),
+            ("DESCONTO NA FATURA - PO", "-100.00", date(2026, 1, 29)),
+        ],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice_2026.id,
+        categories_by_description={"SUPERMERCADO TESTE": "Supermercado"},
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice_2026.id,
+        bank_transaction_ids=[payment_2026.id],
+    )
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 1, 1), period_end=date(2026, 1, 31))
+
+    history = snapshot["category_history"]
+    row_map = {item["name"]: item for item in history["rows"]}
+
+    assert history["current_month_label"] == "jan/2026"
+    assert history["previous_month_label"] == "dez/2025"
+    assert history["previous_year_label"] == "jan/2025"
+    assert row_map["Supermercado"]["current_total"] == 900.0
+    assert row_map["Supermercado"]["previous_month_total"] == 700.0
+    assert row_map["Supermercado"]["previous_year_total"] == 650.0
     assert history["technical_adjustments"]["current_invoice_credit_total"] == 100.0
     assert history["technical_adjustments"]["previous_month_invoice_credit_total"] == 50.0
     assert history["technical_adjustments"]["previous_year_invoice_credit_total"] == 30.0

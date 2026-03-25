@@ -59,6 +59,7 @@ Ordem de leitura recomendada:
 - Visão conciliada implementada.
 - Visão conciliada promovida para leitura principal da tela de análise.
 - Visão bruta mantida como apoio e auditoria.
+- Separação conceitual entre visão de consumo e visão de fluxo de caixa definida no produto.
 - Categorização determinística de itens de fatura implementada para `charge`.
 - Regras manuais com `source_scope` implementadas.
 - Reaplicação de categorias para itens de fatura implementada em nível de serviço.
@@ -66,8 +67,8 @@ Ordem de leitura recomendada:
 - Edição manual direta da categoria de item `charge` de fatura na UI implementada.
 - Preview de impacto e confirmação explícita antes de persistir a categoria manual de item de fatura implementados.
 - Aplicação na base com preview, confirmação explícita, criação/atualização de regra e reaplicação dos itens de fatura existentes implementadas.
-- Leitura mensal por categoria promovida para a base conciliada do mês-base.
-- Comparações mês a mês / ano a ano por categoria usando a visão conciliada já adotada no mês-base implementadas na análise do admin.
+- Leitura mensal por categoria promovida para a visão de consumo do mês-base, com conta por `transaction_date` e cartão conciliado por `purchase_date`.
+- Comparações mês a mês / ano a ano por categoria usando a mesma visão de consumo já adotada no mês-base implementadas na análise do admin.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
 - Deduplicação forte implementada:
   - OFX usa controle por arquivo e transação canônica.
@@ -77,7 +78,8 @@ Ordem de leitura recomendada:
 
 - Conciliação automática de faturas.
 - Vínculo automático ou definitivo com pagamento de conta além da conciliação manual assistida.
-- Gráficos dedicados de evolução por categoria usando a base conciliada.
+- Dashboard completo de fluxo de caixa como visão separada.
+- Gráficos dedicados de evolução por categoria usando a visão de consumo.
 - Alertas e ações recomendadas recalculados sobre a nova base categorial de faturas.
 - Migração ampla de toda a análise histórica para base conciliada.
 
@@ -87,6 +89,11 @@ Ordem de leitura recomendada:
 
 - **Extrato bancário:** fonte oficial da liquidação.
 - **Fatura do cartão:** fonte oficial da composição do gasto do cartão.
+
+### Duas visões conceituais
+
+- **Visão de consumo:** responde onde e com o que houve consumo real. Usa conta por `transaction_date`, cartão conciliado por `purchase_date` e mantém créditos genéricos de fatura em bloco técnico separado, fora das categorias de consumo.
+- **Visão de fluxo de caixa:** responde quando o dinheiro entrou ou saiu da conta. Continua distinta da visão de consumo e ainda não foi promovida como dashboard completo no admin.
 
 ### Itens da fatura
 
@@ -132,6 +139,11 @@ Ordem de leitura recomendada:
 - A mesma base atende extrato e itens de fatura.
 - Itens `charge` de fatura podem receber categoria de consumo normal.
 - Itens `credit` e `payment` continuam técnicos e não viram categoria de consumo.
+- Na visão de consumo:
+  - transações da conta entram pela `transaction_date`;
+  - itens `charge` de cartão entram pela `purchase_date`;
+  - créditos genéricos sem vínculo confiável com uma compra permanecem fora das categorias, em ajuste técnico separado;
+  - `payment` da fatura e `bank_payment` conciliado ficam fora do consumo.
 - Regras determinísticas usam `source_scope` para evitar reaproveitamento cego:
   - `bank_statement`
   - `credit_card_invoice_item`
@@ -143,7 +155,9 @@ Ordem de leitura recomendada:
 
 ## 5. Estrutura Analítica Atual
 
-- A **visão principal** da tela de análise é a visão mensal conciliada.
+- A tela de análise hoje combina duas leituras:
+  - resumo principal conciliado do período;
+  - visão categorial principal de consumo.
 - A **visão bruta** continua na mesma tela como apoio e auditoria.
 - Os KPIs principais do mês usam a visão conciliada:
   - receitas
@@ -154,28 +168,29 @@ Ordem de leitura recomendada:
   - quantas faturas conciliadas entraram na leitura principal;
   - quantas ficaram fora;
   - valor de pagamentos bancários excluídos por conciliação.
-- O breakdown mensal por categoria do mês-base usa a visão conciliada:
-  - transações válidas da conta;
-  - itens `charge` de faturas `conciliated`;
-  - ajuste técnico separado para `credit`;
-  - exclusão de `payment` da própria fatura e de `bank_payment` conciliado do gasto principal.
-- As comparações históricas por categoria do admin agora também usam a visão conciliada:
+- O breakdown mensal por categoria do mês-base usa a visão de consumo:
+  - transações válidas da conta por `transaction_date`;
+  - itens `charge` de faturas `conciliated` por `purchase_date`;
+  - ajuste técnico separado para `credit` genérico;
+  - exclusão de `payment` da própria fatura e de `bank_payment` conciliado do consumo.
+- As comparações históricas por categoria do admin agora também usam a mesma visão de consumo:
   - mês-base vs mês anterior;
   - mês-base vs mesmo mês do ano anterior, quando houver base histórica suficiente;
   - créditos técnicos permanecem em bloco separado;
-  - pagamentos conciliados continuam fora do gasto principal comparado.
+  - pagamentos conciliados continuam fora do consumo comparado.
 
 ### O que ainda não foi migrado totalmente
 
 - Gráficos históricos de 12 meses continuam apoiados na base atual.
-- Alertas e ações recomendadas ainda não foram refeitos sobre a base categorial nova.
+- Alertas e ações recomendadas ainda não foram refeitos sobre a base categorial da visão de consumo.
 - A análise LLM continua separada da análise determinística e não é a leitura principal do admin.
+- A visão de fluxo de caixa ainda não foi promovida como dashboard analítico separado.
 
 ### Dependências para próximas evoluções
 
 - As próximas evoluções devem preferir incrementos já úteis para a análise ou para a operação principal, evitando preparações isoladas como destino final de um PR.
-- Alertas e ações recomendadas sobre a base categorial conciliada, só depois da estabilização da leitura mensal e das comparações históricas.
-- Gráficos dedicados de evolução por categoria na base conciliada, se fizer sentido depois da estabilização da leitura histórica atual.
+- Alertas e ações recomendadas sobre a base categorial da visão de consumo, só depois da estabilização da leitura mensal e das comparações históricas.
+- Gráficos dedicados de evolução por categoria na visão de consumo, se fizer sentido depois da estabilização da leitura histórica atual.
 - Consolidação final da operação manual de categorias na UI, se surgir nova lacuna real após o fluxo de aplicação na base já implementado.
 
 ## 6. Operação Admin Atual
@@ -185,7 +200,8 @@ Ordem de leitura recomendada:
 - **Análise**
   - ver análise determinística por período;
   - promover a leitura conciliada como resumo principal;
-  - comparar categorias do mês-base contra mês anterior e ano anterior na mesma base conciliada;
+  - ler categorias do mês-base na visão de consumo, com cartão por `purchase_date`;
+  - comparar categorias do mês-base contra mês anterior e ano anterior na mesma visão de consumo;
   - manter visão bruta como apoio;
   - disparar nova análise determinística manualmente.
 - **Transações**
@@ -221,8 +237,9 @@ Ordem de leitura recomendada:
 ### Limitações operacionais atuais
 
 - A decisão de conciliação ainda é manual.
-- A leitura histórica por categoria já usa a base conciliada, mas ainda não há gráfico dedicado de evolução categorial nessa mesma base.
+- A leitura categorial principal já usa visão de consumo, mas ainda não há gráfico dedicado de evolução nessa mesma base.
 - A operação manual atual de categoria em itens de fatura já cobre ajuste pontual e aplicação na base, mas ainda depende de revisão humana caso o padrão desejado não seja recorrente o suficiente para virar regra.
+- A visão de fluxo de caixa ainda não foi materializada como dashboard próprio.
 
 ## 7. Próximo Passo Atual e Sequência Recomendada
 
@@ -235,19 +252,19 @@ Ordem de leitura recomendada:
 
 ### Próximo passo atual do projeto
 
-- Recalcular alertas e ações recomendadas sobre a base categorial conciliada, agora que a leitura mensal e as comparações históricas por categoria já usam a mesma lógica principal.
+- Recalcular alertas e ações recomendadas sobre a base categorial da visão de consumo, agora que a leitura mensal e as comparações históricas por categoria já usam a mesma lógica principal por data do evento.
 
 ### Sequência recomendada a partir daqui
 
-1. Recalcular alertas e ações recomendadas sobre a base categorial conciliada já estabilizada.
-2. Se fizer sentido visualmente, promover gráficos dedicados de evolução por categoria usando essa mesma base conciliada.
-3. Ajustar eventuais refinamentos operacionais residuais da categorização de faturas apenas se surgirem lacunas reais após o uso do fluxo atual.
+1. Recalcular alertas e ações recomendadas sobre a base categorial da visão de consumo já estabilizada.
+2. Se fizer sentido visualmente, promover gráficos dedicados de evolução por categoria usando essa mesma visão de consumo.
+3. Materializar uma visão analítica separada de fluxo de caixa apenas quando houver ganho funcional claro e sem confundir as duas leituras.
 
 ## 8. Riscos e Limitações Conhecidas
 
-- A leitura mensal e as comparações históricas por categoria já usam a base conciliada, mas os gráficos dedicados dessa evolução ainda não foram promovidos.
+- A leitura mensal e as comparações históricas por categoria já usam a visão de consumo, mas os gráficos dedicados dessa evolução ainda não foram promovidos.
 - Alertas e ações ainda não foram recalculados sobre a base categorial nova.
-- A competência mensal continua conservadora.
+- O consolidado conciliado e a visão de consumo convivem na mesma tela, então a distinção entre consumo e fluxo de caixa ainda depende de texto e contexto claros.
 - A visão bruta ainda é necessária para auditoria.
-- A leitura conciliada por categoria ainda está concentrada no mês-base e depende de faturas totalmente conciliadas.
+- A visão de consumo por categoria ainda depende de faturas totalmente conciliadas.
 - O MVP continua dependente do layout oficial de OFX Itaú e CSV Itaú já suportados.

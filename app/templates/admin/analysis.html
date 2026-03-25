@@ -145,7 +145,7 @@
   <div class="card stack" style="margin-bottom:0;">
     <div>
       <strong>Resumo principal conciliado</strong>
-      <div class="subtle">A leitura principal do mês passa a refletir o consumo real conciliado. A visão bruta segue abaixo como apoio e auditoria.</div>
+      <div class="subtle">O consolidado conciliado segue como resumo do período. A leitura categorial principal abaixo usa visão de consumo, e a visão bruta continua como apoio e auditoria.</div>
     </div>
     <div class="analysis-list">
       <div class="analysis-item">
@@ -261,7 +261,7 @@
   <section class="analysis-grid analysis-grid-2">
     <div class="card stack" style="margin-bottom:0;">
       <div>
-        <strong>Categorias conciliadas do mês-base</strong>
+        <strong>Categorias do mês-base na visão de consumo</strong>
         <div class="subtle">{{ analysis_data.category_breakdown.note }}</div>
       </div>
       <div class="analysis-list">
@@ -299,7 +299,7 @@
 
     <div class="card stack" style="margin-bottom:0;">
       <div>
-        <strong>Comparações históricas por categoria</strong>
+        <strong>Comparações históricas por categoria na visão de consumo</strong>
         <div class="subtle">{{ analysis_data.category_history.note }}</div>
       </div>
       <div class="analysis-list">
@@ -396,8 +396,8 @@
       </div>
       <div class="card stack" style="margin-bottom:0;">
         <div>
-          <strong>Top categorias conciliadas por peso nas despesas</strong>
-          <div class="subtle">Referência: {{ analysis_data.period.month_reference_label }} | ranking por despesas do mês-base na visão conciliada</div>
+          <strong>Top categorias de consumo por peso nas despesas</strong>
+          <div class="subtle">Referência: {{ analysis_data.period.month_reference_label }} | ranking por despesas do mês-base na visão de consumo</div>
         </div>
         <div class="chart-shell"><canvas id="categories-chart"></canvas></div>
       </div>

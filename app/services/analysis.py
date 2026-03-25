@@ -91,6 +91,25 @@ def _load_transactions_for_period(db: Session, *, period_start: date, period_end
     ).all()
 
 
+def _load_conciliated_invoice_items_for_purchase_period(
+    db: Session,
+    *,
+    period_start: date,
+    period_end: date,
+) -> list[tuple[CreditCardInvoiceItem, int]]:
+    return db.execute(
+        select(CreditCardInvoiceItem, CreditCardInvoice.id)
+        .join(CreditCardInvoice, CreditCardInvoice.id == CreditCardInvoiceItem.invoice_id)
+        .join(CreditCardInvoiceConciliation, CreditCardInvoiceConciliation.invoice_id == CreditCardInvoice.id)
+        .where(
+            CreditCardInvoiceItem.purchase_date >= period_start,
+            CreditCardInvoiceItem.purchase_date <= period_end,
+            CreditCardInvoiceConciliation.status == "conciliated",
+        )
+        .order_by(CreditCardInvoiceItem.purchase_date.asc(), CreditCardInvoiceItem.id.asc())
+    ).all()
+
+
 def _build_summary(txs: list[Transaction]) -> dict:
     income_total = sum(_income_amount(tx) for tx in txs)
     expense_total = sum(_expense_amount(tx) for tx in txs)
@@ -264,28 +283,17 @@ def _build_conciliated_category_breakdown(
     period_end: date,
     current_txs: list[Transaction],
 ) -> dict:
-    conciliated_invoice_rows = db.execute(
-        select(CreditCardInvoice, CreditCardInvoiceConciliation)
-        .join(CreditCardInvoiceConciliation, CreditCardInvoiceConciliation.invoice_id == CreditCardInvoice.id)
-        .where(
-            CreditCardInvoice.due_date >= period_start,
-            CreditCardInvoice.due_date <= period_end,
-            CreditCardInvoiceConciliation.status == "conciliated",
-        )
-    ).all()
-    included_invoice_ids = {invoice.id for invoice, _ in conciliated_invoice_rows}
-    invoice_item_rows = db.execute(
-        select(CreditCardInvoiceItem)
-        .where(CreditCardInvoiceItem.invoice_id.in_(included_invoice_ids))
-        .order_by(CreditCardInvoiceItem.invoice_id.asc(), CreditCardInvoiceItem.id.asc())
-    ).scalars().all() if included_invoice_ids else []
-    invoice_credit_total = sum(float(conciliation.invoice_credit_total_brl) for _, conciliation in conciliated_invoice_rows)
+    invoice_item_rows = _load_conciliated_invoice_items_for_purchase_period(
+        db,
+        period_start=period_start,
+        period_end=period_end,
+    )
 
     signal_map = map_conciliated_bank_payment_signals(db, transaction_ids=[tx.id for tx in current_txs])
     excluded_payment_ids = {
         tx.id
         for tx in current_txs
-        if tx.id in signal_map and signal_map[tx.id].conciliation_status == "conciliated" and signal_map[tx.id].invoice_id in included_invoice_ids
+        if tx.id in signal_map and signal_map[tx.id].conciliation_status == "conciliated"
     }
 
     grouped: dict[str, dict] = defaultdict(_empty_category_bucket)
@@ -299,15 +307,20 @@ def _build_conciliated_category_breakdown(
         bucket["is_transfer_technical"] = bucket["is_transfer_technical"] or _is_transfer_technical(tx)
         bucket["is_card_bill_technical"] = bucket["is_card_bill_technical"] or _is_card_bill_technical(tx)
 
+    included_invoice_ids: set[int] = set()
     credit_item_count = 0
-    for item in invoice_item_rows:
+    invoice_credit_total = 0.0
+    for item, invoice_id in invoice_item_rows:
         item_type = classify_credit_card_invoice_item(item)
         if item_type == "charge":
             bucket = grouped[_analysis_category_name(item.category)]
             bucket["expense_total"] += float(item.amount_brl)
             bucket["transaction_count"] += 1
+            included_invoice_ids.add(invoice_id)
         elif item_type == "credit":
+            invoice_credit_total += abs(float(item.amount_brl))
             credit_item_count += 1
+            included_invoice_ids.add(invoice_id)
 
     if invoice_credit_total > 0:
         grouped["Créditos de Fatura"] = {
@@ -336,16 +349,22 @@ def _build_conciliated_category_breakdown(
         "excluded_bank_payment_total": excluded_bank_payment_total,
         "excluded_bank_payment_display": format_currency_br(excluded_bank_payment_total),
         "note": (
-            "Base conciliada do mês-base: inclui transações válidas da conta e itens charge de faturas conciliadas. "
-            "Créditos técnicos de fatura aparecem como ajuste separado e pagamentos técnicos ficam fora das categorias de consumo."
+            "Visão de consumo do mês-base: conta entra pela data da transação e cartão conciliado entra pela data da compra. "
+            "Créditos técnicos de fatura seguem em bloco separado e pagamentos conciliados ficam fora das categorias de consumo."
         ),
     }
 
 
 def _earliest_history_month(db: Session) -> date | None:
     earliest_tx_date = db.scalar(select(func.min(Transaction.transaction_date)))
-    earliest_invoice_due_date = db.scalar(select(func.min(CreditCardInvoice.due_date)))
-    candidates = [value for value in (earliest_tx_date, earliest_invoice_due_date) if value is not None]
+    earliest_invoice_purchase_date = db.scalar(
+        select(func.min(CreditCardInvoiceItem.purchase_date))
+        .select_from(CreditCardInvoiceItem)
+        .join(CreditCardInvoice, CreditCardInvoice.id == CreditCardInvoiceItem.invoice_id)
+        .join(CreditCardInvoiceConciliation, CreditCardInvoiceConciliation.invoice_id == CreditCardInvoice.id)
+        .where(CreditCardInvoiceConciliation.status == "conciliated")
+    )
+    candidates = [value for value in (earliest_tx_date, earliest_invoice_purchase_date) if value is not None]
     if not candidates:
         return None
     return month_start(min(candidates))
@@ -375,7 +394,7 @@ def _build_conciliated_category_month_snapshot(
         "expense_rows": expense_rows,
         "expense_by_category": {row["name"]: row["expense_total"] for row in expense_rows},
         "row_lookup": {row["name"]: row for row in breakdown["rows"]},
-        "has_activity": bool(month_txs) or breakdown["included_invoice_count"] > 0,
+        "has_activity": bool(breakdown["rows"]),
     }
 
 
@@ -464,9 +483,8 @@ def _build_conciliated_category_history(
         "previous_year_available": previous_year_available,
         "rows": rows,
         "note": (
-            "Comparações históricas por categoria usando a mesma base conciliada do mês-base. "
-            "Só entram transações válidas da conta e charges de faturas conciliated; créditos técnicos seguem separados e "
-            "pagamentos técnicos continuam fora do gasto real principal."
+            "Comparações históricas por categoria na visão de consumo: conta por data da transação e cartão conciliado por "
+            "data da compra. Créditos técnicos seguem separados e pagamentos conciliados continuam fora do consumo."
         ),
         "technical_adjustments": {
             "current_invoice_credit_total": current_adjustment_total,
@@ -494,8 +512,8 @@ def _build_conciliated_category_history(
                 else None
             ),
             "note": (
-                "Créditos de fatura continuam fora das categorias de consumo e os pagamentos bancários conciliados já saem "
-                "da despesa principal em todos os meses comparados."
+                "Créditos genéricos de fatura continuam fora das categorias de consumo e os pagamentos bancários conciliados "
+                "seguem fora da visão principal em todos os meses comparados."
             ),
         },
     }
@@ -960,9 +978,9 @@ def render_analysis_html(snapshot: dict) -> str:
     conciliated_month = snapshot["conciliated_month"]
     category_breakdown = snapshot.get("category_breakdown", {})
     category_history = snapshot.get("category_history", {})
-    category_breakdown_note = category_breakdown.get("note") or "Breakdown mensal por categoria usando a base conciliada atual."
+    category_breakdown_note = category_breakdown.get("note") or "Breakdown mensal por categoria usando a visão de consumo atual."
     invoice_credit_adjustment_display = category_breakdown.get("invoice_credit_adjustment_display") or "R$ 0,00"
-    category_history_note = category_history.get("note") or "Comparações históricas por categoria ainda indisponíveis."
+    category_history_note = category_history.get("note") or "Comparações históricas por categoria na visão de consumo ainda indisponíveis."
     category_history_html = _render_category_history_items(category_history)
     alerts_html = _render_alert_items(snapshot["alerts"])
     actions_html = _render_action_items(snapshot["actions"])
@@ -994,10 +1012,10 @@ def render_analysis_html(snapshot: dict) -> str:
             technical["combined_display"],
             technical["combined_share_display"],
         ),
-        "<h2>Categorias do mês-base na visão conciliada</h2>",
+        "<h2>Categorias do mês-base na visão de consumo</h2>",
         "<p>{}</p>".format(category_breakdown_note),
         "<p>Créditos técnicos de fatura fora das categorias de consumo: {}.</p>".format(invoice_credit_adjustment_display),
-        "<h2>Comparações históricas por categoria</h2>",
+        "<h2>Comparações históricas por categoria na visão de consumo</h2>",
         "<p>{}</p>".format(category_history_note),
         category_history_html,
         "<h2>Cobertura da visão conciliada</h2>",
