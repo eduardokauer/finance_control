@@ -67,6 +67,7 @@ Ordem de leitura recomendada:
 - Preview de impacto e confirmação explícita antes de persistir a categoria manual de item de fatura implementados.
 - Aplicação na base com preview, confirmação explícita, criação/atualização de regra e reaplicação dos itens de fatura existentes implementadas.
 - Leitura mensal por categoria promovida para a base conciliada do mês-base.
+- Comparações mês a mês / ano a ano por categoria usando a visão conciliada já adotada no mês-base implementadas na análise do admin.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
 - Deduplicação forte implementada:
   - OFX usa controle por arquivo e transação canônica.
@@ -76,7 +77,7 @@ Ordem de leitura recomendada:
 
 - Conciliação automática de faturas.
 - Vínculo automático ou definitivo com pagamento de conta além da conciliação manual assistida.
-- Gráficos mês a mês / ano a ano por categoria usando a base conciliada.
+- Gráficos dedicados de evolução por categoria usando a base conciliada.
 - Alertas e ações recomendadas recalculados sobre a nova base categorial de faturas.
 - Migração ampla de toda a análise histórica para base conciliada.
 
@@ -158,19 +159,23 @@ Ordem de leitura recomendada:
   - itens `charge` de faturas `conciliated`;
   - ajuste técnico separado para `credit`;
   - exclusão de `payment` da própria fatura e de `bank_payment` conciliado do gasto principal.
+- As comparações históricas por categoria do admin agora também usam a visão conciliada:
+  - mês-base vs mês anterior;
+  - mês-base vs mesmo mês do ano anterior, quando houver base histórica suficiente;
+  - créditos técnicos permanecem em bloco separado;
+  - pagamentos conciliados continuam fora do gasto principal comparado.
 
 ### O que ainda não foi migrado totalmente
 
 - Gráficos históricos de 12 meses continuam apoiados na base atual.
-- Comparações mês a mês / ano a ano por categoria ainda não usam a base conciliada nova.
 - Alertas e ações recomendadas ainda não foram refeitos sobre a base categorial nova.
 - A análise LLM continua separada da análise determinística e não é a leitura principal do admin.
 
 ### Dependências para próximas evoluções
 
 - As próximas evoluções devem preferir incrementos já úteis para a análise ou para a operação principal, evitando preparações isoladas como destino final de um PR.
-- Comparações mês a mês / ano a ano por categoria na base conciliada.
-- Alertas e ações recomendadas sobre a base categorial conciliada, só depois da leitura mensal estar estável.
+- Alertas e ações recomendadas sobre a base categorial conciliada, só depois da estabilização da leitura mensal e das comparações históricas.
+- Gráficos dedicados de evolução por categoria na base conciliada, se fizer sentido depois da estabilização da leitura histórica atual.
 - Consolidação final da operação manual de categorias na UI, se surgir nova lacuna real após o fluxo de aplicação na base já implementado.
 
 ## 6. Operação Admin Atual
@@ -180,6 +185,7 @@ Ordem de leitura recomendada:
 - **Análise**
   - ver análise determinística por período;
   - promover a leitura conciliada como resumo principal;
+  - comparar categorias do mês-base contra mês anterior e ano anterior na mesma base conciliada;
   - manter visão bruta como apoio;
   - disparar nova análise determinística manualmente.
 - **Transações**
@@ -215,7 +221,7 @@ Ordem de leitura recomendada:
 ### Limitações operacionais atuais
 
 - A decisão de conciliação ainda é manual.
-- A leitura por categoria conciliada está centrada no mês-base atual; comparações históricas por categoria ainda não foram promovidas.
+- A leitura histórica por categoria já usa a base conciliada, mas ainda não há gráfico dedicado de evolução categorial nessa mesma base.
 - A operação manual atual de categoria em itens de fatura já cobre ajuste pontual e aplicação na base, mas ainda depende de revisão humana caso o padrão desejado não seja recorrente o suficiente para virar regra.
 
 ## 7. Próximo Passo Atual e Sequência Recomendada
@@ -229,17 +235,17 @@ Ordem de leitura recomendada:
 
 ### Próximo passo atual do projeto
 
-- Evoluir a leitura por categoria já conciliada para comparações mês a mês / ano a ano, agora que a operação manual de categoria em itens de fatura já cobre correção pontual e aplicação na base com regra persistida.
+- Recalcular alertas e ações recomendadas sobre a base categorial conciliada, agora que a leitura mensal e as comparações históricas por categoria já usam a mesma lógica principal.
 
 ### Sequência recomendada a partir daqui
 
-1. Evoluir para comparações mês a mês / ano a ano por categoria usando a visão conciliada já adotada no mês-base.
-2. Só depois recalcular alertas e ações recomendadas sobre a base categorial confiável.
+1. Recalcular alertas e ações recomendadas sobre a base categorial conciliada já estabilizada.
+2. Se fizer sentido visualmente, promover gráficos dedicados de evolução por categoria usando essa mesma base conciliada.
 3. Ajustar eventuais refinamentos operacionais residuais da categorização de faturas apenas se surgirem lacunas reais após o uso do fluxo atual.
 
 ## 8. Riscos e Limitações Conhecidas
 
-- A leitura mensal por categoria já usa a base conciliada, mas a análise histórica por categoria ainda não foi promovida para essa mesma base.
+- A leitura mensal e as comparações históricas por categoria já usam a base conciliada, mas os gráficos dedicados dessa evolução ainda não foram promovidos.
 - Alertas e ações ainda não foram recalculados sobre a base categorial nova.
 - A competência mensal continua conservadora.
 - A visão bruta ainda é necessária para auditoria.

@@ -43,6 +43,7 @@ def _seed_transaction(
     *,
     description: str = "UBER TRIP",
     normalized: str = "uber trip",
+    transaction_date: date = date(2026, 3, 7),
     amount: float = -25.0,
     transaction_kind: str = "expense",
     category: str = "N\u00e3o Categorizado",
@@ -61,9 +62,9 @@ def _seed_transaction(
         source_type="bank_statement",
         account_ref="default-account",
         external_id=None,
-        canonical_hash=f"tx-{normalized}",
-        transaction_date=date(2026, 3, 7),
-        competence_month="2026-03",
+        canonical_hash=f"tx-{normalized}-{transaction_date.isoformat()}",
+        transaction_date=transaction_date,
+        competence_month=transaction_date.strftime("%Y-%m"),
         description_raw=description,
         description_normalized=normalized,
         amount=amount,
@@ -809,6 +810,311 @@ def test_admin_analysis_page_shows_conciliated_category_breakdown(client, db_ses
     assert "pagamentos banc\u00e1rios exclu\u00eddos" in response.text
 
 
+def test_admin_analysis_page_shows_conciliated_category_history(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+
+    def seed_conciliated_month(
+        *,
+        billing_year: int,
+        billing_month: int,
+        moradia_amount: float,
+        market_amount: str,
+        education_amount: str | None,
+        credit_amount: str,
+        payment_amount: float,
+        card_final: str,
+    ):
+        _seed_transaction(
+            db_session,
+            description=f"SALARIO {billing_month:02d}/{billing_year}",
+            normalized=f"salario {billing_month:02d} {billing_year}",
+            transaction_date=date(billing_year, billing_month, 5),
+            amount=5000.0,
+            transaction_kind="income",
+            category="Salário",
+        )
+        _seed_transaction(
+            db_session,
+            description=f"ALUGUEL {billing_month:02d}/{billing_year}",
+            normalized=f"aluguel {billing_month:02d} {billing_year}",
+            transaction_date=date(billing_year, billing_month, 8),
+            amount=-moradia_amount,
+            transaction_kind="expense",
+            category="Moradia",
+        )
+        payment = _seed_transaction(
+            db_session,
+            description=f"PAGAMENTO FATURA {billing_month:02d}/{billing_year}",
+            normalized=f"pagamento fatura {billing_month:02d} {billing_year}",
+            transaction_date=date(billing_year, billing_month, 18),
+            amount=-payment_amount,
+            transaction_kind="expense",
+            category="Pagamento de Fatura",
+        )
+        item_specs = [("SUPERMERCADO TESTE", market_amount)]
+        if education_amount is not None:
+            item_specs.append(("CURSO ONLINE", education_amount))
+        invoice = _seed_credit_card_invoice(
+            db_session,
+            card_label=f"Itaú Visa final {card_final}",
+            card_final=card_final,
+            billing_year=billing_year,
+            billing_month=billing_month,
+            due_date=date(billing_year, billing_month, 20),
+            closing_date=date(billing_year, billing_month, 12),
+            total_amount=f"{float(market_amount) + (float(education_amount) if education_amount else 0.0):.2f}",
+            status="pending_review",
+            item_specs=item_specs,
+        )
+        invoice_items = db_session.scalars(
+            select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id).order_by(CreditCardInvoiceItem.id.asc())
+        ).all()
+        invoice_items[0].category = "Supermercado"
+        invoice_items[0].categorization_method = "manual"
+        invoice_items[0].categorization_confidence = 1.0
+        if education_amount is not None:
+            invoice_items[1].category = "Educação"
+            invoice_items[1].categorization_method = "manual"
+            invoice_items[1].categorization_confidence = 1.0
+        credit_item = CreditCardInvoiceItem(
+            invoice_id=invoice.id,
+            purchase_date=date(billing_year, billing_month, 9),
+            description_raw="DESCONTO NA FATURA - PO",
+            description_normalized="desconto na fatura - po",
+            amount_brl=f"-{credit_amount}",
+            installment_current=None,
+            installment_total=None,
+            is_installment=False,
+            derived_note="credito tecnico",
+            external_row_hash=f"row-hash-{invoice.id}-credit-history",
+        )
+        db_session.add(credit_item)
+        db_session.flush()
+        gross_amount = float(market_amount) + (float(education_amount) if education_amount else 0.0)
+        conciliation = CreditCardInvoiceConciliation(
+            invoice_id=invoice.id,
+            status="conciliated",
+            gross_amount_brl=f"{gross_amount:.2f}",
+            invoice_credit_total_brl=credit_amount,
+            bank_payment_total_brl=f"{payment_amount:.2f}",
+            conciliated_total_brl=f"{gross_amount:.2f}",
+            remaining_balance_brl="0.00",
+        )
+        db_session.add(conciliation)
+        db_session.flush()
+        db_session.add_all(
+            [
+                CreditCardInvoiceConciliationItem(
+                    conciliation_id=conciliation.id,
+                    item_type="invoice_credit",
+                    amount_brl=credit_amount,
+                    bank_transaction_id=None,
+                    invoice_item_id=credit_item.id,
+                    notes="credito tecnico",
+                ),
+                CreditCardInvoiceConciliationItem(
+                    conciliation_id=conciliation.id,
+                    item_type="bank_payment",
+                    amount_brl=f"{payment_amount:.2f}",
+                    bank_transaction_id=payment.id,
+                    invoice_item_id=None,
+                    notes="pagamento conciliado",
+                ),
+            ]
+        )
+        db_session.commit()
+
+    seed_conciliated_month(
+        billing_year=2025,
+        billing_month=3,
+        moradia_amount=1500.0,
+        market_amount="650.00",
+        education_amount="120.00",
+        credit_amount="30.00",
+        payment_amount=740.0,
+        card_final="2525",
+    )
+    seed_conciliated_month(
+        billing_year=2026,
+        billing_month=2,
+        moradia_amount=1600.0,
+        market_amount="700.00",
+        education_amount=None,
+        credit_amount="50.00",
+        payment_amount=650.0,
+        card_final="2626",
+    )
+    seed_conciliated_month(
+        billing_year=2026,
+        billing_month=3,
+        moradia_amount=1800.0,
+        market_amount="900.00",
+        education_amount="300.00",
+        credit_amount="100.00",
+        payment_amount=1100.0,
+        card_final="3636",
+    )
+    _login(client)
+
+    response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+
+    assert response.status_code == 200
+    assert "Comparações históricas por categoria" in response.text
+    assert "mar/2026" in response.text
+    assert "fev/2026" in response.text
+    assert "mar/2025" in response.text
+    assert "delta m/m" in response.text
+    assert "delta a/a" in response.text
+    assert "Supermercado" in response.text
+    assert "Ajustes técnicos fora das categorias de consumo" in response.text
+
+
+def test_admin_analysis_page_marks_category_history_gap_as_sem_base(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+
+    def seed_conciliated_month(
+        *,
+        billing_year: int,
+        billing_month: int,
+        moradia_amount: float,
+        market_amount: str,
+        credit_amount: str,
+        payment_amount: float,
+        card_final: str,
+    ):
+        _seed_transaction(
+            db_session,
+            description=f"SALARIO {billing_month:02d}/{billing_year}",
+            normalized=f"salario {billing_month:02d} {billing_year}",
+            transaction_date=date(billing_year, billing_month, 5),
+            amount=5000.0,
+            transaction_kind="income",
+            category="Salário",
+        )
+        _seed_transaction(
+            db_session,
+            description=f"ALUGUEL {billing_month:02d}/{billing_year}",
+            normalized=f"aluguel {billing_month:02d} {billing_year}",
+            transaction_date=date(billing_year, billing_month, 8),
+            amount=-moradia_amount,
+            transaction_kind="expense",
+            category="Moradia",
+        )
+        payment = _seed_transaction(
+            db_session,
+            description=f"PAGAMENTO FATURA {billing_month:02d}/{billing_year}",
+            normalized=f"pagamento fatura {billing_month:02d} {billing_year}",
+            transaction_date=date(billing_year, billing_month, 18),
+            amount=-payment_amount,
+            transaction_kind="expense",
+            category="Pagamento de Fatura",
+        )
+        invoice = _seed_credit_card_invoice(
+            db_session,
+            card_label=f"Itaú Visa final {card_final}",
+            card_final=card_final,
+            billing_year=billing_year,
+            billing_month=billing_month,
+            due_date=date(billing_year, billing_month, 20),
+            closing_date=date(billing_year, billing_month, 12),
+            total_amount=market_amount,
+            status="pending_review",
+            item_specs=[("SUPERMERCADO TESTE", market_amount)],
+        )
+        invoice_item = db_session.scalar(
+            select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id)
+        )
+        assert invoice_item is not None
+        invoice_item.category = "Supermercado"
+        invoice_item.categorization_method = "manual"
+        invoice_item.categorization_confidence = 1.0
+        credit_item = CreditCardInvoiceItem(
+            invoice_id=invoice.id,
+            purchase_date=date(billing_year, billing_month, 9),
+            description_raw="DESCONTO NA FATURA - PO",
+            description_normalized="desconto na fatura - po",
+            amount_brl=f"-{credit_amount}",
+            installment_current=None,
+            installment_total=None,
+            is_installment=False,
+            derived_note="credito tecnico",
+            external_row_hash=f"row-hash-{invoice.id}-credit-gap",
+        )
+        db_session.add(credit_item)
+        db_session.flush()
+        conciliation = CreditCardInvoiceConciliation(
+            invoice_id=invoice.id,
+            status="conciliated",
+            gross_amount_brl=market_amount,
+            invoice_credit_total_brl=credit_amount,
+            bank_payment_total_brl=f"{payment_amount:.2f}",
+            conciliated_total_brl=market_amount,
+            remaining_balance_brl="0.00",
+        )
+        db_session.add(conciliation)
+        db_session.flush()
+        db_session.add_all(
+            [
+                CreditCardInvoiceConciliationItem(
+                    conciliation_id=conciliation.id,
+                    item_type="invoice_credit",
+                    amount_brl=credit_amount,
+                    bank_transaction_id=None,
+                    invoice_item_id=credit_item.id,
+                    notes="credito tecnico",
+                ),
+                CreditCardInvoiceConciliationItem(
+                    conciliation_id=conciliation.id,
+                    item_type="bank_payment",
+                    amount_brl=f"{payment_amount:.2f}",
+                    bank_transaction_id=payment.id,
+                    invoice_item_id=None,
+                    notes="pagamento conciliado",
+                ),
+            ]
+        )
+        db_session.commit()
+
+    seed_conciliated_month(
+        billing_year=2025,
+        billing_month=1,
+        moradia_amount=1400.0,
+        market_amount="470.00",
+        credit_amount="20.00",
+        payment_amount=450.0,
+        card_final="1515",
+    )
+    seed_conciliated_month(
+        billing_year=2026,
+        billing_month=1,
+        moradia_amount=1550.0,
+        market_amount="530.00",
+        credit_amount="30.00",
+        payment_amount=500.0,
+        card_final="1616",
+    )
+    seed_conciliated_month(
+        billing_year=2026,
+        billing_month=3,
+        moradia_amount=1800.0,
+        market_amount="900.00",
+        credit_amount="80.00",
+        payment_amount=820.0,
+        card_final="3636",
+    )
+    _login(client)
+
+    response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+
+    assert response.status_code == 200
+    assert "Comparações históricas por categoria" in response.text
+    assert "Supermercado" in response.text
+    assert "m/m sem base" in response.text
+    assert "a/a sem base" in response.text
+
+
 def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
@@ -885,6 +1191,7 @@ def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(c
     assert response.status_code == 200
     assert "Resumo principal conciliado" in response.text
     assert "Visão bruta de apoio" in response.text
+    assert "Comparações históricas por categoria" in response.text
     assert "legacy html" in response.text
 
 def test_admin_transactions_page_marks_conciliated_bank_payment(client, db_session, monkeypatch):
@@ -938,6 +1245,9 @@ def _seed_credit_card_invoice(
     total_amount: str = "130.45",
     status: str = "imported",
     notes: str | None = "Fatura mar\u00e7o",
+    due_date: date | None = None,
+    closing_date: date | None = None,
+    item_specs: list[tuple[str, str]] | None = None,
 ):
     card = CreditCard(
         issuer="itau",
@@ -966,8 +1276,8 @@ def _seed_credit_card_invoice(
         card_final=card.card_final,
         billing_year=billing_year,
         billing_month=billing_month,
-        due_date=date(2026, 3, 20),
-        closing_date=date(2026, 3, 12),
+        due_date=due_date or date(billing_year, billing_month, 20),
+        closing_date=closing_date or date(billing_year, billing_month, 12),
         total_amount_brl=total_amount,
         source_file_name=source_file.file_name,
         source_file_hash=source_file.file_hash,
@@ -977,34 +1287,28 @@ def _seed_credit_card_invoice(
     db_session.add(invoice)
     db_session.flush()
 
-    db_session.add_all(
-        [
+    resolved_item_specs = item_specs or [
+        ("SUPERMERCADO TESTE", "100.00"),
+        ("CURSO PARCELADO", "30.45"),
+    ]
+    items = []
+    for index, (description_raw, amount_brl) in enumerate(resolved_item_specs, start=1):
+        is_course_installment = description_raw == "CURSO PARCELADO"
+        items.append(
             CreditCardInvoiceItem(
                 invoice_id=invoice.id,
-                purchase_date=date(2026, 3, 5),
-                description_raw="SUPERMERCADO TESTE",
-                description_normalized="supermercado teste",
-                amount_brl="100.00",
-                installment_current=None,
-                installment_total=None,
-                is_installment=False,
-                derived_note=None,
-                external_row_hash=f"row-hash-{invoice.id}-1",
-            ),
-            CreditCardInvoiceItem(
-                invoice_id=invoice.id,
-                purchase_date=date(2026, 3, 7),
-                description_raw="CURSO PARCELADO",
-                description_normalized="curso parcelado",
-                amount_brl="30.45",
-                installment_current=2,
-                installment_total=3,
-                is_installment=True,
-                derived_note="parcela 2/3",
-                external_row_hash=f"row-hash-{invoice.id}-2",
-            ),
-        ]
-    )
+                purchase_date=date(billing_year, billing_month, 5 if index == 1 else min(7 + index - 2, 28)),
+                description_raw=description_raw,
+                description_normalized=description_raw.lower(),
+                amount_brl=amount_brl,
+                installment_current=2 if is_course_installment else None,
+                installment_total=3 if is_course_installment else None,
+                is_installment=is_course_installment,
+                derived_note="parcela 2/3" if is_course_installment else None,
+                external_row_hash=f"row-hash-{invoice.id}-{index}",
+            )
+        )
+    db_session.add_all(items)
     db_session.commit()
     db_session.refresh(invoice)
     return invoice

@@ -64,6 +64,7 @@ def admin_analysis_page(
         payload_snapshot["primary_summary"] = live_snapshot["primary_summary"]
     if payload_snapshot:
         payload_snapshot["category_breakdown"] = live_snapshot["category_breakdown"]
+        payload_snapshot["category_history"] = live_snapshot["category_history"]
         payload_snapshot["categories"] = live_snapshot["categories"]
         payload_snapshot["top_expense_categories"] = live_snapshot["top_expense_categories"]
         payload_snapshot.setdefault("charts", {})
