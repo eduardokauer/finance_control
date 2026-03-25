@@ -801,13 +801,96 @@ def test_admin_analysis_page_shows_conciliated_category_breakdown(client, db_ses
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Categorias conciliadas do m\u00eas-base" in response.text
-    assert "Base conciliada do m\u00eas-base" in response.text
+    assert "Categorias do m\u00eas-base na vis\u00e3o de consumo" in response.text
+    assert "Vis\u00e3o de consumo do m\u00eas-base" in response.text
     assert "Supermercado" in response.text
     assert "Educa\u00e7\u00e3o" in response.text
     assert "Moradia" in response.text
     assert "Cr\u00e9ditos t\u00e9cnicos de fatura" in response.text
     assert "pagamentos banc\u00e1rios exclu\u00eddos" in response.text
+
+
+def test_admin_analysis_page_anchors_card_consumption_by_purchase_date(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+
+    payment = _seed_transaction(
+        db_session,
+        description="PAGAMENTO FATURA FEV",
+        normalized="pagamento fatura fev",
+        transaction_date=date(2026, 2, 18),
+        amount=-800.0,
+        transaction_kind="expense",
+        category="Pagamento de Fatura",
+    )
+    invoice = _seed_credit_card_invoice(
+        db_session,
+        card_label="Itaú Visa final 7777",
+        card_final="7777",
+        billing_year=2026,
+        billing_month=2,
+        due_date=date(2026, 2, 20),
+        closing_date=date(2026, 2, 12),
+        total_amount="800.00",
+        status="pending_review",
+        item_specs=[
+            ("SUPERMERCADO TESTE", "900.00", date(2026, 1, 28)),
+            ("DESCONTO NA FATURA - PO", "-100.00", date(2026, 1, 29)),
+            ("PAGAMENTO EFETUADO", "-800.00", date(2026, 2, 18)),
+        ],
+    )
+    invoice_items = db_session.scalars(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id).order_by(CreditCardInvoiceItem.id.asc())
+    ).all()
+    invoice_items[0].category = "Supermercado"
+    invoice_items[0].categorization_method = "manual"
+    invoice_items[0].categorization_confidence = 1.0
+    conciliation = CreditCardInvoiceConciliation(
+        invoice_id=invoice.id,
+        status="conciliated",
+        gross_amount_brl="900.00",
+        invoice_credit_total_brl="100.00",
+        bank_payment_total_brl="800.00",
+        conciliated_total_brl="900.00",
+        remaining_balance_brl="0.00",
+    )
+    db_session.add(conciliation)
+    db_session.flush()
+    db_session.add_all(
+        [
+            CreditCardInvoiceConciliationItem(
+                conciliation_id=conciliation.id,
+                item_type="invoice_credit",
+                amount_brl="100.00",
+                bank_transaction_id=None,
+                invoice_item_id=invoice_items[1].id,
+                notes="credito tecnico",
+            ),
+            CreditCardInvoiceConciliationItem(
+                conciliation_id=conciliation.id,
+                item_type="bank_payment",
+                amount_brl="800.00",
+                bank_transaction_id=payment.id,
+                invoice_item_id=None,
+                notes="pagamento conciliado",
+            ),
+        ]
+    )
+    db_session.commit()
+    _login(client)
+
+    january = client.get("/admin/analysis?period_start=2026-01-01&period_end=2026-01-31")
+    february = client.get("/admin/analysis?period_start=2026-02-01&period_end=2026-02-28")
+
+    assert january.status_code == 200
+    assert "Categorias do m\u00eas-base na vis\u00e3o de consumo" in january.text
+    assert "Supermercado" in january.text
+    assert "Cr\u00e9ditos t\u00e9cnicos de fatura" in january.text
+    assert "data do próprio item importado" in january.text
+    assert "sem redistribuição artificial entre categorias" in january.text
+    assert february.status_code == 200
+    assert "Supermercado" not in february.text
+    assert "Sem categorias conciliadas no m\u00eas-base" in february.text
 
 
 def test_admin_analysis_page_shows_conciliated_category_history(client, db_session, monkeypatch):
@@ -960,7 +1043,7 @@ def test_admin_analysis_page_shows_conciliated_category_history(client, db_sessi
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Comparações históricas por categoria" in response.text
+    assert "Comparações históricas por categoria na visão de consumo" in response.text
     assert "mar/2026" in response.text
     assert "fev/2026" in response.text
     assert "mar/2025" in response.text
@@ -1109,7 +1192,7 @@ def test_admin_analysis_page_marks_category_history_gap_as_sem_base(client, db_s
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Comparações históricas por categoria" in response.text
+    assert "Comparações históricas por categoria na visão de consumo" in response.text
     assert "Supermercado" in response.text
     assert "m/m sem base" in response.text
     assert "a/a sem base" in response.text
@@ -1191,7 +1274,7 @@ def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(c
     assert response.status_code == 200
     assert "Resumo principal conciliado" in response.text
     assert "Visão bruta de apoio" in response.text
-    assert "Comparações históricas por categoria" in response.text
+    assert "Comparações históricas por categoria na visão de consumo" in response.text
     assert "legacy html" in response.text
 
 def test_admin_transactions_page_marks_conciliated_bank_payment(client, db_session, monkeypatch):
@@ -1247,7 +1330,7 @@ def _seed_credit_card_invoice(
     notes: str | None = "Fatura mar\u00e7o",
     due_date: date | None = None,
     closing_date: date | None = None,
-    item_specs: list[tuple[str, str]] | None = None,
+    item_specs: list[tuple[str, str] | tuple[str, str, date]] | None = None,
 ):
     card = CreditCard(
         issuer="itau",
@@ -1292,12 +1375,17 @@ def _seed_credit_card_invoice(
         ("CURSO PARCELADO", "30.45"),
     ]
     items = []
-    for index, (description_raw, amount_brl) in enumerate(resolved_item_specs, start=1):
+    for index, item_spec in enumerate(resolved_item_specs, start=1):
+        if len(item_spec) == 3:
+            description_raw, amount_brl, purchase_date = item_spec
+        else:
+            description_raw, amount_brl = item_spec
+            purchase_date = date(billing_year, billing_month, 5 if index == 1 else min(7 + index - 2, 28))
         is_course_installment = description_raw == "CURSO PARCELADO"
         items.append(
             CreditCardInvoiceItem(
                 invoice_id=invoice.id,
-                purchase_date=date(billing_year, billing_month, 5 if index == 1 else min(7 + index - 2, 28)),
+                purchase_date=purchase_date,
                 description_raw=description_raw,
                 description_normalized=description_raw.lower(),
                 amount_brl=amount_brl,
