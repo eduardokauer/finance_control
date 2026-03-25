@@ -389,19 +389,20 @@ def _build_conciliated_category_history(
     previous_year_month = add_months(month_start(anchor_month), -12)
     earliest_month = _earliest_history_month(db)
 
-    previous_month_available = earliest_month is not None and previous_month >= earliest_month
-    previous_year_available = earliest_month is not None and previous_year_month >= earliest_month
-
-    previous_snapshot = (
+    previous_month_snapshot = (
         _build_conciliated_category_month_snapshot(db, anchor_month=previous_month)
-        if previous_month_available
+        if earliest_month is not None and previous_month >= earliest_month
         else None
     )
     previous_year_snapshot = (
         _build_conciliated_category_month_snapshot(db, anchor_month=previous_year_month)
-        if previous_year_available
+        if earliest_month is not None and previous_year_month >= earliest_month
         else None
     )
+    previous_month_available = bool(previous_month_snapshot and previous_month_snapshot["has_activity"])
+    previous_year_available = bool(previous_year_snapshot and previous_year_snapshot["has_activity"])
+    previous_snapshot = previous_month_snapshot if previous_month_available else None
+    previous_year_snapshot = previous_year_snapshot if previous_year_available else None
 
     rows: list[dict] = []
     for current_row in current_snapshot["breakdown"]["top_expense_categories"]:
