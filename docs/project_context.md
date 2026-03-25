@@ -11,6 +11,7 @@ Arquivos complementares:
 Ordem de leitura recomendada:
 - PM: ler `docs/project_context.md` e depois `docs/pm_workflow.md`.
 - Codex: ler `docs/project_context.md` e depois `docs/codex_workflow.md`.
+- Essas leituras devem acontecer antes de qualquer análise, planejamento, implementação ou validação ligada ao projeto.
 
 ## 1. Visão Geral do Projeto
 

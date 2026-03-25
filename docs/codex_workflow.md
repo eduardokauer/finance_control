@@ -5,30 +5,35 @@
 `docs/codex_workflow.md` define como o Codex deve executar trabalho técnico neste projeto. Este arquivo não substitui o contexto do projeto; ele organiza leitura obrigatória, respeito a escopo, testes, atualização de documentação, validação final e regras para commit/PR.
 
 Leitura obrigatória antes de executar:
-1. `docs/project_context.md`
-2. `docs/codex_workflow.md`
+1. `docs/project_context.md`, por completo.
+2. `docs/codex_workflow.md`, por completo.
 3. quaisquer outros arquivos que o prompt mandar ler antes de começar.
+
+Essas leituras devem acontecer antes de qualquer análise técnica, planejamento, alteração de código, teste, commit ou PR.
 
 `docs/pm_workflow.md` não faz parte da leitura padrão do Codex. Ele só deve ser lido se o prompt mandar explicitamente por motivo específico.
 
 ## Regras Obrigatórias do Codex
 
-1. Sempre considerar `docs/project_context.md` como base prioritária de contexto do projeto.
-2. Sempre considerar `docs/codex_workflow.md` como base prioritária do processo de execução.
-3. Sempre ler também os arquivos adicionais indicados no prompt.
-4. Não ler `docs/pm_workflow.md` por padrão; só fazê-lo se o prompt mandar explicitamente por motivo específico.
-5. Não contradizer decisões já tomadas em `docs/project_context.md`.
-6. Respeitar objetivo, fora de escopo e DoD do prompt, preservando o valor funcional prometido para a entrega.
-7. Não abrir escopo por conta própria.
-8. Não reduzir o escopo por conta própria a ponto de sobrar apenas preparação interna quando o objetivo do PR exigir valor funcional visível.
-9. Usar ajustes estruturais apenas como suporte à entrega principal do mesmo PR, e não como substituto dela.
-10. Transformar itens críticos do DoD em testes sempre que possível.
-11. Revisar os arquivos alterados quanto a:
+1. Sempre ler `docs/project_context.md` por completo antes de qualquer análise técnica, planejamento, alteração de código, teste, commit ou PR.
+2. Sempre ler `docs/codex_workflow.md` por completo antes de qualquer análise técnica, planejamento, alteração de código, teste, commit ou PR.
+3. Sempre considerar `docs/project_context.md` como base prioritária de contexto do projeto.
+4. Sempre considerar `docs/codex_workflow.md` como base prioritária do processo de execução.
+5. Sempre ler também os arquivos adicionais indicados no prompt.
+6. Não ler `docs/pm_workflow.md` por padrão; só fazê-lo se o prompt mandar explicitamente por motivo específico.
+7. Não contradizer decisões já tomadas em `docs/project_context.md`.
+8. Em caso de conflito entre suposições locais e o que estiver documentado em `docs/project_context.md` ou `docs/codex_workflow.md`, prevalece o que estiver documentado.
+9. Respeitar objetivo, fora de escopo e DoD do prompt, preservando o valor funcional prometido para a entrega.
+10. Não abrir escopo por conta própria.
+11. Não reduzir o escopo por conta própria a ponto de sobrar apenas preparação interna quando o objetivo do PR exigir valor funcional visível.
+12. Usar ajustes estruturais apenas como suporte à entrega principal do mesmo PR, e não como substituto dela.
+13. Transformar itens críticos do DoD em testes sempre que possível.
+14. Revisar os arquivos alterados quanto a:
    - mojibake;
    - encoding incorreto;
    - BOM residual;
    - problemas de formatação.
-12. Executar a suíte completa antes de considerar a entrega concluída.
+15. Executar a suíte completa antes de considerar a entrega concluída.
 
 ## Regra Crítica de Atualização dos Arquivos
 
@@ -67,8 +72,8 @@ O Codex deve manter estes arquivos atualizados sempre que necessário.
 
 ## Como Executar uma Entrega
 
-1. Ler os arquivos obrigatórios.
-2. Entender objetivo, fora de escopo e DoD.
+1. Ler por completo os arquivos obrigatórios.
+2. Só depois dessas leituras, entender objetivo, fora de escopo e DoD.
 3. Confirmar no código o estado real antes de alterar qualquer coisa.
 4. Implementar somente o necessário para o objetivo do PR, preservando o incremento funcional prometido.
 5. Não parar em preparação interna quando o prompt pedir valor funcional visível; incorporar os ajustes estruturais necessários na mesma entrega sempre que isso continuar seguro e revisável.
@@ -118,5 +123,6 @@ O texto do PR deve incluir um relatório final objetivo da entrega, com no míni
 ## Como Usar nos Próximos Prompts
 
 - O PM deve mandar o Codex ler os arquivos relevantes antes de cada nova execução.
+- O prompt deve deixar explícito que `docs/project_context.md` e `docs/codex_workflow.md` precisam ser lidos por completo antes de qualquer implementação.
 - O Codex deve obedecer essa leitura antes de implementar qualquer mudança.
 - `docs/project_context.md`, `docs/pm_workflow.md` e `docs/codex_workflow.md` passam a fazer parte do processo padrão do projeto.
