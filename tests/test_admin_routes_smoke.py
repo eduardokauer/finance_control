@@ -211,6 +211,7 @@ def test_admin_main_routes_smoke(client, db_session, monkeypatch):
     routes = [
         "/admin",
         "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31",
+        "/admin/conference?period_start=2026-03-01&period_end=2026-03-31",
         "/admin/operations",
         "/admin/transactions",
         f"/admin/transactions/{tx.id}",
@@ -225,16 +226,19 @@ def test_admin_main_routes_smoke(client, db_session, monkeypatch):
         _assert_route_ok(client.get(route), route)
 
 
-def test_admin_analysis_route_smoke_with_legacy_saved_payload(client, db_session, monkeypatch):
+def test_admin_analysis_and_conference_routes_support_legacy_saved_payload(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
     _seed_transaction(db_session)
     _seed_legacy_analysis_run(db_session)
     _login(client)
 
-    response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+    analysis_response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+    conference_response = client.get("/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
 
-    _assert_route_ok(response, "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
-    assert "Resumo principal conciliado" in response.text
-    assert "Visão bruta de apoio" in response.text
-    assert "legacy html" in response.text
+    _assert_route_ok(analysis_response, "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+    _assert_route_ok(conference_response, "/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
+    assert "Visão de consumo do mês-base" in analysis_response.text
+    assert "Visão bruta de apoio" not in analysis_response.text
+    assert "Visão bruta de apoio" in conference_response.text
+    assert "legacy html" in conference_response.text

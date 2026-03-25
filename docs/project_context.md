@@ -11,6 +11,7 @@ Arquivos complementares:
 Ordem de leitura recomendada:
 - PM: ler `docs/project_context.md` e depois `docs/pm_workflow.md`.
 - Codex: ler `docs/project_context.md` e depois `docs/codex_workflow.md`.
+- Essas leituras devem acontecer antes de qualquer análise, planejamento, implementação ou validação ligada ao projeto.
 
 ## 1. Visão Geral do Projeto
 
@@ -70,6 +71,8 @@ Ordem de leitura recomendada:
 - Leitura mensal por categoria promovida para a visão de consumo do mês-base, com conta por `transaction_date` e cartão conciliado por `purchase_date`.
 - Comparações mês a mês / ano a ano por categoria usando a mesma visão de consumo já adotada no mês-base implementadas na análise do admin.
 - Alertas e ações recomendadas recalculados para priorizar sinais da visão de consumo quando falam de consumo, categorias e variação de gasto.
+- Arquitetura da informação do admin reorganizada para separar Resumo, Análise detalhada, Conferência, Operação e Configuração.
+- Home/resumo do admin simplificada para concentrar leitura financeira essencial, categorias prioritárias e atalhos de aprofundamento.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
 - Deduplicação forte implementada:
   - OFX usa controle por arquivo e transação canônica.
@@ -157,10 +160,11 @@ Ordem de leitura recomendada:
 
 ## 5. Estrutura Analítica Atual
 
-- A tela de análise hoje combina duas leituras:
-  - resumo principal conciliado do período;
-  - visão categorial principal de consumo.
-- A **visão bruta** continua na mesma tela como apoio e auditoria.
+- O admin agora separa a leitura em três entradas analíticas complementares:
+  - **Resumo:** entrada principal, com KPIs conciliados, resumo executivo, categorias prioritárias da visão de consumo e alertas mais urgentes;
+  - **Análise detalhada:** aprofundamento da visão de consumo, com breakdown categorial completo, comparações históricas, gráficos analíticos atuais, alertas e ações;
+  - **Conferência:** visão bruta, cobertura da leitura principal, sinais auxiliares de conciliação, itens técnicos e HTML renderizado para auditoria.
+- Essa reorganização é uma decisão explícita de arquitetura da informação do produto, feita antes da próxima etapa de gráficos dedicados por categoria.
 - Os KPIs principais do mês usam a visão conciliada:
   - receitas
   - despesas
@@ -183,10 +187,12 @@ Ordem de leitura recomendada:
 - Alertas e ações recomendadas do admin agora seguem a mesma separação:
   - sinais ligados a consumo, categorias, concentração e variação usam a visão de consumo;
   - sinais gerais de saldo e cobertura do período continuam ancorados no resumo principal conciliado quando isso fizer mais sentido.
+- A visão bruta continua disponível, mas foi rebaixada para a área de conferência para não poluir a home/resumo.
 
 ### O que ainda não foi migrado totalmente
 
-- Gráficos históricos de 12 meses continuam apoiados na base atual.
+- Gráficos dedicados de evolução por categoria na visão de consumo ainda não foram promovidos.
+- Gráficos históricos de 12 meses continuam no suporte atual e ainda não foram reorganizados em uma camada visual própria da visão de consumo.
 - A análise LLM continua separada da análise determinística e não é a leitura principal do admin.
 - A visão de fluxo de caixa ainda não foi promovida como dashboard analítico separado.
 
@@ -200,13 +206,20 @@ Ordem de leitura recomendada:
 
 ### O admin já permite hoje
 
+- **Arquitetura da informação**
+  - usar `Resumo` como entrada principal do admin;
+  - separar `Análise detalhada` como espaço de aprofundamento da visão de consumo;
+  - manter `Conferência` para apoio, auditoria e diagnóstico;
+  - concentrar lançamentos, faturas e reaplicação em `Operação`;
+  - deixar `Central operacional`, regras e categorias agrupadas em `Configuração`.
 - **Análise**
-  - ver análise determinística por período;
+  - ver resumo financeiro enxuto por período, com KPIs conciliados, resumo executivo, categorias prioritárias e alertas prioritários;
+  - ver análise detalhada por período;
   - promover a leitura conciliada como resumo principal;
   - ler categorias do mês-base na visão de consumo, com cartão por `purchase_date`;
   - comparar categorias do mês-base contra mês anterior e ano anterior na mesma visão de consumo;
   - receber alertas e ações recomendadas coerentes com a visão de consumo para temas de categoria e consumo;
-  - manter visão bruta como apoio;
+  - manter visão bruta, cobertura e sinais auxiliares em uma área de conferência separada;
   - disparar nova análise determinística manualmente.
 - **Transações**
   - listar, filtrar e revisar transações;
@@ -241,7 +254,7 @@ Ordem de leitura recomendada:
 ### Limitações operacionais atuais
 
 - A decisão de conciliação ainda é manual.
-- A leitura categorial principal já usa visão de consumo, mas ainda não há gráfico dedicado de evolução nessa mesma base.
+- A nova IA do admin já separa resumo, análise detalhada e conferência, mas a evolução visual por categoria ainda depende dos gráficos atuais e não de uma camada dedicada.
 - A operação manual atual de categoria em itens de fatura já cobre ajuste pontual e aplicação na base, mas ainda depende de revisão humana caso o padrão desejado não seja recorrente o suficiente para virar regra.
 - A visão de fluxo de caixa ainda não foi materializada como dashboard próprio.
 
@@ -256,18 +269,26 @@ Ordem de leitura recomendada:
 
 ### Próximo passo atual do projeto
 
-- Promover gráficos dedicados de evolução por categoria usando a mesma visão de consumo já adotada no mês-base, nas comparações históricas e nos alertas/ações.
+- Promover gráficos dedicados de evolução por categoria usando a mesma visão de consumo já adotada no mês-base, agora em cima da nova arquitetura do admin com Resumo, Análise detalhada e Conferência separados.
 
 ### Sequência recomendada a partir daqui
 
-1. Promover gráficos dedicados de evolução por categoria usando a mesma visão de consumo já estabilizada.
-2. Materializar uma visão analítica separada de fluxo de caixa apenas quando houver ganho funcional claro e sem confundir as duas leituras.
-3. Reavaliar alertas e ações complementares apenas se surgir nova lacuna real depois da leitura histórica e visual de consumo ficar estável.
+1. Promover gráficos dedicados de evolução por categoria dentro de `Análise detalhada`, usando a mesma visão de consumo já estabilizada.
+2. Refinar `Resumo` e `Conferência` apenas se a nova camada visual exigir redistribuição adicional de blocos para manter clareza.
+3. Materializar uma visão analítica separada de fluxo de caixa apenas quando houver ganho funcional claro e sem confundir as duas leituras.
+
+### Fora de escopo imediato
+
+- dashboard completo de fluxo de caixa;
+- novo motor analítico;
+- mudanças de domínio financeiro já estabilizado;
+- conciliação automática;
+- reestruturação ampla dos serviços além do necessário para a navegação e a camada visual analítica.
 
 ## 8. Riscos e Limitações Conhecidas
 
 - A leitura mensal e as comparações históricas por categoria já usam a visão de consumo, mas os gráficos dedicados dessa evolução ainda não foram promovidos.
-- O consolidado conciliado e a visão de consumo convivem na mesma tela, então a distinção entre consumo e fluxo de caixa ainda depende de texto e contexto claros.
+- O resumo principal conciliado e a visão de consumo agora foram separados em páginas mais claras, mas o produto ainda depende de texto e hierarquia para não confundir consumo com fluxo de caixa.
 - A visão bruta ainda é necessária para auditoria.
 - A visão de consumo por categoria ainda depende de faturas totalmente conciliadas.
 - O MVP continua dependente do layout oficial de OFX Itaú e CSV Itaú já suportados.

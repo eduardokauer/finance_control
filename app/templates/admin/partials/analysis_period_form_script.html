@@ -1,0 +1,53 @@
+<script>
+  (() => {
+    const form = document.getElementById('analysis-period-form');
+    if (!form) return;
+
+    const modeInput = document.getElementById('selection-mode-input');
+    const monthInput = document.getElementById('analysis-month-input');
+    const monthStartText = document.getElementById('month-start-text');
+    const monthEndText = document.getElementById('month-end-text');
+    const panels = {
+      closed: document.getElementById('panel-closed'),
+      month: document.getElementById('panel-month'),
+      custom: document.getElementById('panel-custom'),
+    };
+    const buttons = Array.from(form.querySelectorAll('.period-tab'));
+    const customInputs = panels.custom ? Array.from(panels.custom.querySelectorAll('input')) : [];
+
+    const updateMonthPreview = () => {
+      if (!monthInput || !monthInput.value) return;
+      const [year, month] = monthInput.value.split('-').map(Number);
+      if (!year || !month) return;
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0);
+      const format = (value) => value.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+      if (monthStartText) monthStartText.textContent = format(start);
+      if (monthEndText) monthEndText.textContent = format(end);
+    };
+
+    const setMode = (mode) => {
+      modeInput.value = mode;
+      buttons.forEach((button) => {
+        const isActive = button.dataset.mode === mode;
+        button.classList.toggle('button-primary', isActive);
+      });
+      Object.entries(panels).forEach(([panelMode, panel]) => {
+        if (!panel) return;
+        panel.style.display = panelMode === mode ? '' : 'none';
+      });
+      if (monthInput) monthInput.disabled = mode !== 'month';
+      customInputs.forEach((input) => {
+        input.disabled = mode !== 'custom';
+      });
+    };
+
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => setMode(button.dataset.mode));
+    });
+    if (monthInput) {
+      monthInput.addEventListener('change', updateMonthPreview);
+    }
+    updateMonthPreview();
+  })();
+</script>

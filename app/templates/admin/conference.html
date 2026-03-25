@@ -1,0 +1,215 @@
+{% extends "admin/base.html" %}
+{% block title %}Conferência{% endblock %}
+{% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
+{% block content %}
+{% set analysis_page_title = "Conferência e auditoria" %}
+{% set analysis_page_intro = "Área de apoio para validar a cobertura da leitura principal, conferir a visão bruta do período e diagnosticar sinais auxiliares sem poluir o resumo." %}
+{% set analysis_form_action = "/admin/conference" %}
+{% set analysis_submit_label = "Ver conferência" %}
+{% set analysis_show_generate = True %}
+{% include "admin/partials/analysis_period_form.html" %}
+
+<section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
+  <div class="card stack" style="margin-bottom:0;">
+    <div>
+      <strong>Cobertura da leitura principal</strong>
+      <div class="subtle">O resumo conciliado segue no topo do produto, mas a conferência concentra o que ajuda a explicar cobertura e exclusões do período.</div>
+    </div>
+    <div class="analysis-list">
+      <div class="analysis-item">
+        <strong>Resumo executivo</strong>
+        <p>{{ analysis_data.primary_summary.executive_summary }}</p>
+      </div>
+      <div class="analysis-item">
+        <strong>Cobertura da leitura principal</strong>
+        <p>{{ analysis_data.primary_summary.coverage_note }}</p>
+      </div>
+    </div>
+    <div class="kv-grid">
+      <div class="subtle">Despesas reais da conta</div><div>{{ analysis_data.conciliated_month.bank_expense_total_included_display }}</div>
+      <div class="subtle">Compras de cartão conciliado</div><div>{{ analysis_data.conciliated_month.conciliated_card_charge_display }}</div>
+      <div class="subtle">Créditos técnicos de fatura</div><div>-{{ analysis_data.conciliated_month.conciliated_invoice_credit_display }}</div>
+      <div class="subtle">Pagamentos bancários excluídos</div><div>{{ analysis_data.primary_summary.excluded_bank_payment_display }} | {{ analysis_data.primary_summary.excluded_bank_payment_count }} pagamento(s)</div>
+      <div class="subtle">Faturas conciliadas consideradas</div><div>{{ analysis_data.primary_summary.included_invoice_count }}</div>
+      <div class="subtle">Faturas fora da leitura principal</div><div>{{ analysis_data.primary_summary.outside_invoice_count }}</div>
+    </div>
+  </div>
+
+  <div class="card stack" style="margin-bottom:0;">
+    <div>
+      <strong>Visão bruta de apoio</strong>
+      <div class="subtle">A movimentação bruta continua disponível para conferência e auditoria, sem reclassificar o domínio original.</div>
+    </div>
+    <div class="kpi-grid">
+      <div>
+        <div class="subtle">Receitas brutas</div>
+        <div class="metric-value amount-positive">{{ analysis_data.summary.income_display }}</div>
+      </div>
+      <div>
+        <div class="subtle">Despesas brutas</div>
+        <div class="metric-value amount-negative">{{ analysis_data.summary.expense_display }}</div>
+      </div>
+      <div>
+        <div class="subtle">Saldo bruto</div>
+        <div class="metric-value {% if analysis_data.summary.balance < 0 %}amount-negative{% else %}amount-positive{% endif %}">{{ analysis_data.summary.balance_display }}</div>
+      </div>
+      <div>
+        <div class="subtle">Não categorizado</div>
+        <div class="metric-value">{{ analysis_data.summary.uncategorized_display }}</div>
+      </div>
+      <div>
+        <div class="subtle">Transações</div>
+        <div class="metric-value">{{ analysis_data.summary.transaction_count }}</div>
+      </div>
+    </div>
+    <div class="subtle">A visão bruta ajuda a explicar diferenças operacionais, especialmente pagamentos de fatura e outros itens técnicos.</div>
+  </div>
+</section>
+
+<section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
+  <div class="card stack" style="margin-bottom:0;">
+    <div>
+      <strong>Sinais analíticos de conciliação</strong>
+      <div class="subtle">Bloco auxiliar da leitura principal conciliada, com a abrangência das faturas e dos pagamentos excluídos.</div>
+    </div>
+    <div class="kv-grid">
+      <div class="subtle">Pagamentos conciliados</div><div>{{ analysis_data.conciliation_signals.conciliated_bank_payment_display }} | {{ analysis_data.conciliation_signals.conciliated_bank_payment_count }} lançamento(s)</div>
+      <div class="subtle">Créditos técnicos de fatura</div><div>{{ analysis_data.conciliation_signals.invoice_credit_display }}</div>
+      <div class="subtle">Faturas no período</div><div>{{ analysis_data.conciliation_signals.invoices_total }}</div>
+      <div class="subtle">Pendentes</div><div>{{ analysis_data.conciliation_signals.invoices_by_status.pending_review }}</div>
+      <div class="subtle">Parcialmente conciliadas</div><div>{{ analysis_data.conciliation_signals.invoices_by_status.partially_conciliated }}</div>
+      <div class="subtle">Conciliadas</div><div>{{ analysis_data.conciliation_signals.invoices_by_status.conciliated }}</div>
+      <div class="subtle">Conflito</div><div>{{ analysis_data.conciliation_signals.invoices_by_status.conflict }}</div>
+    </div>
+    <div class="subtle">{{ analysis_data.conciliation_signals.note }}</div>
+  </div>
+
+  <div class="card stack" style="margin-bottom:0;">
+    <div>
+      <strong>Fora da leitura principal</strong>
+      <div class="subtle">Faturas ainda não totalmente conciliadas continuam fora do consolidado principal desta leitura.</div>
+    </div>
+    <div class="kv-grid">
+      <div class="subtle">Pendentes de revisão</div><div>{{ analysis_data.conciliated_month.outside_invoices_by_status.pending_review }}</div>
+      <div class="subtle">Parcialmente conciliadas</div><div>{{ analysis_data.conciliated_month.outside_invoices_by_status.partially_conciliated }}</div>
+      <div class="subtle">Em conflito</div><div>{{ analysis_data.conciliated_month.outside_invoices_by_status.conflict }}</div>
+      <div class="subtle">Total fora da leitura</div><div>{{ analysis_data.conciliated_month.outside_invoices_total }}</div>
+    </div>
+    <div class="analysis-list">
+      <div class="analysis-item">
+        <strong>Pagamentos excluídos por conciliação</strong>
+        <p>{{ analysis_data.conciliated_month.excluded_conciliated_bank_payment_display }} deixaram de contar como despesa principal do mês porque já foram substituídos pelos itens da fatura conciliada.</p>
+      </div>
+      <div class="analysis-item">
+        <strong>Escopo conservador</strong>
+        <p>Somente faturas com status <code>conciliated</code> entram nessa leitura principal. Pendências, parciais e conflitos seguem como indicador auxiliar.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="card stack technical-note" style="margin-top:12px; margin-bottom:0;">
+  <div>
+    <strong>Itens financeiros e técnicos</strong>
+    <div class="subtle">Eles continuam no consolidado principal, mas podem distorcer a leitura de consumo real.</div>
+  </div>
+  <div class="analysis-list">
+    <div class="analysis-item">
+      <strong>Transferências</strong>
+      <p>{{ analysis_data.technical_items.transfer_display }} | {{ analysis_data.technical_items.transfer_share_display }} do total de despesas</p>
+    </div>
+    <div class="analysis-item">
+      <strong>Pagamento de Fatura</strong>
+      <p>{{ analysis_data.technical_items.card_bill_display }} | {{ analysis_data.technical_items.card_bill_share_display }} do total de despesas</p>
+    </div>
+    <div class="analysis-item">
+      <strong>Leitura combinada</strong>
+      <p>{{ analysis_data.technical_items.combined_display }} | {{ analysis_data.technical_items.combined_share_display }} das despesas. {{ analysis_data.technical_items.note }}</p>
+    </div>
+  </div>
+</div>
+
+{% if analysis_run %}
+  <section class="comparison-grid" style="margin-top:12px;">
+    <div class="card" style="margin-bottom:0;">
+      <div class="subtle">Receitas brutas vs {{ analysis_data.comparison.reference_label }}</div>
+      <div style="font-weight:700; margin-top:6px;">{{ analysis_data.comparison.income.delta_display }}</div>
+      <div class="subtle {{ 'trend-up' if analysis_data.comparison.income.trend == 'up' else 'trend-down' if analysis_data.comparison.income.trend == 'down' else 'trend-stable' }}">{{ analysis_data.comparison.income.trend_label|capitalize }} | {{ analysis_data.comparison.income.percent_display }}</div>
+      <div class="subtle">Atual: {{ analysis_data.comparison.income.current_display }} | anterior: {{ analysis_data.comparison.income.previous_display }}</div>
+    </div>
+    <div class="card" style="margin-bottom:0;">
+      <div class="subtle">Despesas brutas vs {{ analysis_data.comparison.reference_label }}</div>
+      <div style="font-weight:700; margin-top:6px;">{{ analysis_data.comparison.expense.delta_display }}</div>
+      <div class="subtle {{ 'trend-up' if analysis_data.comparison.expense.trend == 'up' else 'trend-down' if analysis_data.comparison.expense.trend == 'down' else 'trend-stable' }}">{{ analysis_data.comparison.expense.trend_label|capitalize }} | {{ analysis_data.comparison.expense.percent_display }}</div>
+      <div class="subtle">Atual: {{ analysis_data.comparison.expense.current_display }} | anterior: {{ analysis_data.comparison.expense.previous_display }}</div>
+    </div>
+    <div class="card" style="margin-bottom:0;">
+      <div class="subtle">Saldo bruto vs {{ analysis_data.comparison.reference_label }}</div>
+      <div style="font-weight:700; margin-top:6px;">{{ analysis_data.comparison.balance.delta_display }}</div>
+      <div class="subtle {{ 'trend-up' if analysis_data.comparison.balance.trend == 'up' else 'trend-down' if analysis_data.comparison.balance.trend == 'down' else 'trend-stable' }}">{{ analysis_data.comparison.balance.trend_label|capitalize }} | {{ analysis_data.comparison.balance.percent_display }}</div>
+      <div class="subtle">Atual: {{ analysis_data.comparison.balance.current_display }} | anterior: {{ analysis_data.comparison.balance.previous_display }}</div>
+    </div>
+  </section>
+
+  <div class="card stack" style="margin-top:12px; margin-bottom:0;">
+    <div>
+      <strong>Consolidado mensal de 12 meses</strong>
+      <div class="subtle">Meses zerados incluídos para leitura de tendência e comparação.</div>
+    </div>
+    <div class="analysis-table-wrap">
+      <table class="analysis-table">
+        <thead>
+          <tr>
+            <th>Mês</th>
+            <th>Receitas</th>
+            <th>Despesas</th>
+            <th>Saldo</th>
+            <th>Não categorizado</th>
+            <th>Transações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for month in analysis_data.monthly_series %}
+            <tr>
+              <td>{{ month.label }}</td>
+              <td>{{ month.income_display }}</td>
+              <td>{{ month.expense_display }}</td>
+              <td>{{ month.balance_display }}</td>
+              <td>{{ month.uncategorized_display }}</td>
+              <td>{{ month.transaction_count }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="padding:0; overflow:hidden; margin-top:12px; margin-bottom:0;">
+    <div style="padding:16px; border-bottom:1px solid var(--line); font-weight:700;">Análise determinística renderizada</div>
+    <div style="padding:16px;">
+      {{ analysis_html_fragment|safe }}
+    </div>
+  </div>
+
+  <details class="accordion card" style="margin-top:12px;">
+    <summary>Ver HTML bruto</summary>
+    <div class="accordion-body">
+      <textarea readonly style="min-height:260px; font-family:Consolas, monospace;">{{ analysis_run.html_output }}</textarea>
+    </div>
+  </details>
+{% else %}
+  <div class="card stack" style="margin-top:12px; margin-bottom:0;">
+    <strong>Análise ainda não gerada</strong>
+    <div class="subtle">A conferência já mostra a cobertura e os sinais auxiliares do período. Gere uma nova análise determinística se quiser registrar o HTML renderizado e o consolidado mensal persistido.</div>
+  </div>
+{% endif %}
+
+<details class="accordion card" style="margin-top:12px;">
+  <summary>HTML final / LLM</summary>
+  <div class="accordion-body subtle">
+    O sistema não persiste hoje o HTML final do email/LLM por período. Esta tela mostra apenas a análise determinística atual.
+  </div>
+</details>
+
+{% include "admin/partials/analysis_period_form_script.html" %}
+{% endblock %}
