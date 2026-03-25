@@ -17,6 +17,7 @@ from app.repositories.models import (
     Transaction,
     TransactionAuditLog,
 )
+from app.services.analysis import run_analysis
 
 
 def _login(client):
@@ -710,7 +711,7 @@ def test_admin_analysis_page_shows_auxiliary_conciliation_signals(client, db_ses
     assert "Pagamentos conciliados" in response.text
     assert "Créditos técnicos de fatura" in response.text
     assert "Pagamentos excluídos por conciliação" in response.text
-    assert "A leitura principal do mês passa a refletir o consumo real conciliado" in response.text
+    assert "O consolidado conciliado segue como resumo do período" in response.text
 
 
 
@@ -891,6 +892,96 @@ def test_admin_analysis_page_anchors_card_consumption_by_purchase_date(client, d
     assert february.status_code == 200
     assert "Supermercado" not in february.text
     assert "Sem categorias conciliadas no m\u00eas-base" in february.text
+
+
+def test_admin_analysis_page_shows_consumption_based_alerts_and_actions(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+
+    _seed_transaction(
+        db_session,
+        description="SALARIO JAN",
+        normalized="salario jan",
+        transaction_date=date(2026, 1, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Sal\u00e1rio",
+    )
+    payment = _seed_transaction(
+        db_session,
+        description="PAGAMENTO FATURA FEV",
+        normalized="pagamento fatura fev",
+        transaction_date=date(2026, 2, 18),
+        amount=-800.0,
+        transaction_kind="expense",
+        category="Pagamento de Fatura",
+    )
+    invoice = _seed_credit_card_invoice(
+        db_session,
+        card_label="Ita\u00fa Visa final 7878",
+        card_final="7878",
+        billing_year=2026,
+        billing_month=2,
+        due_date=date(2026, 2, 20),
+        closing_date=date(2026, 2, 12),
+        total_amount="800.00",
+        status="pending_review",
+        item_specs=[
+            ("SUPERMERCADO TESTE", "900.00", date(2026, 1, 28)),
+            ("DESCONTO NA FATURA - PO", "-100.00", date(2026, 1, 29)),
+            ("PAGAMENTO EFETUADO", "-800.00", date(2026, 2, 18)),
+        ],
+    )
+    invoice_items = db_session.scalars(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id).order_by(CreditCardInvoiceItem.id.asc())
+    ).all()
+    invoice_items[0].category = "Supermercado"
+    invoice_items[0].categorization_method = "manual"
+    invoice_items[0].categorization_confidence = 1.0
+    conciliation = CreditCardInvoiceConciliation(
+        invoice_id=invoice.id,
+        status="conciliated",
+        gross_amount_brl="900.00",
+        invoice_credit_total_brl="100.00",
+        bank_payment_total_brl="800.00",
+        conciliated_total_brl="900.00",
+        remaining_balance_brl="0.00",
+    )
+    db_session.add(conciliation)
+    db_session.flush()
+    db_session.add_all(
+        [
+            CreditCardInvoiceConciliationItem(
+                conciliation_id=conciliation.id,
+                item_type="invoice_credit",
+                amount_brl="100.00",
+                bank_transaction_id=None,
+                invoice_item_id=invoice_items[1].id,
+                notes="credito tecnico",
+            ),
+            CreditCardInvoiceConciliationItem(
+                conciliation_id=conciliation.id,
+                item_type="bank_payment",
+                amount_brl="800.00",
+                bank_transaction_id=payment.id,
+                invoice_item_id=None,
+                notes="pagamento conciliado",
+            ),
+        ]
+    )
+    db_session.commit()
+    run_analysis(db_session, period_start=date(2026, 1, 1), period_end=date(2026, 1, 31), trigger_source_file_id=None)
+    run_analysis(db_session, period_start=date(2026, 2, 1), period_end=date(2026, 2, 28), trigger_source_file_id=None)
+    _login(client)
+
+    january = client.get("/admin/analysis?period_start=2026-01-01&period_end=2026-01-31")
+    february = client.get("/admin/analysis?period_start=2026-02-01&period_end=2026-02-28")
+
+    assert january.status_code == 200
+    assert "vis\u00e3o de consumo e do resumo principal conciliado" in january.text
+    assert "Revisar a categoria Supermercado" in january.text
+    assert february.status_code == 200
+    assert "Revisar a categoria Supermercado" not in february.text
 
 
 def test_admin_analysis_page_shows_conciliated_category_history(client, db_session, monkeypatch):

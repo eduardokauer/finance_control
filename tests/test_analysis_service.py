@@ -797,6 +797,107 @@ def test_analysis_snapshot_treats_historical_gaps_as_missing_base_for_category_h
     assert history["technical_adjustments"]["previous_year_change"] is None
 
 
+def test_analysis_snapshot_consumption_alerts_and_actions_follow_purchase_month(db_session):
+    _add_tx(db_session, tx_date=date(2026, 1, 5), description="SALARIO JAN", amount=5000.0, category="Salário", transaction_kind="income")
+    payment = _add_tx(
+        db_session,
+        tx_date=date(2026, 2, 18),
+        description="FATURA FEV",
+        amount=-800.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice = _add_invoice(
+        db_session,
+        due_date=date(2026, 2, 20),
+        card_final="4242",
+        item_specs=[
+            ("SUPERMERCADO TESTE", "900.00", date(2026, 1, 28)),
+            ("DESCONTO NA FATURA - PO", "-100.00", date(2026, 1, 29)),
+            ("PAGAMENTO EFETUADO", "-800.00", date(2026, 2, 18)),
+        ],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice.id,
+        categories_by_description={"SUPERMERCADO TESTE": "Supermercado"},
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice.id,
+        bank_transaction_ids=[payment.id],
+    )
+
+    january_snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 1, 1), period_end=date(2026, 1, 31))
+    february_snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 2, 1), period_end=date(2026, 2, 28))
+
+    january_text = " ".join(
+        f"{item['title']} {item['body']}" for item in january_snapshot["alerts"] + january_snapshot["actions"]
+    )
+    february_text = " ".join(
+        f"{item['title']} {item['body']}" for item in february_snapshot["alerts"] + february_snapshot["actions"]
+    )
+
+    assert "Supermercado" in january_text
+    assert "visão de consumo" in january_text
+    assert "Pagamento de Fatura" not in january_text
+    assert "Supermercado" not in february_text
+
+
+def test_analysis_snapshot_consumption_recommendations_ignore_technical_card_entries(db_session):
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=3000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1200.0, category="Moradia", transaction_kind="expense")
+    payment = _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 18),
+        description="FATURA MAR",
+        amount=-500.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice = _add_invoice(
+        db_session,
+        due_date=date(2026, 3, 20),
+        card_final="5252",
+        item_specs=[
+            ("SUPERMERCADO TESTE", "600.00"),
+            ("DESCONTO NA FATURA - PO", "-100.00"),
+            ("PAGAMENTO EFETUADO", "-500.00"),
+        ],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice.id,
+        categories_by_description={"SUPERMERCADO TESTE": "Supermercado"},
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice.id,
+        bank_transaction_ids=[payment.id],
+    )
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+    text = " ".join(f"{item['title']} {item['body']}" for item in snapshot["alerts"] + snapshot["actions"])
+
+    assert "Moradia" in text
+    assert "Pagamento de Fatura" not in text
+    assert "Créditos de Fatura" not in text
+
+
+def test_analysis_snapshot_keeps_general_balance_alert_coherent_with_conciliated_summary(db_session):
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1500.0, category="Moradia", transaction_kind="expense")
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    assert any(item["title"] == "Saldo negativo no período" for item in snapshot["alerts"])
+    assert any(
+        item["title"] == "Atacar o saldo negativo imediatamente" and "Moradia" in item["body"]
+        for item in snapshot["actions"]
+    )
+
+
 def test_analysis_snapshot_only_includes_fully_conciliated_invoices_in_conciliated_view(db_session):
     _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Sal\u00e1rio", transaction_kind="income")
     payment = _add_tx(

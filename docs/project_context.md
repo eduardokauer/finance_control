@@ -69,6 +69,7 @@ Ordem de leitura recomendada:
 - Aplicação na base com preview, confirmação explícita, criação/atualização de regra e reaplicação dos itens de fatura existentes implementadas.
 - Leitura mensal por categoria promovida para a visão de consumo do mês-base, com conta por `transaction_date` e cartão conciliado por `purchase_date`.
 - Comparações mês a mês / ano a ano por categoria usando a mesma visão de consumo já adotada no mês-base implementadas na análise do admin.
+- Alertas e ações recomendadas recalculados para priorizar sinais da visão de consumo quando falam de consumo, categorias e variação de gasto.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
 - Deduplicação forte implementada:
   - OFX usa controle por arquivo e transação canônica.
@@ -80,7 +81,6 @@ Ordem de leitura recomendada:
 - Vínculo automático ou definitivo com pagamento de conta além da conciliação manual assistida.
 - Dashboard completo de fluxo de caixa como visão separada.
 - Gráficos dedicados de evolução por categoria usando a visão de consumo.
-- Alertas e ações recomendadas recalculados sobre a nova base categorial de faturas.
 - Migração ampla de toda a análise histórica para base conciliada.
 
 ## 4. Decisões de Domínio / Negócio Já Fechadas
@@ -180,18 +180,19 @@ Ordem de leitura recomendada:
   - mês-base vs mesmo mês do ano anterior, quando houver base histórica suficiente;
   - créditos técnicos permanecem em bloco separado, pela data do próprio item importado quando disponível;
   - pagamentos conciliados continuam fora do consumo comparado.
+- Alertas e ações recomendadas do admin agora seguem a mesma separação:
+  - sinais ligados a consumo, categorias, concentração e variação usam a visão de consumo;
+  - sinais gerais de saldo e cobertura do período continuam ancorados no resumo principal conciliado quando isso fizer mais sentido.
 
 ### O que ainda não foi migrado totalmente
 
 - Gráficos históricos de 12 meses continuam apoiados na base atual.
-- Alertas e ações recomendadas ainda não foram refeitos sobre a base categorial da visão de consumo.
 - A análise LLM continua separada da análise determinística e não é a leitura principal do admin.
 - A visão de fluxo de caixa ainda não foi promovida como dashboard analítico separado.
 
 ### Dependências para próximas evoluções
 
 - As próximas evoluções devem preferir incrementos já úteis para a análise ou para a operação principal, evitando preparações isoladas como destino final de um PR.
-- Alertas e ações recomendadas sobre a base categorial da visão de consumo, só depois da estabilização da leitura mensal e das comparações históricas.
 - Gráficos dedicados de evolução por categoria na visão de consumo, se fizer sentido depois da estabilização da leitura histórica atual.
 - Consolidação final da operação manual de categorias na UI, se surgir nova lacuna real após o fluxo de aplicação na base já implementado.
 
@@ -204,6 +205,7 @@ Ordem de leitura recomendada:
   - promover a leitura conciliada como resumo principal;
   - ler categorias do mês-base na visão de consumo, com cartão por `purchase_date`;
   - comparar categorias do mês-base contra mês anterior e ano anterior na mesma visão de consumo;
+  - receber alertas e ações recomendadas coerentes com a visão de consumo para temas de categoria e consumo;
   - manter visão bruta como apoio;
   - disparar nova análise determinística manualmente.
 - **Transações**
@@ -254,18 +256,17 @@ Ordem de leitura recomendada:
 
 ### Próximo passo atual do projeto
 
-- Recalcular alertas e ações recomendadas sobre a base categorial da visão de consumo, agora que a leitura mensal e as comparações históricas por categoria já usam a mesma lógica principal por data do evento.
+- Promover gráficos dedicados de evolução por categoria usando a mesma visão de consumo já adotada no mês-base, nas comparações históricas e nos alertas/ações.
 
 ### Sequência recomendada a partir daqui
 
-1. Recalcular alertas e ações recomendadas sobre a base categorial da visão de consumo já estabilizada.
-2. Se fizer sentido visualmente, promover gráficos dedicados de evolução por categoria usando essa mesma visão de consumo.
-3. Materializar uma visão analítica separada de fluxo de caixa apenas quando houver ganho funcional claro e sem confundir as duas leituras.
+1. Promover gráficos dedicados de evolução por categoria usando a mesma visão de consumo já estabilizada.
+2. Materializar uma visão analítica separada de fluxo de caixa apenas quando houver ganho funcional claro e sem confundir as duas leituras.
+3. Reavaliar alertas e ações complementares apenas se surgir nova lacuna real depois da leitura histórica e visual de consumo ficar estável.
 
 ## 8. Riscos e Limitações Conhecidas
 
 - A leitura mensal e as comparações históricas por categoria já usam a visão de consumo, mas os gráficos dedicados dessa evolução ainda não foram promovidos.
-- Alertas e ações ainda não foram recalculados sobre a base categorial nova.
 - O consolidado conciliado e a visão de consumo convivem na mesma tela, então a distinção entre consumo e fluxo de caixa ainda depende de texto e contexto claros.
 - A visão bruta ainda é necessária para auditoria.
 - A visão de consumo por categoria ainda depende de faturas totalmente conciliadas.
