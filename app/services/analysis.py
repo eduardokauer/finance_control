@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date, timedelta
 import json
-from math import fabs
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -683,62 +682,114 @@ def _build_primary_summary(*, conciliated_month: dict) -> dict:
     }
 
 
+def _build_consumption_signal_context(*, category_breakdown: dict, category_history: dict) -> dict:
+    history_rows_by_name = {row["name"]: row for row in category_history["rows"]}
+    consumption_rows: list[dict] = []
+    consumption_total = 0.0
+    for row in category_breakdown["rows"]:
+        if row["expense_total"] <= 0 or row["is_technical"]:
+            continue
+        materialized_row = dict(row)
+        history_row = history_rows_by_name.get(row["name"])
+        materialized_row["previous_month_change"] = history_row["previous_month_change"] if history_row else None
+        consumption_rows.append(materialized_row)
+        consumption_total += row["expense_total"]
+
+    for row in consumption_rows:
+        share = row["expense_total"] / consumption_total if consumption_total else 0.0
+        row["consumption_share"] = share
+        row["consumption_share_display"] = format_percent_br(share if row["expense_total"] > 0 else None)
+
+    uncategorized_total = sum(row["expense_total"] for row in consumption_rows if is_uncategorized(row["name"]))
+    uncategorized_share = uncategorized_total / consumption_total if consumption_total else 0.0
+
+    historical_rows = [row for row in category_history["rows"] if row["current_total"] > 0 and not row["is_technical"]]
+    increasing_rows = [
+        row
+        for row in historical_rows
+        if row["previous_month_change"] is not None and row["previous_month_change"]["delta"] > 0
+    ]
+    increasing_rows.sort(
+        key=lambda row: (
+            row["previous_month_change"]["delta"],
+            row["current_total"],
+        ),
+        reverse=True,
+    )
+
+    return {
+        "rows": consumption_rows,
+        "consumption_total": consumption_total,
+        "consumption_total_display": format_currency_br(consumption_total),
+        "top_category": consumption_rows[0] if consumption_rows else None,
+        "top_categories": consumption_rows[:2],
+        "uncategorized_total": uncategorized_total,
+        "uncategorized_display": format_currency_br(uncategorized_total),
+        "uncategorized_share": uncategorized_share,
+        "uncategorized_share_display": format_percent_br(uncategorized_share),
+        "largest_increase": increasing_rows[0] if increasing_rows else None,
+        "previous_month_label": category_history["previous_month_label"],
+    }
+
+
+def _is_meaningful_consumption_change(change: dict | None) -> bool:
+    if change is None or change["delta"] <= 0:
+        return False
+    percent = change["percent"] or 0.0
+    return change["delta"] >= 150.0 or percent >= 0.15
+
+
 def _build_alerts(
     *,
-    summary: dict,
-    comparison: dict,
-    categories: list[dict],
-    technical_items: dict,
-    quality: dict,
+    primary_summary: dict,
+    consumption_context: dict,
 ) -> list[dict]:
     alerts: list[dict] = []
-    if summary["balance"] < 0:
+    if primary_summary["balance"] < 0:
         alerts.append(
             {
                 "level": "danger",
                 "title": "Saldo negativo no período",
-                "body": f"O período fechou com saldo de {summary['balance_display']}. Vale revisar as maiores saídas antes do próximo fechamento.",
+                "body": (
+                    f"O período fechou com saldo conciliado de {primary_summary['balance_display']}. "
+                    "Vale revisar as maiores saídas de consumo antes do próximo fechamento."
+                ),
             }
         )
-    if comparison["expense"]["trend"] == "up" and (comparison["expense"]["percent"] or 0) >= 0.15:
+    top_expense_category = consumption_context["top_category"]
+    if top_expense_category and top_expense_category["consumption_share"] >= 0.35:
         alerts.append(
             {
                 "level": "warn",
-                "title": "Despesas subiram em relação ao mês anterior",
-                "body": f"As despesas aumentaram {comparison['expense']['percent_display']} ({comparison['expense']['delta_display']}) contra o mês anterior.",
+                "title": "Alta concentração em uma categoria de consumo",
+                "body": (
+                    f"Na visão de consumo, {top_expense_category['name']} respondeu por "
+                    f"{top_expense_category['consumption_share_display']} do gasto do mês-base."
+                ),
             }
         )
-    top_expense_category = next((item for item in categories if item["expense_total"] > 0), None)
-    if top_expense_category and top_expense_category["share_of_expense"] >= 0.35:
+    largest_increase = consumption_context["largest_increase"]
+    if largest_increase and _is_meaningful_consumption_change(largest_increase["previous_month_change"]):
         alerts.append(
             {
                 "level": "warn",
-                "title": "Alta concentração em uma categoria",
-                "body": f"{top_expense_category['name']} respondeu por {top_expense_category['share_of_expense_display']} das despesas do mês-base.",
+                "title": f"Alta relevante no consumo de {largest_increase['name']}",
+                "body": (
+                    f"Na visão de consumo, {largest_increase['name']} subiu "
+                    f"{largest_increase['previous_month_change']['delta_display']} contra "
+                    f"{consumption_context['previous_month_label']}."
+                ),
             }
         )
-    if quality["uncategorized_share"] >= 0.08:
+    if consumption_context["uncategorized_share"] >= 0.08:
         alerts.append(
             {
                 "level": "warn",
-                "title": "Não categorizado ainda alto",
-                "body": f"Ainda existem {quality['uncategorized_display']} sem categoria definida, o que representa {quality['uncategorized_share_display']} das despesas.",
-            }
-        )
-    if technical_items["combined_share"] >= 0.25:
-        alerts.append(
-            {
-                "level": "warn",
-                "title": "Itens técnicos pesam na leitura do mês",
-                "body": f"Transferências e pagamento de fatura somam {technical_items['combined_display']} ({technical_items['combined_share_display']} das despesas).",
-            }
-        )
-    if comparison["balance"]["percent"] is not None and fabs(comparison["balance"]["percent"]) >= 0.25:
-        alerts.append(
-            {
-                "level": "warn",
-                "title": "Variação forte frente ao mês anterior",
-                "body": f"O saldo {comparison['balance']['trend_label']} {comparison['balance']['percent_display']} em relação ao período anterior comparável.",
+                "title": "Não categorizado ainda alto na visão de consumo",
+                "body": (
+                    f"Ainda existem {consumption_context['uncategorized_display']} sem categoria definida, o que representa "
+                    f"{consumption_context['uncategorized_share_display']} do gasto categorial de consumo."
+                ),
             }
         )
     return alerts[:5]
@@ -746,54 +797,73 @@ def _build_alerts(
 
 def _build_actions(
     *,
-    summary: dict,
-    comparison: dict,
-    categories: list[dict],
-    technical_items: dict,
-    quality: dict,
-    previous_categories: dict[str, float],
+    primary_summary: dict,
+    consumption_context: dict,
 ) -> list[dict]:
     actions: list[dict] = []
-    if quality["uncategorized_share"] >= 0.05:
+    if consumption_context["uncategorized_share"] >= 0.05:
         actions.append(
             {
-                "title": "Melhorar a qualidade da base",
-                "body": f"Priorize a revisão do não categorizado ({quality['uncategorized_display']}) para evitar distorção na leitura do mês.",
+                "title": "Melhorar a qualidade da visão de consumo",
+                "body": (
+                    f"Priorize a revisão do não categorizado ({consumption_context['uncategorized_display']}) "
+                    "para evitar distorção na leitura categorial do mês."
+                ),
             }
         )
 
-    top_expense_category = next((item for item in categories if item["expense_total"] > 0 and not item["is_technical"]), None)
-    if top_expense_category:
-        previous_amount = previous_categories.get(top_expense_category["name"], 0.0)
-        delta = top_expense_category["expense_total"] - previous_amount
-        if delta > 0:
-            actions.append(
-                {
-                    "title": f"Revisar a categoria {top_expense_category['name']}",
-                    "body": f"Ela concentrou {top_expense_category['share_of_expense_display']} das despesas e subiu {format_currency_br(delta)} contra o mês anterior.",
-                }
+    top_expense_category = consumption_context["top_category"]
+    if top_expense_category and (
+        top_expense_category["expense_total"] >= 100.0
+        and (
+            top_expense_category["consumption_share"] >= 0.3
+            or _is_meaningful_consumption_change(top_expense_category.get("previous_month_change"))
+        )
+    ):
+        top_category_change = top_expense_category.get("previous_month_change")
+        top_category_change_text = ""
+        if top_category_change is not None and top_category_change["delta"] > 0:
+            top_category_change_text = (
+                f" e subiu {top_category_change['delta_display']} contra "
+                f"{consumption_context['previous_month_label']}"
             )
-    if comparison["expense"]["trend"] == "up" and (comparison["expense"]["percent"] or 0) >= 0.15:
         actions.append(
             {
-                "title": "Investigar o aumento das despesas",
-                "body": "Compare as maiores categorias do mês atual com o mês anterior para identificar o que puxou a alta.",
+                "title": f"Revisar a categoria {top_expense_category['name']}",
+                "body": (
+                    f"Na visão de consumo, ela concentrou {top_expense_category['consumption_share_display']} do gasto do mês-base"
+                    f"{top_category_change_text}."
+                ),
             }
         )
-    if technical_items["combined_share"] >= 0.2:
+
+    largest_increase = consumption_context["largest_increase"]
+    if (
+        largest_increase
+        and largest_increase["name"] != (top_expense_category["name"] if top_expense_category else None)
+        and _is_meaningful_consumption_change(largest_increase["previous_month_change"])
+    ):
         actions.append(
             {
-                "title": "Separar consumo real de itens técnicos",
-                "body": "Ao revisar o mês, considere transferências e pagamento de fatura em separado para não superestimar o gasto recorrente.",
+                "title": "Investigar o aumento do consumo",
+                "body": (
+                    f"Comece por {largest_increase['name']}, que subiu "
+                    f"{largest_increase['previous_month_change']['delta_display']} frente a "
+                    f"{consumption_context['previous_month_label']}."
+                ),
             }
         )
-    if summary["balance"] < 0:
-        focus_categories = [item["name"] for item in categories if item["expense_total"] > 0 and not item["is_technical"]][:2]
+
+    if primary_summary["balance"] < 0:
+        focus_categories = [item["name"] for item in consumption_context["top_categories"]]
         categories_text = ", ".join(focus_categories) if focus_categories else "as maiores despesas variáveis"
         actions.append(
             {
                 "title": "Atacar o saldo negativo imediatamente",
-                "body": f"Comece por {categories_text} para tentar recuperar caixa já no próximo período.",
+                "body": (
+                    f"Comece por {categories_text} para tentar recuperar caixa já no próximo período, "
+                    "sem misturar consumo com pagamentos técnicos de fatura."
+                ),
             }
         )
 
@@ -828,7 +898,6 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
     current_month_end = month_end(anchor_month)
     current_month_txs = _load_transactions_for_period(db, period_start=current_month_start, period_end=current_month_end)
     current_month_summary = _build_summary(current_month_txs)
-    raw_category_rows = _build_category_rows(current_month_txs, expense_total=current_month_summary["expense_total"])
     category_breakdown = _build_conciliated_category_breakdown(
         db,
         period_start=current_month_start,
@@ -838,26 +907,6 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
     category_rows = category_breakdown["rows"]
     technical_items = _build_technical_items(current_month_txs, expense_total=current_month_summary["expense_total"])
     quality = _build_quality(summary)
-
-    previous_category_rows = _build_category_rows(previous_txs, expense_total=previous_summary["expense_total"])
-    previous_categories = {item["name"]: item["expense_total"] for item in previous_category_rows}
-
-    alerts = _build_alerts(
-        summary=summary,
-        comparison=comparison,
-        categories=raw_category_rows,
-        technical_items=technical_items,
-        quality=quality,
-    )
-    actions = _build_actions(
-        summary=summary,
-        comparison=comparison,
-        categories=raw_category_rows,
-        technical_items=technical_items,
-        quality=quality,
-        previous_categories=previous_categories,
-    )
-    monthly_series = _build_monthly_series(db, anchor_month=anchor_month)
     category_history = _build_conciliated_category_history(db, anchor_month=anchor_month)
     conciliation_signals = build_conciliation_analytics_snapshot(db, period_start=period_start, period_end=period_end)
     conciliated_month = _build_conciliated_month_snapshot(
@@ -867,6 +916,20 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         current_txs=current_txs,
     )
     primary_summary = _build_primary_summary(conciliated_month=conciliated_month)
+    consumption_context = _build_consumption_signal_context(
+        category_breakdown=category_breakdown,
+        category_history=category_history,
+    )
+
+    alerts = _build_alerts(
+        primary_summary=primary_summary,
+        consumption_context=consumption_context,
+    )
+    actions = _build_actions(
+        primary_summary=primary_summary,
+        consumption_context=consumption_context,
+    )
+    monthly_series = _build_monthly_series(db, anchor_month=anchor_month)
 
     top_expense_categories = category_breakdown["top_expense_categories"]
     return {

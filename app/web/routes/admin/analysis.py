@@ -67,6 +67,8 @@ def admin_analysis_page(
         payload_snapshot["category_history"] = live_snapshot["category_history"]
         payload_snapshot["categories"] = live_snapshot["categories"]
         payload_snapshot["top_expense_categories"] = live_snapshot["top_expense_categories"]
+        payload_snapshot["alerts"] = live_snapshot["alerts"]
+        payload_snapshot["actions"] = live_snapshot["actions"]
         payload_snapshot.setdefault("charts", {})
         payload_snapshot["charts"]["categories"] = live_snapshot["charts"]["categories"]
     analysis_data = payload_snapshot or live_snapshot
