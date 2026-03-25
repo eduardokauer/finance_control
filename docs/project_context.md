@@ -92,7 +92,7 @@ Ordem de leitura recomendada:
 
 ### Duas visões conceituais
 
-- **Visão de consumo:** responde onde e com o que houve consumo real. Usa conta por `transaction_date`, cartão conciliado por `purchase_date` e mantém créditos genéricos de fatura em bloco técnico separado, fora das categorias de consumo.
+- **Visão de consumo:** responde onde e com o que houve consumo real. Usa conta por `transaction_date`, cartão conciliado por `purchase_date` e mantém créditos genéricos de fatura em bloco técnico separado, fora das categorias de consumo. Na implementação atual, esse bloco técnico segue a `purchase_date` do próprio item importado quando ela existe, sem redistribuição artificial entre categorias.
 - **Visão de fluxo de caixa:** responde quando o dinheiro entrou ou saiu da conta. Continua distinta da visão de consumo e ainda não foi promovida como dashboard completo no admin.
 
 ### Itens da fatura
@@ -143,6 +143,8 @@ Ordem de leitura recomendada:
   - transações da conta entram pela `transaction_date`;
   - itens `charge` de cartão entram pela `purchase_date`;
   - créditos genéricos sem vínculo confiável com uma compra permanecem fora das categorias, em ajuste técnico separado;
+  - a competência temporal desse ajuste técnico segue a `purchase_date` do próprio item importado quando disponível;
+  - isso é uma regra operacional da visão de consumo atual e não uma redistribuição artificial do crédito entre categorias;
   - `payment` da fatura e `bank_payment` conciliado ficam fora do consumo.
 - Regras determinísticas usam `source_scope` para evitar reaproveitamento cego:
   - `bank_statement`
@@ -171,12 +173,12 @@ Ordem de leitura recomendada:
 - O breakdown mensal por categoria do mês-base usa a visão de consumo:
   - transações válidas da conta por `transaction_date`;
   - itens `charge` de faturas `conciliated` por `purchase_date`;
-  - ajuste técnico separado para `credit` genérico;
+  - ajuste técnico separado para `credit` genérico, pela `purchase_date` do próprio item quando disponível e sem redistribuição entre categorias;
   - exclusão de `payment` da própria fatura e de `bank_payment` conciliado do consumo.
 - As comparações históricas por categoria do admin agora também usam a mesma visão de consumo:
   - mês-base vs mês anterior;
   - mês-base vs mesmo mês do ano anterior, quando houver base histórica suficiente;
-  - créditos técnicos permanecem em bloco separado;
+  - créditos técnicos permanecem em bloco separado, pela data do próprio item importado quando disponível;
   - pagamentos conciliados continuam fora do consumo comparado.
 
 ### O que ainda não foi migrado totalmente

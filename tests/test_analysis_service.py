@@ -183,6 +183,8 @@ def test_run_analysis_persists_snapshot_payload_and_html(db_session):
     assert len(payload["charts"]["monthly"]["labels"]) == 12
     assert "An\u00e1lise financeira determin\u00edstica" in run.html_output
     assert "Compara\u00e7\u00f5es hist\u00f3ricas por categoria" in run.html_output
+    assert "data do próprio item importado" in run.html_output
+    assert "sem redistribuição artificial entre categorias" in run.html_output
     assert "A\u00e7\u00f5es recomendadas" in run.html_output
 
 
@@ -386,6 +388,8 @@ def test_analysis_snapshot_anchors_invoice_consumption_by_purchase_date(db_sessi
     assert january_categories["Créditos de Fatura"]["movement_total"] == -100.0
     assert january_snapshot["category_breakdown"]["invoice_credit_adjustment_total"] == 100.0
     assert january_snapshot["category_breakdown"]["excluded_bank_payment_total"] == 0.0
+    assert "data do próprio item importado" in january_snapshot["category_breakdown"]["note"]
+    assert "sem redistribuição artificial entre categorias" in january_snapshot["category_history"]["technical_adjustments"]["note"]
     assert "Pagamento de Fatura" not in january_categories
 
     assert "Supermercado" not in february_categories

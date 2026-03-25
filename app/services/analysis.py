@@ -350,7 +350,8 @@ def _build_conciliated_category_breakdown(
         "excluded_bank_payment_display": format_currency_br(excluded_bank_payment_total),
         "note": (
             "Visão de consumo do mês-base: conta entra pela data da transação e cartão conciliado entra pela data da compra. "
-            "Créditos técnicos de fatura seguem em bloco separado e pagamentos conciliados ficam fora das categorias de consumo."
+            "Créditos genéricos de fatura seguem em bloco técnico separado pela data do próprio item importado quando ela existe, "
+            "sem redistribuição artificial entre categorias. Pagamentos conciliados ficam fora das categorias de consumo."
         ),
     }
 
@@ -484,7 +485,8 @@ def _build_conciliated_category_history(
         "rows": rows,
         "note": (
             "Comparações históricas por categoria na visão de consumo: conta por data da transação e cartão conciliado por "
-            "data da compra. Créditos técnicos seguem separados e pagamentos conciliados continuam fora do consumo."
+            "data da compra. Créditos técnicos seguem separados pela data do próprio item importado quando disponível, sem "
+            "redistribuição artificial entre categorias, e pagamentos conciliados continuam fora do consumo."
         ),
         "technical_adjustments": {
             "current_invoice_credit_total": current_adjustment_total,
@@ -512,8 +514,9 @@ def _build_conciliated_category_history(
                 else None
             ),
             "note": (
-                "Créditos genéricos de fatura continuam fora das categorias de consumo e os pagamentos bancários conciliados "
-                "seguem fora da visão principal em todos os meses comparados."
+                "Créditos genéricos de fatura continuam fora das categorias de consumo. Na implementação atual, esse ajuste "
+                "técnico segue a data do próprio item importado quando ela existe, sem redistribuição artificial entre categorias. "
+                "Os pagamentos bancários conciliados seguem fora da visão principal em todos os meses comparados."
             ),
         },
     }
@@ -1014,7 +1017,11 @@ def render_analysis_html(snapshot: dict) -> str:
         ),
         "<h2>Categorias do mês-base na visão de consumo</h2>",
         "<p>{}</p>".format(category_breakdown_note),
-        "<p>Créditos técnicos de fatura fora das categorias de consumo: {}.</p>".format(invoice_credit_adjustment_display),
+        (
+            "<p>Créditos técnicos de fatura fora das categorias de consumo: {}. "
+            "Na implementação atual, esse bloco técnico segue a data do próprio item importado quando disponível, "
+            "sem redistribuição artificial entre categorias.</p>"
+        ).format(invoice_credit_adjustment_display),
         "<h2>Comparações históricas por categoria na visão de consumo</h2>",
         "<p>{}</p>".format(category_history_note),
         category_history_html,

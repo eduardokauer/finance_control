@@ -886,6 +886,8 @@ def test_admin_analysis_page_anchors_card_consumption_by_purchase_date(client, d
     assert "Categorias do m\u00eas-base na vis\u00e3o de consumo" in january.text
     assert "Supermercado" in january.text
     assert "Cr\u00e9ditos t\u00e9cnicos de fatura" in january.text
+    assert "data do próprio item importado" in january.text
+    assert "sem redistribuição artificial entre categorias" in january.text
     assert february.status_code == 200
     assert "Supermercado" not in february.text
     assert "Sem categorias conciliadas no m\u00eas-base" in february.text
