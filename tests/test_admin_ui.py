@@ -183,9 +183,14 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     home = client.get("/admin")
     assert home.status_code == 200
     assert "Finance Control Admin" in home.text
-    assert "Análise do período" in home.text
-    assert "Receitas" in home.text
-    assert "Central" in home.text
+    assert "Resumo financeiro" in home.text
+    assert "Resumo principal conciliado" in home.text
+    assert "Análise detalhada" in home.text
+    assert "Conferência" in home.text
+    assert "Central operacional" in home.text
+    assert "Visão bruta de apoio" not in home.text
+    assert "Sinais analíticos de conciliação" not in home.text
+    assert "Análise determinística renderizada" not in home.text
 
 
 def test_admin_can_create_credit_card_and_upload_invoice(client, db_session, monkeypatch, sample_credit_card_csv_file):
@@ -670,12 +675,14 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
 
     page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert page.status_code == 200
-    assert "Análise determinística renderizada" in page.text
-    assert "Ver HTML bruto" in page.text
-    assert "Consolidado mensal de 12 meses" in page.text
-    assert "Resumo principal conciliado" in page.text
-    assert "Visão bruta de apoio" in page.text
-    assert "Itens financeiros e técnicos" in page.text
+    assert "Análise detalhada" in page.text
+    assert "Visão de consumo do mês-base" in page.text
+    assert "Comparações históricas por categoria na visão de consumo" in page.text
+    assert "Alertas determinísticos" in page.text
+    assert "Ações recomendadas" in page.text
+    assert "Conferência e auditoria" in page.text
+    assert "Análise determinística renderizada" not in page.text
+    assert "Visão bruta de apoio" not in page.text
     assert "chart.js" in page.text.lower()
     assert "monthly-chart" in page.text
     assert "categories-chart" in page.text
@@ -687,7 +694,7 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     assert "An\u00e1lise financeira determin\u00edstica" in run.html_output
 
 
-def test_admin_analysis_page_shows_auxiliary_conciliation_signals(client, db_session, monkeypatch):
+def test_admin_conference_page_shows_auxiliary_conciliation_signals(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
     tx = _seed_transaction(
@@ -701,9 +708,10 @@ def test_admin_analysis_page_shows_auxiliary_conciliation_signals(client, db_ses
     _seed_conciliated_bank_payment(db_session, tx=tx)
     _login(client)
 
-    response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+    response = client.get("/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
+    assert "Conferência e auditoria" in response.text
     assert "Sinais analíticos de conciliação" in response.text
     assert "Resumo principal conciliado" in response.text
     assert "Visão bruta de apoio" in response.text
@@ -711,7 +719,7 @@ def test_admin_analysis_page_shows_auxiliary_conciliation_signals(client, db_ses
     assert "Pagamentos conciliados" in response.text
     assert "Créditos técnicos de fatura" in response.text
     assert "Pagamentos excluídos por conciliação" in response.text
-    assert "O consolidado conciliado segue como resumo do período" in response.text
+    assert "Itens financeiros e técnicos" in response.text
 
 
 
@@ -1363,10 +1371,11 @@ def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(c
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Resumo principal conciliado" in response.text
-    assert "Visão bruta de apoio" in response.text
+    assert "Análise detalhada" in response.text
+    assert "Visão de consumo do mês-base" in response.text
     assert "Comparações históricas por categoria na visão de consumo" in response.text
-    assert "legacy html" in response.text
+    assert "Visão bruta de apoio" not in response.text
+    assert "legacy html" not in response.text
 
 def test_admin_transactions_page_marks_conciliated_bank_payment(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")

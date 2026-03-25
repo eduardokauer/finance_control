@@ -26,7 +26,6 @@ from .helpers import render_admin
 
 CENT_VALUE = Decimal("0.01")
 CONTROL_CENTER_URL = "/admin/operations"
-ANALYSIS_HOME_URL = "/admin/analysis"
 
 
 def _parse_brl_amount(raw_value: str) -> Decimal:
@@ -81,11 +80,6 @@ def _credit_card_invoice_page_context(db: Session) -> dict:
         "credit_cards": list_credit_cards(db, active_only=True),
         "status_variant": _status_variant,
     }
-
-
-def admin_home(_: Request, __: Session = Depends(get_db), ___: bool = Depends(require_admin_session)):
-    return RedirectResponse(url=ANALYSIS_HOME_URL, status_code=303)
-
 
 def admin_operations(request: Request, db: Session = Depends(get_db), _: bool = Depends(require_admin_session)):
     return render_admin(request, "admin/dashboard.html", _dashboard_context(db))

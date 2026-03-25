@@ -1,0 +1,138 @@
+{% extends "admin/base.html" %}
+{% block title %}Resumo{% endblock %}
+{% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
+{% block content %}
+{% set analysis_page_title = "Resumo financeiro" %}
+{% set analysis_page_intro = "Entrada principal do admin, focada na leitura executiva do período, nas categorias mais relevantes da visão de consumo e nos próximos passos imediatos." %}
+{% set analysis_form_action = "/admin" %}
+{% set analysis_submit_label = "Ver resumo" %}
+{% set analysis_show_generate = True %}
+{% include "admin/partials/analysis_period_form.html" %}
+
+<section class="kpi-grid">
+  <div class="card">
+    <div class="subtle">Receitas conciliadas</div>
+    <div class="metric-value amount-positive">{{ summary.income_display }}</div>
+  </div>
+  <div class="card">
+    <div class="subtle">Despesas conciliadas</div>
+    <div class="metric-value amount-negative">{{ summary.expense_display }}</div>
+  </div>
+  <div class="card">
+    <div class="subtle">Saldo conciliado</div>
+    <div class="metric-value {% if summary.balance < 0 %}amount-negative{% else %}amount-positive{% endif %}">{{ summary.balance_display }}</div>
+  </div>
+  <div class="card">
+    <div class="subtle">Faturas conciliadas</div>
+    <div class="metric-value">{{ analysis_data.primary_summary.included_invoice_count }}</div>
+  </div>
+  <div class="card">
+    <div class="subtle">Faturas fora da leitura</div>
+    <div class="metric-value">{{ analysis_data.primary_summary.outside_invoice_count }}</div>
+  </div>
+</section>
+
+<section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
+  <div class="card stack" style="margin-bottom:0;">
+    <div>
+      <strong>Resumo principal conciliado</strong>
+      <div class="subtle">O resumo executivo segue como leitura central do período. A conferência detalhada e a visão bruta ficaram separadas para reduzir ruído na home.</div>
+    </div>
+    <div class="analysis-list">
+      <div class="analysis-item">
+        <strong>Resumo executivo</strong>
+        <p>{{ analysis_data.primary_summary.executive_summary }}</p>
+      </div>
+      <div class="analysis-item">
+        <strong>Cobertura da leitura principal</strong>
+        <p>{{ analysis_data.primary_summary.coverage_note }}</p>
+      </div>
+    </div>
+    <div class="kv-grid">
+      <div class="subtle">Compras de cartão conciliado</div><div>{{ analysis_data.conciliated_month.conciliated_card_charge_display }}</div>
+      <div class="subtle">Créditos técnicos de fatura</div><div>-{{ analysis_data.conciliated_month.conciliated_invoice_credit_display }}</div>
+      <div class="subtle">Pagamentos bancários excluídos</div><div>{{ analysis_data.primary_summary.excluded_bank_payment_display }}</div>
+      <div class="subtle">Referência do mês-base</div><div>{{ analysis_data.period.month_reference_label }}</div>
+    </div>
+  </div>
+
+  <div class="card stack" style="margin-bottom:0;">
+    <div>
+      <strong>Categorias prioritárias da visão de consumo</strong>
+      <div class="subtle">Bloco enxuto para destacar onde o consumo mais pesou no mês-base antes de entrar na análise detalhada.</div>
+    </div>
+    <div class="analysis-list">
+      {% for category in summary_categories %}
+        <div class="analysis-item">
+          <div class="analysis-item-title">
+            <strong>{{ category.name }}</strong>
+            <span class="badge">{{ category.flow_label }}</span>
+          </div>
+          <p>{{ category.expense_display }} | peso nas despesas: {{ category.share_of_expense_display }} | {{ category.transaction_count }} lançamento(s)</p>
+        </div>
+      {% else %}
+        <div class="analysis-item">
+          <strong>Sem categorias de consumo no mês-base</strong>
+          <p>A leitura principal ainda não encontrou categorias de consumo relevantes para o período selecionado.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
+  <div class="card stack" style="margin-bottom:0;">
+    <div>
+      <strong>Alertas prioritários</strong>
+      <div class="subtle">A home mostra apenas os sinais mais urgentes para decisão rápida. O detalhamento completo segue na análise detalhada.</div>
+    </div>
+    <div class="analysis-list">
+      {% for alert in priority_alerts %}
+        <div class="analysis-item">
+          <div class="analysis-item-title">
+            <strong>{{ alert.title }}</strong>
+            <span class="badge {% if alert.level == 'danger' %}danger{% elif alert.level == 'warn' %}warn{% endif %}">{{ alert.level }}</span>
+          </div>
+          <p>{{ alert.body }}</p>
+        </div>
+      {% else %}
+        <div class="analysis-item">
+          <strong>Nenhum alerta prioritário</strong>
+          <p>O período não trouxe um desvio crítico acima da linha de base da leitura atual.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card stack" style="margin-bottom:0;">
+    <div>
+      <strong>Aprofundar a leitura</strong>
+      <div class="subtle">Atalhos para entrar na análise de consumo completa, na conferência/auditoria ou na central operacional.</div>
+    </div>
+    <div class="summary-shortcuts">
+      <a class="summary-shortcut" href="{{ analysis_urls.detail }}">
+        <strong>Análise detalhada</strong>
+        <span class="subtle">Comparações históricas, categorias completas, alertas e ações recomendadas.</span>
+      </a>
+      <a class="summary-shortcut" href="{{ analysis_urls.conference }}">
+        <strong>Conferência</strong>
+        <span class="subtle">Visão bruta, cobertura, sinais auxiliares, itens técnicos e HTML renderizado.</span>
+      </a>
+      <a class="summary-shortcut" href="{{ analysis_urls.operations }}">
+        <strong>Central operacional</strong>
+        <span class="subtle">Lançamentos, faturas, reaplicação e configurações mais usadas no dia a dia.</span>
+      </a>
+    </div>
+    <div class="analysis-list">
+      {% for action in priority_actions %}
+        <div class="analysis-item">
+          <strong>{{ action.title }}</strong>
+          <p>{{ action.body }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% include "admin/partials/analysis_period_form_script.html" %}
+{% endblock %}

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Admin{% endblock %}</title>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  {% block extra_head %}{% endblock %}
   <style>
     :root {
       --bg: #f5efe2;
@@ -128,7 +129,7 @@
       color: var(--muted);
       min-width: 106px;
     }
-    .nav a, .nav button, .button, .nav-group summary {
+    .nav a, .nav button, .button {
       border: 1px solid var(--line);
       background: var(--surface);
       color: var(--ink);
@@ -137,28 +138,6 @@
       padding: 10px 14px;
       font-size: 0.95rem;
       cursor: pointer;
-    }
-    .nav-group {
-      position: relative;
-    }
-    .nav-group summary {
-      list-style: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .nav-group summary::-webkit-details-marker {
-      display: none;
-    }
-    .nav-group summary::after {
-      content: "▾";
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-    .nav-group[open] summary {
-      background: var(--accent-soft);
-      color: var(--accent);
-      border-color: #a8dfd5;
     }
     .nav-header {
       display: flex;
@@ -185,25 +164,6 @@
       align-items: center;
       justify-content: center;
       font-size: 1.15rem;
-    }
-    .nav-submenu {
-      display: grid;
-      gap: 8px;
-      margin-top: 8px;
-      margin-left: 114px;
-      padding: 10px;
-      border-radius: 18px;
-      border: 1px solid var(--line);
-      background: rgba(255, 253, 247, 0.98);
-    }
-    .nav-submenu a {
-      border-radius: 14px;
-      padding: 10px 12px;
-      border: 1px solid transparent;
-    }
-    .nav-submenu a:hover {
-      border-color: var(--line);
-      background: var(--surface);
     }
     .nav-link-active {
       background: var(--accent-soft) !important;
@@ -427,7 +387,6 @@
       .tx-card { padding: 18px 18px; }
     }
     @media (max-width: 720px) {
-      .nav-submenu { margin-left: 0; }
       .nav-section-label { min-width: auto; width: 100%; }
     }
   </style>
@@ -455,26 +414,22 @@
         <button type="button" class="nav-close" data-nav-close aria-label="Fechar menu">×</button>
       </div>
       <div class="nav-row">
-        <span class="nav-section-label">Visão geral</span>
-        <a href="/admin" class="{% if request.url.path == '/admin' or request.url.path == '/admin/' or request.url.path.startswith('/admin/analysis') %}nav-link-active{% endif %}">Home</a>
-        <a href="/admin/operations" class="{% if request.url.path.startswith('/admin/operations') %}nav-link-active{% endif %}">Central</a>
+        <span class="nav-section-label">Análise</span>
+        <a href="/admin" class="{% if request.url.path == '/admin' or request.url.path == '/admin/' or request.url.path.startswith('/admin/summary') %}nav-link-active{% endif %}">Resumo</a>
+        <a href="/admin/analysis" class="{% if request.url.path.startswith('/admin/analysis') %}nav-link-active{% endif %}">Análise detalhada</a>
+        <a href="/admin/conference" class="{% if request.url.path.startswith('/admin/conference') %}nav-link-active{% endif %}">Conferência</a>
       </div>
       <div class="nav-row">
         <span class="nav-section-label">Operação</span>
         <a href="/admin/transactions" class="{% if request.url.path.startswith('/admin/transactions') %}nav-link-active{% endif %}">Lançamentos</a>
-        <a href="/admin/transactions?uncategorized_only=true">Não categorizados</a>
-        <a href="/admin/reapply" class="{% if request.url.path.startswith('/admin/reapply') %}nav-link-active{% endif %}">Reaplicar regras</a>
         <a href="/admin/credit-card-invoices" class="{% if request.url.path.startswith('/admin/credit-card-invoices') %}nav-link-active{% endif %}">Faturas</a>
+        <a href="/admin/reapply" class="{% if request.url.path.startswith('/admin/reapply') %}nav-link-active{% endif %}">Reaplicar regras</a>
       </div>
       <div class="nav-row">
         <span class="nav-section-label">Configuração</span>
-        <details class="nav-group" {% if request.url.path.startswith('/admin/rules') or request.url.path.startswith('/admin/categories') %}open{% endif %}>
-          <summary>Regras e categorias</summary>
-          <div class="nav-submenu">
-            <a href="/admin/rules" class="{% if request.url.path.startswith('/admin/rules') %}nav-link-active{% endif %}">Regras</a>
-            <a href="/admin/categories" class="{% if request.url.path.startswith('/admin/categories') %}nav-link-active{% endif %}">Categorias</a>
-          </div>
-        </details>
+        <a href="/admin/operations" class="{% if request.url.path.startswith('/admin/operations') %}nav-link-active{% endif %}">Central operacional</a>
+        <a href="/admin/rules" class="{% if request.url.path.startswith('/admin/rules') %}nav-link-active{% endif %}">Regras</a>
+        <a href="/admin/categories" class="{% if request.url.path.startswith('/admin/categories') %}nav-link-active{% endif %}">Categorias</a>
       </div>
       </nav>
     </div>

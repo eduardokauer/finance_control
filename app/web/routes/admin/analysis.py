@@ -16,16 +16,15 @@ from .helpers import render_admin
 router = APIRouter()
 
 
-@router.get("/analysis", response_class=HTMLResponse)
-def admin_analysis_page(
-    request: Request,
-    selection_mode: str | None = None,
-    month: str | None = None,
-    period_start: date | None = None,
-    period_end: date | None = None,
-    db: Session = Depends(get_db),
-    _: bool = Depends(require_admin_session),
-):
+def _analysis_page_context(
+    db: Session,
+    *,
+    base_path: str,
+    selection_mode: str | None,
+    month: str | None,
+    period_start: date | None,
+    period_end: date | None,
+) -> dict:
     latest_closed_start, latest_closed_end = resolve_analysis_period(
         db,
         month=None,
@@ -72,23 +71,123 @@ def admin_analysis_page(
         payload_snapshot.setdefault("charts", {})
         payload_snapshot["charts"]["categories"] = live_snapshot["charts"]["categories"]
     analysis_data = payload_snapshot or live_snapshot
-    html_fragment = renderable_analysis_html(analysis_run.html_output) if analysis_run else None
+    summary_categories = [
+        item for item in analysis_data.get("top_expense_categories", []) if not item.get("is_technical")
+    ][:4]
+    return {
+        "selection_mode": selected_mode,
+        "period_start": resolved_start,
+        "period_end": resolved_end,
+        "month_value": month_value,
+        "latest_closed_start": latest_closed_start,
+        "latest_closed_end": latest_closed_end,
+        "month_preview_start": month_preview_start,
+        "month_preview_end": month_preview_end,
+        "summary": analysis_data.get("primary_summary", analysis_data["summary"]),
+        "analysis_run": analysis_run,
+        "analysis_data": analysis_data,
+        "analysis_html_fragment": renderable_analysis_html(analysis_run.html_output) if analysis_run else None,
+        "llm_html_available": False,
+        "summary_categories": summary_categories,
+        "priority_alerts": analysis_data.get("alerts", [])[:3],
+        "priority_actions": analysis_data.get("actions", [])[:2],
+        "analysis_urls": {
+            "summary": f"/admin?period_start={resolved_start.isoformat()}&period_end={resolved_end.isoformat()}",
+            "detail": f"/admin/analysis?period_start={resolved_start.isoformat()}&period_end={resolved_end.isoformat()}",
+            "conference": f"/admin/conference?period_start={resolved_start.isoformat()}&period_end={resolved_end.isoformat()}",
+            "operations": "/admin/operations",
+            "return_to": f"{base_path}?period_start={resolved_start.isoformat()}&period_end={resolved_end.isoformat()}",
+        },
+    }
+
+
+def admin_summary_page(
+    request: Request,
+    selection_mode: str | None = None,
+    month: str | None = None,
+    period_start: date | None = None,
+    period_end: date | None = None,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    return render_admin(
+        request,
+        "admin/summary.html",
+        _analysis_page_context(
+            db,
+            base_path="/admin",
+            selection_mode=selection_mode,
+            month=month,
+            period_start=period_start,
+            period_end=period_end,
+        ),
+    )
+
+
+@router.get("/summary", response_class=HTMLResponse)
+def admin_summary_alias_page(
+    request: Request,
+    selection_mode: str | None = None,
+    month: str | None = None,
+    period_start: date | None = None,
+    period_end: date | None = None,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    return admin_summary_page(
+        request=request,
+        selection_mode=selection_mode,
+        month=month,
+        period_start=period_start,
+        period_end=period_end,
+        db=db,
+        _=_,
+    )
+
+
+@router.get("/analysis", response_class=HTMLResponse)
+def admin_analysis_page(
+    request: Request,
+    selection_mode: str | None = None,
+    month: str | None = None,
+    period_start: date | None = None,
+    period_end: date | None = None,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
     return render_admin(
         request,
         "admin/analysis.html",
-        {
-            "selection_mode": selected_mode,
-            "period_start": resolved_start,
-            "period_end": resolved_end,
-            "month_value": month_value,
-            "latest_closed_start": latest_closed_start,
-            "latest_closed_end": latest_closed_end,
-            "month_preview_start": month_preview_start,
-            "month_preview_end": month_preview_end,
-            "summary": analysis_data.get("primary_summary", analysis_data["summary"]),
-            "analysis_run": analysis_run,
-            "analysis_data": analysis_data,
-            "analysis_html_fragment": html_fragment,
-            "llm_html_available": False,
-        },
+        _analysis_page_context(
+            db,
+            base_path="/admin/analysis",
+            selection_mode=selection_mode,
+            month=month,
+            period_start=period_start,
+            period_end=period_end,
+        ),
+    )
+
+
+@router.get("/conference", response_class=HTMLResponse)
+def admin_conference_page(
+    request: Request,
+    selection_mode: str | None = None,
+    month: str | None = None,
+    period_start: date | None = None,
+    period_end: date | None = None,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    return render_admin(
+        request,
+        "admin/conference.html",
+        _analysis_page_context(
+            db,
+            base_path="/admin/conference",
+            selection_mode=selection_mode,
+            month=month,
+            period_start=period_start,
+            period_end=period_end,
+        ),
     )
