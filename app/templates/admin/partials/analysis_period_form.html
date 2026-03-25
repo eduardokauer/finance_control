@@ -1,0 +1,51 @@
+<div class="card stack">
+  <div class="inline" style="justify-content:space-between; align-items:flex-start;">
+    <div>
+      <h1 style="margin:0;">{{ analysis_page_title }}</h1>
+      <div class="subtle">{{ analysis_page_intro }}</div>
+    </div>
+    {% if analysis_show_generate %}
+      <form method="post" action="/admin/analysis/run">
+        <input type="hidden" name="period_start" value="{{ period_start }}">
+        <input type="hidden" name="period_end" value="{{ period_end }}">
+        <input type="hidden" name="return_to" value="{{ analysis_urls.return_to }}">
+        <button type="submit" class="button" data-loading-button data-loading-label="Gerando análise...">Gerar nova análise</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <form method="get" action="{{ analysis_form_action }}" class="stack" id="analysis-period-form">
+    <input type="hidden" name="selection_mode" id="selection-mode-input" value="{{ selection_mode }}">
+
+    <div class="inline" style="gap:8px;">
+      <button type="button" class="button period-tab {% if selection_mode == 'closed' %}button-primary{% endif %}" data-mode="closed">Último mês fechado</button>
+      <button type="button" class="button period-tab {% if selection_mode == 'month' %}button-primary{% endif %}" data-mode="month">Mês/ano</button>
+      <button type="button" class="button period-tab {% if selection_mode == 'custom' %}button-primary{% endif %}" data-mode="custom">Intervalo customizado</button>
+    </div>
+
+    <div id="panel-closed" class="period-panel stack" {% if selection_mode != 'closed' %}style="display:none;"{% endif %}>
+      <div class="subtle">Período selecionado: {{ latest_closed_start.strftime('%d/%m/%Y') }} a {{ latest_closed_end.strftime('%d/%m/%Y') }}</div>
+    </div>
+
+    <div id="panel-month" class="period-panel stack" {% if selection_mode != 'month' %}style="display:none;"{% endif %}>
+      <label>Mês/ano
+        <input type="month" name="month" id="analysis-month-input" value="{{ month_value }}" {% if selection_mode != 'month' %}disabled{% endif %}>
+      </label>
+      <div class="subtle">Data inicial: <span id="month-start-text">{{ month_preview_start.strftime('%d/%m/%Y') }}</span></div>
+      <div class="subtle">Data final: <span id="month-end-text">{{ month_preview_end.strftime('%d/%m/%Y') }}</span></div>
+    </div>
+
+    <div id="panel-custom" class="period-panel grid grid-2" {% if selection_mode != 'custom' %}style="display:none;"{% endif %}>
+      <label>Data inicial
+        <input type="date" name="period_start" value="{{ period_start }}" {% if selection_mode != 'custom' %}disabled{% endif %}>
+      </label>
+      <label>Data final
+        <input type="date" name="period_end" value="{{ period_end }}" {% if selection_mode != 'custom' %}disabled{% endif %}>
+      </label>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="button button-primary" data-loading-button data-loading-label="Carregando análise...">{{ analysis_submit_label }}</button>
+    </div>
+  </form>
+</div>

@@ -4,7 +4,7 @@
 <section class="card stack">
   <div>
     <h1 class="section-title">Central operacional</h1>
-    <p class="section-intro">Acompanhe o mês padrão, revise lançamentos, importe faturas e acesse as áreas mais usadas sem precisar caçar links espalhados.</p>
+    <p class="section-intro">Concentre aqui os fluxos operacionais, as configurações mais usadas e a conferência rápida do que mudou no dia a dia.</p>
   </div>
   <div class="grid grid-3">
     <div>
@@ -36,7 +36,6 @@
       <a class="button" href="/admin/transactions?uncategorized_only=true">Não categorizados</a>
       <a class="button" href="/admin/credit-card-invoices">Faturas</a>
       <a class="button" href="/admin/reapply">Reaplicar regras</a>
-      <a class="button" href="/admin/analysis">Análise</a>
     </div>
   </div>
   <div class="card stack">
@@ -51,23 +50,11 @@
   </div>
 </section>
 
-<section class="grid grid-2">
-  <div class="card stack">
-    <div>
-      <h2 class="section-title">Nova análise</h2>
-      <p class="section-intro">Depois das correções, gere uma nova análise determinística para o período revisado.</p>
-    </div>
-    <form method="post" action="/admin/analysis/run" class="stack">
-      <label>Início<input type="date" name="period_start" value="{{ metrics.period_start }}" required></label>
-      <label>Fim<input type="date" name="period_end" value="{{ metrics.period_end }}" required></label>
-      <input type="hidden" name="return_to" value="/admin">
-      <button type="submit" class="button button-primary">Gerar análise</button>
-    </form>
-  </div>
+<section>
   <div class="card stack">
     <div>
       <h2 class="section-title">Últimas faturas</h2>
-      <p class="section-intro">Acesso rápido às importações mais recentes.</p>
+      <p class="section-intro">Acesso rápido às importações mais recentes sem misturar a operação com a leitura analítica principal.</p>
     </div>
     {% if recent_credit_card_invoices %}
       {% for invoice in recent_credit_card_invoices %}
