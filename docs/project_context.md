@@ -288,7 +288,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Backlog estratégico ordenado
 
-#### Ordem 1 — Home orientada à decisão com fluxo de caixa como visão padrão
+#### Ordem 1 - Home orientada à decisão com fluxo de caixa como visão padrão
 
 - **Frente:** Leitura financeira e visualização
 - **Objetivo de valor:** transformar a home na entrada principal do sistema, com leitura visual e valor real em poucos segundos.
@@ -298,7 +298,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Dependências:** base atual de consumo já estabilizada.
 - **Status:** ativo em refinamento.
 
-#### Ordem 2 — Revisão estética da aplicação
+#### Ordem 2 - Revisão estética da aplicação
 
 - **Frente:** Experiência, estética e clareza
 - **Objetivo de valor:** reduzir excesso de texto, melhorar hierarquia visual e aumentar clareza de leitura.
@@ -308,7 +308,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Dependências:** deve caminhar junto com a evolução do painel principal, e não como trilha estética isolada posterior.
 - **Status:** futuro priorizado.
 
-#### Ordem 3 — Visão mensal e anual por Extrato / Fatura / Conciliado
+#### Ordem 3 - Visão mensal e anual por Extrato / Fatura / Conciliado
 
 - **Frente:** Leitura financeira e visualização
 - **Objetivo de valor:** permitir leitura comparativa útil por fonte.
@@ -318,7 +318,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Dependências:** painel principal orientado à decisão.
 - **Status:** futuro priorizado.
 
-#### Ordem 4 — Modos Bruto / Categorias + filtros essenciais
+#### Ordem 4 - Modos Bruto / Categorias + filtros essenciais
 
 - **Frente:** Leitura financeira e visualização
 - **Objetivo de valor:** dar flexibilidade analítica sem exagerar na complexidade da interface.
@@ -329,7 +329,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Status:** pronto para execução após refinamento da camada principal.
 - **Observação:** os filtros essenciais devem priorizar categoria, conta/cartão e tipo básico quando necessário.
 
-#### Ordem 5 — Importação de extrato pela aplicação
+#### Ordem 5 - Importação de extrato pela aplicação
 
 - **Frente:** Operação nativa na aplicação
 - **Objetivo de valor:** reduzir dependência do Make para a operação principal.
@@ -339,7 +339,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Dependências:** fluxo admin/upload.
 - **Status:** futuro planejado.
 
-#### Ordem 6 — Incorporar o controle de faturas hoje mantido em outro projeto
+#### Ordem 6 - Incorporar o controle de faturas hoje mantido em outro projeto
 
 - **Frente:** Operação nativa na aplicação
 - **Objetivo de valor:** unificar operação financeira relevante em um único produto.
@@ -349,7 +349,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Dependências:** levantamento funcional do projeto paralelo.
 - **Status:** futuro planejado.
 
-#### Ordem 7 — Planejamento financeiro
+#### Ordem 7 - Planejamento financeiro
 
 - **Frente:** Planejamento financeiro e evolução
 - **Objetivo de valor:** evoluir do controle histórico para gestão ativa.
@@ -359,7 +359,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Dependências:** painel analítico principal confiável.
 - **Status:** futuro.
 
-#### Ordem 8 — Acompanhamento de evolução financeira
+#### Ordem 8 - Acompanhamento de evolução financeira
 
 - **Frente:** Planejamento financeiro e evolução
 - **Objetivo de valor:** mostrar progresso financeiro ao longo do tempo.
@@ -369,7 +369,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Dependências:** planejamento financeiro + métricas definidas.
 - **Status:** futuro.
 
-#### Ordem 9 — Alertas financeiros e acompanhamento preventivo
+#### Ordem 9 - Alertas financeiros e acompanhamento preventivo
 
 - **Frente:** Planejamento financeiro e evolução
 - **Objetivo de valor:** gerar alertas úteis, acionáveis e preventivos.

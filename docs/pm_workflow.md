@@ -141,7 +141,7 @@ Na revisão do PR, o PM deve checar:
 - `docs/project_context.md` guarda a verdade do projeto.
 - `docs/pm_workflow.md` orienta o PM sobre como conduzir o trabalho.
 - `docs/codex_workflow.md` orienta o Codex sobre como executar o trabalho.
-- Os 3 arquivos fazem parte do processo padrão do projeto.
+- Os três arquivos fazem parte do processo padrão do projeto.
 - O PM deve mandar o Codex ler os arquivos relevantes antes de cada nova execução.
 - O PM deve mandar o Codex ler `docs/project_context.md` e `docs/codex_workflow.md` por completo antes de qualquer implementação.
 
