@@ -81,8 +81,9 @@ O Codex deve manter estes arquivos atualizados sempre que necessário.
 7. Atualizar documentação/contexto/processo quando necessário.
 8. Validar se o valor prometido ficou perceptível ao final da entrega, além de checar testes e documentação.
 9. Fazer higiene final dos arquivos alterados.
-10. Rodar a suíte completa.
-11. Só então considerar commit e PR.
+10. Rodar a suíte completa de testes, garantido que todos os testes estejam passando.
+11. Caso algum erro for encontrado durante a suite completa de testes, fazer os ajustes e testar novamente. Efetuar esse ciclo até a suíte completa de testes estar passando completamente. 
+12. Só então considerar commit e PR.
 
 ## Regras para Commit e PR
 
@@ -120,9 +121,4 @@ O texto do PR deve incluir um relatório final objetivo da entrega, com no míni
 - resultado da suíte;
 - commit realizado.
 
-## Como Usar nos Próximos Prompts
 
-- O PM deve mandar o Codex ler os arquivos relevantes antes de cada nova execução.
-- O prompt deve deixar explícito que `docs/project_context.md` e `docs/codex_workflow.md` precisam ser lidos por completo antes de qualquer implementação.
-- O Codex deve obedecer essa leitura antes de implementar qualquer mudança.
-- `docs/project_context.md`, `docs/pm_workflow.md` e `docs/codex_workflow.md` passam a fazer parte do processo padrão do projeto.

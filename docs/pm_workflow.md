@@ -28,6 +28,7 @@ Leitura obrigatória antes de atuar:
    - `docs/project_context.md`;
    - `docs/codex_workflow.md`;
    - arquivos adicionais relevantes do trabalho.
+   - deixar explícito que o Codex deve seguir as orientações descritas em `docs/codex_workflow.md`
 13. Sempre deixar explícito no prompt que o Codex deve ler `docs/project_context.md` e `docs/codex_workflow.md` por completo antes de qualquer análise técnica, planejamento, alteração de código, teste, commit ou PR.
 14. Sempre deixar explícito no prompt que o Codex deve seguir obrigatoriamente esses arquivos durante toda a execução e que, em caso de conflito com suposições locais, prevalece o que estiver documentado.
 15. Não incluir `docs/pm_workflow.md` no prompt do Codex por padrão; só incluir por motivo excepcional e explícito.

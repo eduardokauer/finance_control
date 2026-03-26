@@ -27,13 +27,49 @@ Backend em FastAPI para controle financeiro pessoal, com importação de extrato
 docker compose up --build -d
 ```
 
+No Windows/PowerShell, existe um wrapper nativo para os comandos mais comuns:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1 up
+```
+
 4. A aplicação ficará disponível no serviço web configurado pelo `docker compose`.
 
 ## Testes
 Suíte completa:
 
 ```bash
-docker compose exec app pytest -q
+docker compose exec app pytest -q -n 4
+```
+
+Via PowerShell no Windows:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1 test
+```
+
+Para recriar a stack com a última versão e só então rodar a suíte completa:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1 test-rebuild
+```
+
+Para forçar serial na investigação de um teste específico:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1 test -Workers 0
+```
+
+Via `make`, a execução padrão também usa paralelismo. Para forçar serial:
+
+```bash
+make test PYTEST_WORKERS=0
+```
+
+Para recriar containers antes da suíte completa:
+
+```bash
+make test-rebuild
 ```
 
 Suíte focada da análise:
