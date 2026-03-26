@@ -228,6 +228,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
   - `P2`: tema relevante, mas posterior.
 - **Refino:** decisão explícita do PM sobre necessidade de refinamento de produto antes de execução.
 - **Status:** situação atual do tema no roadmap.
+  - `ativo em refinamento`: tema já eleito como frente ativa do roadmap, com direção revisada e refinamento em andamento antes do handoff técnico.
   - `próximo tema para refinamento`: item mais imediato da fila que ainda precisa passar por refino antes de virar execução.
   - `futuro priorizado`: item importante no horizonte atual, mas ainda dependente de ordem, refinamento ou encaixe com outros temas.
   - `pronto para execução`: item com direção já suficiente e dependências principais atendidas.
@@ -253,10 +254,10 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 ### Tema ativo do roadmap
 
 - **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Fluxo de caixa** como visão padrão e **Consumo** como modo alternável.
-- **Objetivo de valor:** transformar a home na entrada principal do produto, com leitura mais visual, hierarquia mais clara e valor analítico percebido em poucos segundos.
-- **Motivo da revisão:** a base categorial por consumo ficou mais consistente, mas a home continua com baixo valor percebido como painel principal. Para a entrada do produto, fluxo de caixa responde mais diretamente ao que entrou e saiu da conta no período, enquanto consumo permanece essencial como modo alternável e aprofundamento analítico.
-- **Status do refinamento:** a direção do tema já foi revisada e consolidada o suficiente para não se perder em conversas futuras, mas o refinamento ainda está em andamento antes do handoff técnico.
-- **Observação:** este bloco é apenas um recorte operacional do roadmap atual e não uma segunda fila paralela de priorização.
+- **Referência no backlog:** corresponde à **Ordem 1** do backlog estratégico.
+- **Status:** ativo em refinamento.
+- **Decisão consolidada:** a home deve evoluir para uma entrada mais visual e mais orientada à decisão, com **Fluxo de caixa** como modo padrão e **Consumo** como modo alternável de leitura.
+- **Observação:** este bloco é apenas um recorte operacional da Ordem 1 e não uma segunda estrutura paralela de prioridade.
 
 ### Estrutura de refinamento do tema ativo
 
@@ -295,7 +296,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Refino de produto necessário?:** Sim
 - **Motivo do refino:** precisa fechar estrutura da home, hierarquia da informação, KPIs, modo padrão de fluxo de caixa, alternância com consumo, comparação mensal/anual e distribuição dos blocos.
 - **Dependências:** base atual de consumo já estabilizada.
-- **Status:** futuro priorizado / próximo tema para refinamento.
+- **Status:** ativo em refinamento.
 
 #### Ordem 2 — Revisão estética da aplicação
 

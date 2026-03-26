@@ -71,7 +71,7 @@ Leitura obrigatória antes de atuar:
 - Só transformar a história em prompt do Codex quando ela já puder ser descrita como **fatia pronta para execução**.
 - Não mandar o Codex implementar diretamente um tema amplo ou um épico ainda ambíguo.
 
-### O que significa “pronta para execução”
+### O que significa "pronta para execução"
 
 Uma fatia está pronta para execução quando já tem:
 - objetivo claro;
@@ -173,10 +173,10 @@ Antes de enviar um prompt ao Codex, confirmar que ele inclui:
 
 Quando fizer sentido para o PR, o PM deve pedir explicitamente que a resposta final do Codex traga:
 
-1. Resumo do que foi feito.
-2. Arquivos alterados.
-3. Confirmação explícita de que `docs/project_context.md` e `docs/codex_workflow.md` foram lidos e de como a execução respeitou esses arquivos.
-4. Validação explícita do DoD.
-5. Resultado da suíte.
-6. Commit realizado.
-7. Link ou nome do PR aberto.
+- resumo do que foi feito;
+- arquivos alterados;
+- confirmação explícita de que `docs/project_context.md` e `docs/codex_workflow.md` foram lidos e de como a execução respeitou esses arquivos;
+- validação explícita do DoD;
+- resultado da suíte;
+- commit realizado;
+- link ou nome do PR aberto.
