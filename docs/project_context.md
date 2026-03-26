@@ -2,7 +2,7 @@
 
 ## Papel deste arquivo
 
-`docs/project_context.md` é a fonte de verdade viva do projeto. Este arquivo registra o contexto do produto, o estado atual do sistema, as decisões já fechadas, a operação atual, os próximos passos recomendados e as limitações reais.
+`docs/project_context.md` é a fonte de verdade viva do projeto. Ele registra o contexto do produto, o estado atual do sistema, as decisões já fechadas, a operação atual, as limitações reais e o roadmap do produto.
 
 Arquivos complementares:
 - `docs/pm_workflow.md`: regras da LLM que atua como PM/guia.
@@ -33,7 +33,7 @@ Ordem de leitura recomendada:
 - **Backend:** Python 3.11+, FastAPI, SQLAlchemy, Jinja2 e HTMX.
 - **Banco:** PostgreSQL. Em produção, Supabase é usado como Postgres gerenciado. Em desenvolvimento local, o banco sobe via Docker Compose.
 - **Deploy:** Render é a referência de deploy do backend.
-- **Automação externa do MVP:** Make, wrapper PowerShell local, Google Forms e Google Drive fazem parte do contexto operacional do projeto para suportar fluxos do MVP, especialmente em torno de ingestão OFX.
+- **Automação externa do MVP:** Make, wrapper PowerShell local, Google Forms e Google Drive suportam fluxos operacionais do MVP, especialmente em torno de ingestão OFX.
 - **Ingestão:**
   - OFX via endpoint autenticado por bearer token.
   - Fatura CSV Itaú via endpoint autenticado por bearer token e também via admin.
@@ -43,8 +43,8 @@ Ordem de leitura recomendada:
 - **Ambiente local:**
   - Windows com Docker Desktop é o ambiente operacional esperado.
   - `docker compose up --build -d` sobe `app` e `db`.
-  - `Makefile` expõe atalhos básicos para subir stack e rodar testes quando `make` estiver disponível.
-  - `scripts/dev.ps1` espelha os atalhos principais do `Makefile` para uso nativo no PowerShell/Windows.
+  - `Makefile` expõe atalhos básicos para subir a stack e rodar testes quando `make` estiver disponível.
+  - `scripts/dev.ps1` espelha os atalhos principais do `Makefile` para uso nativo no PowerShell/Windows, incluindo um fluxo de `test-rebuild` para recriar a stack antes da suíte completa.
 - **Testes:** `pytest`, com execução principal dentro do container.
 
 ## 3. Estado Atual do Sistema
@@ -58,34 +58,30 @@ Ordem de leitura recomendada:
 - Análise determinística mensal evoluída e persistida.
 - Importação de faturas CSV Itaú funcionando.
 - Conciliação assistida manual de faturas implementada.
-- Visão conciliada implementada.
-- Visão conciliada promovida para leitura principal da tela de análise.
+- Visão conciliada implementada e promovida para leitura principal do resumo do período.
 - Visão bruta mantida como apoio e auditoria.
 - Separação conceitual entre visão de consumo e visão de fluxo de caixa definida no produto.
 - Categorização determinística de itens de fatura implementada para `charge`.
 - Regras manuais com `source_scope` implementadas.
 - Reaplicação de categorias para itens de fatura implementada em nível de serviço.
-- Exibição operacional da categoria dos itens de fatura no detalhe da fatura implementada.
-- Edição manual direta da categoria de item `charge` de fatura na UI implementada.
-- Preview de impacto e confirmação explícita antes de persistir a categoria manual de item de fatura implementados.
-- Aplicação na base com preview, confirmação explícita, criação/atualização de regra e reaplicação dos itens de fatura existentes implementadas.
+- Exibição operacional, edição manual pontual e aplicação na base com preview para categorias de itens `charge` já implementadas no admin.
 - Leitura mensal por categoria promovida para a visão de consumo do mês-base, com conta por `transaction_date` e cartão conciliado por `purchase_date`.
 - Comparações mês a mês / ano a ano por categoria usando a mesma visão de consumo já adotada no mês-base implementadas na análise do admin.
 - Alertas e ações recomendadas recalculados para priorizar sinais da visão de consumo quando falam de consumo, categorias e variação de gasto.
 - Arquitetura da informação do admin reorganizada para separar Resumo, Análise detalhada, Conferência, Operação e Configuração.
 - Home/resumo do admin simplificada para concentrar leitura financeira essencial, categorias prioritárias e atalhos de aprofundamento.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
-- Deduplicação forte implementada:
-  - OFX usa controle por arquivo e transação canônica.
-  - Fatura usa hash de arquivo e hash de linha por item importado.
+- Deduplicação forte implementada em OFX e faturas.
 
 ### Ainda não implementado
+
+Esta lista cobre capacidades que ainda não existem no produto ou que ainda não entraram em operação de forma funcional.
 
 - Conciliação automática de faturas.
 - Vínculo automático ou definitivo com pagamento de conta além da conciliação manual assistida.
 - Dashboard completo de fluxo de caixa como visão separada.
 - Gráficos dedicados de evolução por categoria usando a visão de consumo.
-- Migração ampla de toda a análise histórica para base conciliada.
+- Migração ampla de toda a análise histórica para base conciliada além do já necessário para a leitura atual.
 
 ## 4. Decisões de Domínio / Negócio Já Fechadas
 
@@ -107,21 +103,19 @@ Ordem de leitura recomendada:
 
 ### Conciliação de fatura
 
-- `PAGAMENTO EFETUADO` dentro da própria fatura **não** é a fonte oficial da conciliação.
+- `PAGAMENTO EFETUADO` dentro da própria fatura não é a fonte oficial da conciliação.
 - `DESCONTO NA FATURA` entra como componente técnico de quitação do tipo `invoice_credit`.
-- A quitação da fatura é composta por:
-  - `bank_payment`
-  - `invoice_credit`
+- A quitação da fatura é composta por `bank_payment` e `invoice_credit`.
 - Status válidos de conciliação:
   - `pending_review`
   - `partially_conciliated`
   - `conciliated`
   - `conflict`
-- Regra de cardinalidade:
+- Regras de cardinalidade:
   - um pagamento bancário conciliado não pode ser usado em duas faturas diferentes;
   - uma fatura pode acumular mais de um `bank_payment`;
   - itens `invoice_credit` são derivados automaticamente dos créditos da própria fatura.
-- Regra de candidatos do extrato:
+- Regras de candidatos do extrato:
   - o sistema só sugere transações com sinais compatíveis de pagamento de fatura;
   - a decisão continua manual;
   - o candidato precisa respeitar janela temporal, descrição e limite de saldo esperado;
@@ -150,76 +144,39 @@ Ordem de leitura recomendada:
   - a competência temporal desse ajuste técnico segue a `purchase_date` do próprio item importado quando disponível;
   - isso é uma regra operacional da visão de consumo atual e não uma redistribuição artificial do crédito entre categorias;
   - `payment` da fatura e `bank_payment` conciliado ficam fora do consumo.
-- Regras determinísticas usam `source_scope` para evitar reaproveitamento cego:
+- Regras determinísticas usam `source_scope`:
   - `bank_statement`
   - `credit_card_invoice_item`
   - `both`
-- Um item `charge` de fatura só pode terminar com:
-  - categoria existente na base oficial; ou
-  - categoria oficial de não categorizado.
+- Um item `charge` de fatura só pode terminar com categoria existente na base oficial ou com a categoria oficial de não categorizado.
 - Se fallback ou regra devolver categoria inexistente, o item cai no não categorizado oficial.
 
-## 5. Estrutura Analítica Atual
+## 5. Estrutura Analítica e Operação Atual
 
-- O admin agora separa a leitura em três entradas analíticas complementares:
-  - **Resumo:** entrada principal, com KPIs conciliados, resumo executivo, categorias prioritárias da visão de consumo e alertas mais urgentes;
-  - **Análise detalhada:** aprofundamento da visão de consumo, com breakdown categorial completo, comparações históricas, gráficos analíticos atuais, alertas e ações;
+### Leitura analítica atual
+
+- O admin separa a leitura em três entradas analíticas complementares:
+  - **Resumo:** entrada principal, com KPIs conciliados, resumo executivo, categorias prioritárias da visão de consumo e alertas mais urgentes.
+  - **Análise detalhada:** aprofundamento da visão de consumo, com breakdown categorial completo, comparações históricas, gráficos analíticos atuais, alertas e ações.
   - **Conferência:** visão bruta, cobertura da leitura principal, sinais auxiliares de conciliação, itens técnicos e HTML renderizado para auditoria.
 - Essa reorganização é uma decisão explícita de arquitetura da informação do produto, feita antes da próxima etapa de gráficos dedicados por categoria.
-- Os KPIs principais do mês usam a visão conciliada:
-  - receitas
-  - despesas
-  - saldo
+- Os KPIs principais do mês usam a visão conciliada: receitas, despesas e saldo.
 - O resumo executivo principal descreve a leitura conciliada do mês e sua cobertura.
-- A tela deixa explícito:
-  - quantas faturas conciliadas entraram na leitura principal;
-  - quantas ficaram fora;
-  - valor de pagamentos bancários excluídos por conciliação.
 - O breakdown mensal por categoria do mês-base usa a visão de consumo:
   - transações válidas da conta por `transaction_date`;
   - itens `charge` de faturas `conciliated` por `purchase_date`;
   - ajuste técnico separado para `credit` genérico, pela `purchase_date` do próprio item quando disponível e sem redistribuição entre categorias;
   - exclusão de `payment` da própria fatura e de `bank_payment` conciliado do consumo.
-- As comparações históricas por categoria do admin agora também usam a mesma visão de consumo:
-  - mês-base vs mês anterior;
-  - mês-base vs mesmo mês do ano anterior, quando houver base histórica suficiente;
-  - créditos técnicos permanecem em bloco separado, pela data do próprio item importado quando disponível;
-  - pagamentos conciliados continuam fora do consumo comparado.
-- Alertas e ações recomendadas do admin agora seguem a mesma separação:
+- As comparações históricas por categoria usam a mesma visão de consumo no mês-base, no mês anterior e no mesmo mês do ano anterior quando houver base suficiente.
+- Alertas e ações recomendadas seguem a mesma separação:
   - sinais ligados a consumo, categorias, concentração e variação usam a visão de consumo;
   - sinais gerais de saldo e cobertura do período continuam ancorados no resumo principal conciliado quando isso fizer mais sentido.
-- A visão bruta continua disponível, mas foi rebaixada para a área de conferência para não poluir a home/resumo.
 
-### O que ainda não foi migrado totalmente
+### Operação admin atual
 
-- Gráficos dedicados de evolução por categoria na visão de consumo ainda não foram promovidos.
-- Gráficos históricos de 12 meses continuam no suporte atual e ainda não foram reorganizados em uma camada visual própria da visão de consumo.
-- A análise LLM continua separada da análise determinística e não é a leitura principal do admin.
-- A visão de fluxo de caixa ainda não foi promovida como dashboard analítico separado.
-
-### Dependências para próximas evoluções
-
-- As próximas evoluções devem preferir incrementos já úteis para a análise ou para a operação principal, evitando preparações isoladas como destino final de um PR.
-- Gráficos dedicados de evolução por categoria na visão de consumo, se fizer sentido depois da estabilização da leitura histórica atual.
-- Consolidação final da operação manual de categorias na UI, se surgir nova lacuna real após o fluxo de aplicação na base já implementado.
-
-## 6. Operação Admin Atual
-
-### O admin já permite hoje
-
-- **Arquitetura da informação**
-  - usar `Resumo` como entrada principal do admin;
-  - separar `Análise detalhada` como espaço de aprofundamento da visão de consumo;
-  - manter `Conferência` para apoio, auditoria e diagnóstico;
-  - concentrar lançamentos, faturas e reaplicação em `Operação`;
-  - deixar `Central operacional`, regras e categorias agrupadas em `Configuração`.
 - **Análise**
   - ver resumo financeiro enxuto por período, com KPIs conciliados, resumo executivo, categorias prioritárias e alertas prioritários;
   - ver análise detalhada por período;
-  - promover a leitura conciliada como resumo principal;
-  - ler categorias do mês-base na visão de consumo, com cartão por `purchase_date`;
-  - comparar categorias do mês-base contra mês anterior e ano anterior na mesma visão de consumo;
-  - receber alertas e ações recomendadas coerentes com a visão de consumo para temas de categoria e consumo;
   - manter visão bruta, cobertura e sinais auxiliares em uma área de conferência separada;
   - disparar nova análise determinística manualmente.
 - **Transações**
@@ -227,48 +184,71 @@ Ordem de leitura recomendada:
   - editar categoria e tipo da transação;
   - criar ou atualizar regra manual a partir da revisão;
   - fazer reclassificação em lote com preview.
-- **Regras**
+- **Regras e categorias**
   - criar, editar, ativar, desativar e excluir regras;
-  - definir `kind_mode`;
-  - definir `source_scope`.
-- **Categorias**
+  - definir `kind_mode` e `source_scope`;
   - listar, criar e editar categorias da base oficial.
 - **Faturas**
   - importar CSV Itaú;
-  - listar faturas importadas;
-  - ver detalhe da fatura;
+  - listar faturas importadas e ver detalhe da fatura;
   - ver itens, tipo técnico e categoria quando aplicável;
-  - editar manualmente a categoria de item `charge` com preview de impacto e confirmação explícita;
-  - aplicar a categoria na base com preview explícito dos itens impactados, confirmação, criação/atualização de regra e reaplicação dos itens elegíveis existentes.
+  - editar manualmente a categoria de item `charge` com preview e confirmação explícita;
+  - aplicar a categoria na base com preview dos itens impactados, confirmação, criação/atualização de regra e reaplicação dos itens elegíveis existentes.
 - **Conciliação**
   - visualizar candidatos de pagamento;
   - vincular manualmente pagamentos do extrato;
   - desfazer vínculo;
   - acompanhar status e componentes da conciliação.
-- **Categorização de itens de fatura**
-  - categorização determinística de `charge` no serviço;
-  - reaplicação em nível de serviço;
-  - visualização da categoria no detalhe da fatura;
-  - correção manual pontual via UI usando a base oficial de categorias;
-  - criação/atualização de regra manual a partir do item de fatura com persistência para importações futuras elegíveis.
 
-### Limitações operacionais atuais
+### Pontos ainda não consolidados
 
-- A decisão de conciliação ainda é manual.
-- A nova IA do admin já separa resumo, análise detalhada e conferência, mas a evolução visual por categoria ainda depende dos gráficos atuais e não de uma camada dedicada.
-- A operação manual atual de categoria em itens de fatura já cobre ajuste pontual e aplicação na base, mas ainda depende de revisão humana caso o padrão desejado não seja recorrente o suficiente para virar regra.
+Esta lista cobre capacidades que já existem, mas ainda dependem de maturação, refinamento visual ou restrições operacionais para entregar todo o valor esperado.
+
+- Gráficos dedicados de evolução por categoria na visão de consumo ainda não foram promovidos.
 - A visão de fluxo de caixa ainda não foi materializada como dashboard próprio.
+- A decisão de conciliação ainda é manual.
+- A visão de consumo por categoria ainda depende de faturas totalmente conciliadas.
 
-## 7. Próximo Passo Atual e Sequência Recomendada
+## 6. Riscos e Limitações Conhecidas
 
-### Critério de evolução a partir daqui
+- O baixo valor analítico percebido da leitura principal ainda não foi resolvido; a base ficou mais confiável, mas o painel principal ainda precisa de refinamento de produto.
+- A leitura mensal e as comparações históricas por categoria já usam a visão de consumo, mas os gráficos dedicados dessa evolução ainda não foram promovidos.
+- O resumo principal conciliado e a visão de consumo já foram separados em páginas mais claras, mas o produto ainda depende de texto e hierarquia para não confundir consumo com fluxo de caixa.
+- A visão bruta ainda é necessária para auditoria.
+- O MVP continua dependente do layout oficial de OFX Itaú e CSV Itaú já suportados.
 
-- Priorizar o menor incremento seguro que já entregue valor perceptível ao usuário.
-- Preferir entregas mais completas e úteis a fatias excessivamente fragmentadas.
-- Evitar PRs que terminem apenas em preparação estrutural sem benefício funcional claro.
-- Quando uma etapa preparatória for inevitável, mantê-la mínima e, de preferência, embutida em uma entrega maior que já exponha valor analítico ou operacional.
-- Quando o tema ainda estiver em nível de produto, refiná-lo antes em iniciativa, épicos, histórias de usuário e só então em fatia pronta para execução.
-- Prompt de execução para o Codex só deve nascer quando a fatia já tiver objetivo claro, valor entregue, fora de escopo, critérios de aceite e dependências principais suficientemente resolvidas ou explicitadas.
+## 7. Roadmap do Produto
+
+### Como ler o roadmap
+
+- **Ordem:** posição atual do tema na fila de evolução do produto.
+- **Prioridade:** importância relativa do tema dentro do roadmap atual.
+  - `P0`: tema crítico no horizonte atual.
+  - `P1`: tema importante na sequência.
+  - `P2`: tema relevante, mas posterior.
+- **Refino:** decisão explícita do PM sobre necessidade de refinamento de produto antes de execução.
+- **Status:** situação atual do tema no roadmap.
+  - `próximo tema para refinamento`: item mais imediato da fila que ainda precisa passar por refino antes de virar execução.
+  - `futuro priorizado`: item importante no horizonte atual, mas ainda dependente de ordem, refinamento ou encaixe com outros temas.
+  - `pronto para execução`: item com direção já suficiente e dependências principais atendidas.
+  - `futuro planejado`: item previsto no roadmap, mas fora da faixa imediata de execução.
+  - `futuro`: item reconhecido, porém mais distante e ainda dependente de definições relevantes.
+  - `concluído`: item já entregue e absorvido pelo estado atual do produto.
+
+### Frentes de evolução
+
+- **Leitura financeira e visualização**
+  - transformar a leitura principal do produto em algo que gere valor real em poucos segundos;
+  - concentrar painel principal, comparações por fonte, modos de leitura e futuros gráficos dedicados.
+- **Operação nativa na aplicação**
+  - reduzir dependência de fluxos externos para ingestão e operação recorrente;
+  - incluir importação de extrato pela própria aplicação e futura unificação do controle de faturas hoje mantido em outro projeto.
+- **Planejamento financeiro e evolução**
+  - levar o produto do controle histórico para gestão ativa;
+  - incluir planejamento financeiro, acompanhamento de evolução e alertas financeiros.
+- **Experiência, estética e clareza**
+  - tratar revisão estética como frente transversal de produto, e não tema cosmético isolado;
+  - reduzir excesso de texto, melhorar hierarquia visual e aumentar a capacidade de extrair valor rápido da análise.
 
 ### Tema ativo do roadmap
 
@@ -276,10 +256,11 @@ Ordem de leitura recomendada:
 - **Objetivo de valor:** transformar a home na entrada principal do produto, com leitura mais visual, hierarquia mais clara e valor analítico percebido em poucos segundos.
 - **Motivo da revisão:** a base categorial por consumo ficou mais consistente, mas a home continua com baixo valor percebido como painel principal. Para a entrada do produto, fluxo de caixa responde mais diretamente ao que entrou e saiu da conta no período, enquanto consumo permanece essencial como modo alternável e aprofundamento analítico.
 - **Status do refinamento:** a direção do tema já foi revisada e consolidada o suficiente para não se perder em conversas futuras, mas o refinamento ainda está em andamento antes do handoff técnico.
+- **Observação:** este bloco é apenas um recorte operacional do roadmap atual e não uma segunda fila paralela de priorização.
 
 ### Estrutura de refinamento do tema ativo
 
-- **Hierarquia correta de refinamento:** tema/iniciativa do roadmap -> épicos -> histórias de usuário -> fatias prontas para execução.
+- **Hierarquia correta de refinamento:** tema ou iniciativa do roadmap -> épicos -> histórias de usuário -> fatias prontas para execução.
 - **Épico:** objetivo amplo que organiza uma parte relevante do tema ativo.
 - **História de usuário:** fatia menor, orientada a valor, que ajuda a entregar um épico.
 - **Fatia pronta para execução:** recorte pequeno o suficiente para virar prompt do Codex sem ambiguidade de produto.
@@ -304,6 +285,108 @@ Ordem de leitura recomendada:
   5. Como usuário, quero atalhos claros para `Análise detalhada` e `Conferência` quando precisar aprofundar ou auditar a leitura principal.
 - **Observação de produto:** revisão estética caminha junto com esse épico e não como trilha cosmética isolada posterior.
 
+### Backlog estratégico ordenado
+
+#### Ordem 1 — Home orientada à decisão com fluxo de caixa como visão padrão
+
+- **Frente:** Leitura financeira e visualização
+- **Objetivo de valor:** transformar a home na entrada principal do sistema, com leitura visual e valor real em poucos segundos.
+- **Prioridade:** P0
+- **Refino de produto necessário?:** Sim
+- **Motivo do refino:** precisa fechar estrutura da home, hierarquia da informação, KPIs, modo padrão de fluxo de caixa, alternância com consumo, comparação mensal/anual e distribuição dos blocos.
+- **Dependências:** base atual de consumo já estabilizada.
+- **Status:** futuro priorizado / próximo tema para refinamento.
+
+#### Ordem 2 — Revisão estética da aplicação
+
+- **Frente:** Experiência, estética e clareza
+- **Objetivo de valor:** reduzir excesso de texto, melhorar hierarquia visual e aumentar clareza de leitura.
+- **Prioridade:** P0
+- **Refino de produto necessário?:** Sim
+- **Motivo do refino:** precisa definir direção visual, padrões de cards, tabelas, gráficos e contraste entre informação principal e apoio como camada transversal da leitura principal.
+- **Dependências:** deve caminhar junto com a evolução do painel principal, e não como trilha estética isolada posterior.
+- **Status:** futuro priorizado.
+
+#### Ordem 3 — Visão mensal e anual por Extrato / Fatura / Conciliado
+
+- **Frente:** Leitura financeira e visualização
+- **Objetivo de valor:** permitir leitura comparativa útil por fonte.
+- **Prioridade:** P0
+- **Refino de produto necessário?:** Sim
+- **Motivo do refino:** precisa fechar como essas fontes entram na navegação, nos controles e na leitura principal.
+- **Dependências:** painel principal orientado à decisão.
+- **Status:** futuro priorizado.
+
+#### Ordem 4 — Modos Bruto / Categorias + filtros essenciais
+
+- **Frente:** Leitura financeira e visualização
+- **Objetivo de valor:** dar flexibilidade analítica sem exagerar na complexidade da interface.
+- **Prioridade:** P0
+- **Refino de produto necessário?:** Não
+- **Motivo do refino:** já há direção suficiente.
+- **Dependências:** refinamento do painel principal.
+- **Status:** pronto para execução após refinamento da camada principal.
+- **Observação:** os filtros essenciais devem priorizar categoria, conta/cartão e tipo básico quando necessário.
+
+#### Ordem 5 — Importação de extrato pela aplicação
+
+- **Frente:** Operação nativa na aplicação
+- **Objetivo de valor:** reduzir dependência do Make para a operação principal.
+- **Prioridade:** P1
+- **Refino de produto necessário?:** Não
+- **Motivo do refino:** escopo relativamente claro.
+- **Dependências:** fluxo admin/upload.
+- **Status:** futuro planejado.
+
+#### Ordem 6 — Incorporar o controle de faturas hoje mantido em outro projeto
+
+- **Frente:** Operação nativa na aplicação
+- **Objetivo de valor:** unificar operação financeira relevante em um único produto.
+- **Prioridade:** P1
+- **Refino de produto necessário?:** Sim
+- **Motivo do refino:** precisa mapear o que realmente deve migrar, o que já existe e o que não faz sentido trazer.
+- **Dependências:** levantamento funcional do projeto paralelo.
+- **Status:** futuro planejado.
+
+#### Ordem 7 — Planejamento financeiro
+
+- **Frente:** Planejamento financeiro e evolução
+- **Objetivo de valor:** evoluir do controle histórico para gestão ativa.
+- **Prioridade:** P2
+- **Refino de produto necessário?:** Sim
+- **Motivo do refino:** precisa definir escopo inicial, entidades e horizonte de planejamento.
+- **Dependências:** painel analítico principal confiável.
+- **Status:** futuro.
+
+#### Ordem 8 — Acompanhamento de evolução financeira
+
+- **Frente:** Planejamento financeiro e evolução
+- **Objetivo de valor:** mostrar progresso financeiro ao longo do tempo.
+- **Prioridade:** P2
+- **Refino de produto necessário?:** Sim
+- **Motivo do refino:** depende da definição das métricas e do modelo de progresso.
+- **Dependências:** planejamento financeiro + métricas definidas.
+- **Status:** futuro.
+
+#### Ordem 9 — Alertas financeiros e acompanhamento preventivo
+
+- **Frente:** Planejamento financeiro e evolução
+- **Objetivo de valor:** gerar alertas úteis, acionáveis e preventivos.
+- **Prioridade:** P2
+- **Refino de produto necessário?:** Sim
+- **Motivo do refino:** depende da definição de métricas, thresholds e ações.
+- **Dependências:** planejamento financeiro + acompanhamento de evolução.
+- **Status:** futuro.
+
+### Regra de governança do roadmap
+
+- Todo tema do roadmap deve ter ordem e prioridade explícitas.
+- A necessidade de refino é uma decisão explícita do PM e deve ficar registrada no roadmap.
+- Tema com **Refino de produto necessário? = Sim** não deve virar prompt de implementação direta.
+- Antes de execução técnica, esse tema precisa passar por refinamento de produto.
+- Tema com **Refino de produto necessário? = Não** só pode virar execução quando as dependências estiverem atendidas e a ordem do backlog continuar fazendo sentido.
+- O roadmap é a referência principal para direção futura do produto; o tema ativo deve ser sempre derivado dele, e não de uma segunda estrutura paralela de priorização.
+
 ### Próximo passo recomendado
 
 - Concluir o refinamento do primeiro épico até chegar à primeira fatia pronta para execução técnica do Codex.
@@ -319,11 +402,3 @@ Ordem de leitura recomendada:
 - mudanças de domínio financeiro já estabilizado;
 - conciliação automática;
 - reestruturação ampla dos serviços além do necessário para a navegação e a camada visual analítica.
-
-## 8. Riscos e Limitações Conhecidas
-
-- A leitura mensal e as comparações históricas por categoria já usam a visão de consumo, mas os gráficos dedicados dessa evolução ainda não foram promovidos.
-- O resumo principal conciliado e a visão de consumo agora foram separados em páginas mais claras, mas o produto ainda depende de texto e hierarquia para não confundir consumo com fluxo de caixa.
-- A visão bruta ainda é necessária para auditoria.
-- A visão de consumo por categoria ainda depende de faturas totalmente conciliadas.
-- O MVP continua dependente do layout oficial de OFX Itaú e CSV Itaú já suportados.
