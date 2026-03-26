@@ -48,6 +48,12 @@ Via PowerShell no Windows:
 powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1 test
 ```
 
+Para recriar a stack com a última versão e só então rodar a suíte completa:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1 test-rebuild
+```
+
 Para forçar serial na investigação de um teste específico:
 
 ```powershell
@@ -58,6 +64,12 @@ Via `make`, a execução padrão também usa paralelismo. Para forçar serial:
 
 ```bash
 make test PYTEST_WORKERS=0
+```
+
+Para recriar containers antes da suíte completa:
+
+```bash
+make test-rebuild
 ```
 
 Suíte focada da análise:
