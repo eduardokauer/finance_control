@@ -228,6 +228,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
   - `P2`: tema relevante, mas posterior.
 - **Refino:** decisão explícita do PM sobre necessidade de refinamento de produto antes de execução.
 - **Status:** situação atual do tema no roadmap.
+  - `ativo em refinamento`: tema já eleito como frente ativa do roadmap, com direção revisada e refinamento em andamento antes do handoff técnico.
   - `próximo tema para refinamento`: item mais imediato da fila que ainda precisa passar por refino antes de virar execução.
   - `futuro priorizado`: item importante no horizonte atual, mas ainda dependente de ordem, refinamento ou encaixe com outros temas.
   - `pronto para execução`: item com direção já suficiente e dependências principais atendidas.
@@ -252,23 +253,52 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Tema ativo do roadmap
 
-- **Tema ativo:** Painel principal orientado à decisão.
-- **Motivo:** é o primeiro item do backlog, tem prioridade P0 e ainda exige refinamento de produto antes de virar execução técnica.
-- **Observação:** este bloco é apenas um recorte operacional do roadmap atual e não uma segunda fila paralela de priorização.
+- **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Fluxo de caixa** como visão padrão e **Consumo** como modo alternável.
+- **Referência no backlog:** corresponde à **Ordem 1** do backlog estratégico.
+- **Status:** ativo em refinamento.
+- **Decisão consolidada:** a home deve evoluir para uma entrada mais visual e mais orientada à decisão, com **Fluxo de caixa** como modo padrão e **Consumo** como modo alternável de leitura.
+- **Observação:** este bloco é apenas um recorte operacional da Ordem 1 e não uma segunda estrutura paralela de prioridade.
+
+### Estrutura de refinamento do tema ativo
+
+- **Hierarquia correta de refinamento:** tema ou iniciativa do roadmap -> épicos -> histórias de usuário -> fatias prontas para execução.
+- **Épico:** objetivo amplo que organiza uma parte relevante do tema ativo.
+- **História de usuário:** fatia menor, orientada a valor, que ajuda a entregar um épico.
+- **Fatia pronta para execução:** recorte pequeno o suficiente para virar prompt do Codex sem ambiguidade de produto.
+
+#### Épicos do tema ativo
+
+1. **Home visual de fluxo de caixa**
+   - construir a primeira versão da home com leitura predominantemente visual e fluxo de caixa como modo padrão.
+2. **Leituras alternáveis e aprofundamento contextual**
+   - manter consumo como modo alternável na home e conectar melhor a navegação com `Análise detalhada` e `Conferência`.
+3. **Comparações por fonte e camadas de leitura**
+   - preparar a evolução da home para leituras mensais e anuais por Extrato / Fatura / Conciliado sem perder clareza.
+
+#### Primeiro épico refinado: Home visual de fluxo de caixa
+
+- **Objetivo:** entregar a primeira home realmente orientada à decisão, com leitura rápida do mês e entrada mais visual para o produto.
+- **Histórias de usuário iniciais já refinadas:**
+  1. Como usuário, quero ver cards/KPIs visuais do mês para entender rapidamente o estado financeiro atual.
+  2. Como usuário, quero ver um gráfico principal de evolução de 12 meses para perceber tendência e direção geral sem depender de leitura textual extensa.
+  3. Como usuário, quero um comparativo visual das categorias do mês contra uma referência histórica para identificar desvios relevantes com rapidez.
+  4. Como usuário, quero alternar entre Fluxo de caixa e Consumo na home para mudar a lente principal sem sair da entrada do sistema.
+  5. Como usuário, quero atalhos claros para `Análise detalhada` e `Conferência` quando precisar aprofundar ou auditar a leitura principal.
+- **Observação de produto:** revisão estética caminha junto com esse épico e não como trilha cosmética isolada posterior.
 
 ### Backlog estratégico ordenado
 
-#### Ordem 1 — Painel principal orientado à decisão
+#### Ordem 1 - Home orientada à decisão com fluxo de caixa como visão padrão
 
 - **Frente:** Leitura financeira e visualização
-- **Objetivo de valor:** transformar a leitura principal do sistema em algo que gere valor real em poucos segundos.
+- **Objetivo de valor:** transformar a home na entrada principal do sistema, com leitura visual e valor real em poucos segundos.
 - **Prioridade:** P0
 - **Refino de produto necessário?:** Sim
-- **Motivo do refino:** precisa fechar estrutura do painel principal, hierarquia da informação, KPIs, comparação mensal/anual e distribuição dos blocos.
+- **Motivo do refino:** precisa fechar estrutura da home, hierarquia da informação, KPIs, modo padrão de fluxo de caixa, alternância com consumo, comparação mensal/anual e distribuição dos blocos.
 - **Dependências:** base atual de consumo já estabilizada.
-- **Status:** futuro priorizado / próximo tema para refinamento.
+- **Status:** ativo em refinamento.
 
-#### Ordem 2 — Revisão estética da aplicação
+#### Ordem 2 - Revisão estética da aplicação
 
 - **Frente:** Experiência, estética e clareza
 - **Objetivo de valor:** reduzir excesso de texto, melhorar hierarquia visual e aumentar clareza de leitura.
@@ -278,7 +308,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Dependências:** deve caminhar junto com a evolução do painel principal, e não como trilha estética isolada posterior.
 - **Status:** futuro priorizado.
 
-#### Ordem 3 — Visão mensal e anual por Extrato / Fatura / Conciliado
+#### Ordem 3 - Visão mensal e anual por Extrato / Fatura / Conciliado
 
 - **Frente:** Leitura financeira e visualização
 - **Objetivo de valor:** permitir leitura comparativa útil por fonte.
@@ -288,7 +318,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Dependências:** painel principal orientado à decisão.
 - **Status:** futuro priorizado.
 
-#### Ordem 4 — Modos Bruto / Categorias + filtros essenciais
+#### Ordem 4 - Modos Bruto / Categorias + filtros essenciais
 
 - **Frente:** Leitura financeira e visualização
 - **Objetivo de valor:** dar flexibilidade analítica sem exagerar na complexidade da interface.
@@ -299,7 +329,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Status:** pronto para execução após refinamento da camada principal.
 - **Observação:** os filtros essenciais devem priorizar categoria, conta/cartão e tipo básico quando necessário.
 
-#### Ordem 5 — Importação de extrato pela aplicação
+#### Ordem 5 - Importação de extrato pela aplicação
 
 - **Frente:** Operação nativa na aplicação
 - **Objetivo de valor:** reduzir dependência do Make para a operação principal.
@@ -309,7 +339,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Dependências:** fluxo admin/upload.
 - **Status:** futuro planejado.
 
-#### Ordem 6 — Incorporar o controle de faturas hoje mantido em outro projeto
+#### Ordem 6 - Incorporar o controle de faturas hoje mantido em outro projeto
 
 - **Frente:** Operação nativa na aplicação
 - **Objetivo de valor:** unificar operação financeira relevante em um único produto.
@@ -319,7 +349,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Dependências:** levantamento funcional do projeto paralelo.
 - **Status:** futuro planejado.
 
-#### Ordem 7 — Planejamento financeiro
+#### Ordem 7 - Planejamento financeiro
 
 - **Frente:** Planejamento financeiro e evolução
 - **Objetivo de valor:** evoluir do controle histórico para gestão ativa.
@@ -329,7 +359,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Dependências:** painel analítico principal confiável.
 - **Status:** futuro.
 
-#### Ordem 8 — Acompanhamento de evolução financeira
+#### Ordem 8 - Acompanhamento de evolução financeira
 
 - **Frente:** Planejamento financeiro e evolução
 - **Objetivo de valor:** mostrar progresso financeiro ao longo do tempo.
@@ -339,7 +369,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Dependências:** planejamento financeiro + métricas definidas.
 - **Status:** futuro.
 
-#### Ordem 9 — Alertas financeiros e acompanhamento preventivo
+#### Ordem 9 - Alertas financeiros e acompanhamento preventivo
 
 - **Frente:** Planejamento financeiro e evolução
 - **Objetivo de valor:** gerar alertas úteis, acionáveis e preventivos.
@@ -357,3 +387,19 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - Antes de execução técnica, esse tema precisa passar por refinamento de produto.
 - Tema com **Refino de produto necessário? = Não** só pode virar execução quando as dependências estiverem atendidas e a ordem do backlog continuar fazendo sentido.
 - O roadmap é a referência principal para direção futura do produto; o tema ativo deve ser sempre derivado dele, e não de uma segunda estrutura paralela de priorização.
+
+### Próximo passo recomendado
+
+- Concluir o refinamento do primeiro épico até chegar à primeira fatia pronta para execução técnica do Codex.
+- A candidata mais provável para esse primeiro handoff é a fatia de **cards/KPIs visuais do mês** na home em modo padrão de fluxo de caixa, já respeitando a navegação atual e os atalhos de aprofundamento.
+
+### Fora de escopo imediato desta frente
+
+- implementar a nova home neste momento;
+- alterar templates, rotas, serviços ou lógica do produto antes do refinamento virar fatia pronta;
+- discutir design visual final em nível de detalhe além do necessário para fechar direção de produto;
+- dashboard completo de fluxo de caixa;
+- novo motor analítico;
+- mudanças de domínio financeiro já estabilizado;
+- conciliação automática;
+- reestruturação ampla dos serviços além do necessário para a navegação e a camada visual analítica.
