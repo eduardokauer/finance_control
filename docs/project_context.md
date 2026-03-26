@@ -252,19 +252,48 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Tema ativo do roadmap
 
-- **Tema ativo:** Painel principal orientado à decisão.
-- **Motivo:** é o primeiro item do backlog, tem prioridade P0 e ainda exige refinamento de produto antes de virar execução técnica.
+- **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Fluxo de caixa** como visão padrão e **Consumo** como modo alternável.
+- **Objetivo de valor:** transformar a home na entrada principal do produto, com leitura mais visual, hierarquia mais clara e valor analítico percebido em poucos segundos.
+- **Motivo da revisão:** a base categorial por consumo ficou mais consistente, mas a home continua com baixo valor percebido como painel principal. Para a entrada do produto, fluxo de caixa responde mais diretamente ao que entrou e saiu da conta no período, enquanto consumo permanece essencial como modo alternável e aprofundamento analítico.
+- **Status do refinamento:** a direção do tema já foi revisada e consolidada o suficiente para não se perder em conversas futuras, mas o refinamento ainda está em andamento antes do handoff técnico.
 - **Observação:** este bloco é apenas um recorte operacional do roadmap atual e não uma segunda fila paralela de priorização.
+
+### Estrutura de refinamento do tema ativo
+
+- **Hierarquia correta de refinamento:** tema ou iniciativa do roadmap -> épicos -> histórias de usuário -> fatias prontas para execução.
+- **Épico:** objetivo amplo que organiza uma parte relevante do tema ativo.
+- **História de usuário:** fatia menor, orientada a valor, que ajuda a entregar um épico.
+- **Fatia pronta para execução:** recorte pequeno o suficiente para virar prompt do Codex sem ambiguidade de produto.
+
+#### Épicos do tema ativo
+
+1. **Home visual de fluxo de caixa**
+   - construir a primeira versão da home com leitura predominantemente visual e fluxo de caixa como modo padrão.
+2. **Leituras alternáveis e aprofundamento contextual**
+   - manter consumo como modo alternável na home e conectar melhor a navegação com `Análise detalhada` e `Conferência`.
+3. **Comparações por fonte e camadas de leitura**
+   - preparar a evolução da home para leituras mensais e anuais por Extrato / Fatura / Conciliado sem perder clareza.
+
+#### Primeiro épico refinado: Home visual de fluxo de caixa
+
+- **Objetivo:** entregar a primeira home realmente orientada à decisão, com leitura rápida do mês e entrada mais visual para o produto.
+- **Histórias de usuário iniciais já refinadas:**
+  1. Como usuário, quero ver cards/KPIs visuais do mês para entender rapidamente o estado financeiro atual.
+  2. Como usuário, quero ver um gráfico principal de evolução de 12 meses para perceber tendência e direção geral sem depender de leitura textual extensa.
+  3. Como usuário, quero um comparativo visual das categorias do mês contra uma referência histórica para identificar desvios relevantes com rapidez.
+  4. Como usuário, quero alternar entre Fluxo de caixa e Consumo na home para mudar a lente principal sem sair da entrada do sistema.
+  5. Como usuário, quero atalhos claros para `Análise detalhada` e `Conferência` quando precisar aprofundar ou auditar a leitura principal.
+- **Observação de produto:** revisão estética caminha junto com esse épico e não como trilha cosmética isolada posterior.
 
 ### Backlog estratégico ordenado
 
-#### Ordem 1 — Painel principal orientado à decisão
+#### Ordem 1 — Home orientada à decisão com fluxo de caixa como visão padrão
 
 - **Frente:** Leitura financeira e visualização
-- **Objetivo de valor:** transformar a leitura principal do sistema em algo que gere valor real em poucos segundos.
+- **Objetivo de valor:** transformar a home na entrada principal do sistema, com leitura visual e valor real em poucos segundos.
 - **Prioridade:** P0
 - **Refino de produto necessário?:** Sim
-- **Motivo do refino:** precisa fechar estrutura do painel principal, hierarquia da informação, KPIs, comparação mensal/anual e distribuição dos blocos.
+- **Motivo do refino:** precisa fechar estrutura da home, hierarquia da informação, KPIs, modo padrão de fluxo de caixa, alternância com consumo, comparação mensal/anual e distribuição dos blocos.
 - **Dependências:** base atual de consumo já estabilizada.
 - **Status:** futuro priorizado / próximo tema para refinamento.
 
@@ -357,3 +386,19 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - Antes de execução técnica, esse tema precisa passar por refinamento de produto.
 - Tema com **Refino de produto necessário? = Não** só pode virar execução quando as dependências estiverem atendidas e a ordem do backlog continuar fazendo sentido.
 - O roadmap é a referência principal para direção futura do produto; o tema ativo deve ser sempre derivado dele, e não de uma segunda estrutura paralela de priorização.
+
+### Próximo passo recomendado
+
+- Concluir o refinamento do primeiro épico até chegar à primeira fatia pronta para execução técnica do Codex.
+- A candidata mais provável para esse primeiro handoff é a fatia de **cards/KPIs visuais do mês** na home em modo padrão de fluxo de caixa, já respeitando a navegação atual e os atalhos de aprofundamento.
+
+### Fora de escopo imediato desta frente
+
+- implementar a nova home neste momento;
+- alterar templates, rotas, serviços ou lógica do produto antes do refinamento virar fatia pronta;
+- discutir design visual final em nível de detalhe além do necessário para fechar direção de produto;
+- dashboard completo de fluxo de caixa;
+- novo motor analítico;
+- mudanças de domínio financeiro já estabilizado;
+- conciliação automática;
+- reestruturação ampla dos serviços além do necessário para a navegação e a camada visual analítica.

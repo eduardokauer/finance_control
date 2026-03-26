@@ -42,6 +42,14 @@ Leitura obrigatória antes de atuar:
     - encoding;
     - BOM;
     - formatação.
+19. Sempre admitir ciclos leves de refinamento de produto antes de gerar prompt de execução quando o tema ainda estiver acima do nível de entrega técnica.
+20. Sempre estruturar o refinamento, quando necessário, na ordem:
+    - tema/iniciativa do roadmap;
+    - épicos;
+    - histórias de usuário;
+    - fatia pronta para execução.
+21. Sempre tratar épico como objetivo amplo e história de usuário como fatia menor que ajuda a entregar esse épico.
+22. Só gerar prompt para o Codex quando já existir uma fatia pronta para execução.
 
 ## Como Definir o Próximo Passo
 
@@ -54,9 +62,30 @@ Leitura obrigatória antes de atuar:
 - Não antecipar etapas que dependem de base ainda não estabilizada.
 - Usar `docs/project_context.md` para identificar o próximo passo atual recomendado e validar se o pedido está alinhado com ele e com o valor funcional esperado.
 
+## Como Refinar Antes do Handoff
+
+- Usar a estrutura de refinamento de forma leve e objetiva, sem transformar o processo em burocracia.
+- Partir do **tema/iniciativa do roadmap** quando a discussão ainda estiver em nível de direção de produto.
+- Quebrar esse tema em **épicos** quando houver mais de um objetivo amplo relevante dentro da mesma iniciativa.
+- Quebrar o épico em **histórias de usuário** quando já for possível explicitar valor entregue em fatias menores.
+- Só transformar a história em prompt do Codex quando ela já puder ser descrita como **fatia pronta para execução**.
+- Não mandar o Codex implementar diretamente um tema amplo ou um épico ainda ambíguo.
+
+### O que significa “pronta para execução”
+
+Uma fatia está pronta para execução quando já tem:
+- objetivo claro;
+- valor entregue explícito;
+- fora de escopo claro;
+- decisões já preservadas;
+- critérios de aceite verificáveis;
+- dependências principais resolvidas ou explicitadas.
+
 ## Como Montar o Prompt para o Codex
 
 Todo prompt deve deixar explícito:
+- de qual tema/iniciativa, épico e história de usuário a entrega deriva, quando esse contexto já existir;
+- qual é a fatia pronta para execução que será entregue;
 - quais arquivos o Codex deve ler por padrão:
   - `docs/project_context.md`;
   - `docs/codex_workflow.md`;
@@ -74,6 +103,7 @@ Todo prompt deve deixar explícito:
 - a exigência de testes;
 - a exigência de atualização de documentação/contexto/processo;
 - que ajustes estruturais necessários devem servir à entrega principal do mesmo PR, e não substituí-la;
+- que o prompt só está sendo emitido porque a fatia já está pronta para execução, e não mais em nível de tema amplo ou épico ambíguo;
 - quais arquivos precisam ser atualizados naquele trabalho, quando aplicável, evitando instruções vagas como "atualize a documentação se necessário";
 - o mapeamento esperado para atualização de arquivos:
   - feature, estado ou decisão mudou -> atualizar `docs/project_context.md`;
@@ -126,16 +156,18 @@ Antes de enviar um prompt ao Codex, confirmar que ele inclui:
 3. Instrução explícita de que esses arquivos devem ser seguidos durante toda a execução e prevalecem sobre suposições locais conflitantes.
 4. Objetivo do PR.
 5. Valor funcional esperado da etapa.
-6. Fora de escopo.
-7. Decisões já fechadas relevantes.
-8. DoD explícito.
-9. Exigência de testes.
-10. Exigência de atualização de documentação/contexto/processo quando aplicável.
-11. Indicação explícita de quais arquivos precisam ser atualizados naquele PR, quando aplicável.
-12. Indicação de que ajustes estruturais necessários devem sustentar a entrega principal do mesmo PR.
-13. Formato esperado da entrega final do Codex.
-14. Exigência de higiene final.
-15. Regra de commit + PR só no final.
+6. Tema/iniciativa de origem, épico e história de usuário, quando aplicável.
+7. Fatia pronta para execução explicitada.
+8. Fora de escopo.
+9. Decisões já fechadas relevantes.
+10. DoD explícito.
+11. Exigência de testes.
+12. Exigência de atualização de documentação/contexto/processo quando aplicável.
+13. Indicação explícita de quais arquivos precisam ser atualizados naquele PR, quando aplicável.
+14. Indicação de que ajustes estruturais necessários devem sustentar a entrega principal do mesmo PR.
+15. Formato esperado da entrega final do Codex.
+16. Exigência de higiene final.
+17. Regra de commit + PR só no final.
 
 ### Formato esperado da entrega final do Codex
 
