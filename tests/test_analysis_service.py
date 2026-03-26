@@ -47,7 +47,7 @@ def _add_tx(db_session, *, tx_date: date, description: str, amount: float, categ
         is_card_bill_payment=is_card_bill_payment,
     )
     db_session.add(tx)
-    db_session.commit()
+    db_session.flush()
     return tx
 
 
@@ -113,8 +113,7 @@ def _add_invoice(
                 external_row_hash=f"row-hash-{invoice.id}-{index}",
             )
         )
-    db_session.commit()
-    db_session.refresh(invoice)
+    db_session.flush()
     return invoice
 
 
@@ -122,7 +121,7 @@ def _set_conciliation_status(db_session, *, invoice_id: int, status: str):
     conciliation = ensure_credit_card_invoice_conciliation(db_session, invoice_id=invoice_id)
     assert conciliation is not None
     conciliation.status = status
-    db_session.commit()
+    db_session.flush()
     return conciliation
 
 
@@ -139,7 +138,7 @@ def _assign_invoice_item_categories(db_session, *, invoice_id: int, categories_b
         item.category = category
         item.categorization_method = "manual"
         item.categorization_confidence = 1.0
-    db_session.commit()
+    db_session.flush()
 
 
 def test_build_analysis_snapshot_returns_richer_structure(db_session):
