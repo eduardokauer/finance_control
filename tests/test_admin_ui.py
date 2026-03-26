@@ -646,9 +646,9 @@ def test_admin_analysis_page_shows_empty_state_and_navigation(client, db_session
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Ainda não existe análise gerada para esse período." in response.text
+    assert "Análise ainda não gerada" in response.text
     assert "Gerar nova análise" in response.text
-    assert "Receitas" in response.text
+    assert "Visão de consumo do mês-base" in response.text
     assert "data-loading-button" in response.text
     assert "Carregando análise..." in response.text
     assert "Gerando análise..." in response.text
@@ -713,7 +713,8 @@ def test_admin_conference_page_shows_auxiliary_conciliation_signals(client, db_s
     assert response.status_code == 200
     assert "Conferência e auditoria" in response.text
     assert "Sinais analíticos de conciliação" in response.text
-    assert "Resumo principal conciliado" in response.text
+    assert "Cobertura da leitura principal" in response.text
+    assert "Resumo executivo" in response.text
     assert "Visão bruta de apoio" in response.text
     assert "Fora da leitura principal" in response.text
     assert "Pagamentos conciliados" in response.text
@@ -810,7 +811,6 @@ def test_admin_analysis_page_shows_conciliated_category_breakdown(client, db_ses
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Categorias do m\u00eas-base na vis\u00e3o de consumo" in response.text
     assert "Vis\u00e3o de consumo do m\u00eas-base" in response.text
     assert "Supermercado" in response.text
     assert "Educa\u00e7\u00e3o" in response.text
@@ -892,7 +892,7 @@ def test_admin_analysis_page_anchors_card_consumption_by_purchase_date(client, d
     february = client.get("/admin/analysis?period_start=2026-02-01&period_end=2026-02-28")
 
     assert january.status_code == 200
-    assert "Categorias do m\u00eas-base na vis\u00e3o de consumo" in january.text
+    assert "Vis\u00e3o de consumo do m\u00eas-base" in january.text
     assert "Supermercado" in january.text
     assert "Cr\u00e9ditos t\u00e9cnicos de fatura" in january.text
     assert "data do próprio item importado" in january.text

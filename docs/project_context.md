@@ -33,7 +33,7 @@ Ordem de leitura recomendada:
 - **Backend:** Python 3.11+, FastAPI, SQLAlchemy, Jinja2 e HTMX.
 - **Banco:** PostgreSQL. Em produção, Supabase é usado como Postgres gerenciado. Em desenvolvimento local, o banco sobe via Docker Compose.
 - **Deploy:** Render é a referência de deploy do backend.
-- **Automação externa do MVP:** Make, Google Forms e Google Drive fazem parte do contexto operacional do projeto para suportar fluxos do MVP, especialmente em torno de ingestão OFX.
+- **Automação externa do MVP:** Make, wrapper PowerShell local, Google Forms e Google Drive fazem parte do contexto operacional do projeto para suportar fluxos do MVP, especialmente em torno de ingestão OFX.
 - **Ingestão:**
   - OFX via endpoint autenticado por bearer token.
   - Fatura CSV Itaú via endpoint autenticado por bearer token e também via admin.
@@ -43,7 +43,8 @@ Ordem de leitura recomendada:
 - **Ambiente local:**
   - Windows com Docker Desktop é o ambiente operacional esperado.
   - `docker compose up --build -d` sobe `app` e `db`.
-  - `Makefile` expõe atalhos básicos para subir stack e rodar testes.
+  - `Makefile` expõe atalhos básicos para subir stack e rodar testes quando `make` estiver disponível.
+  - `scripts/dev.ps1` espelha os atalhos principais do `Makefile` para uso nativo no PowerShell/Windows.
 - **Testes:** `pytest`, com execução principal dentro do container.
 
 ## 3. Estado Atual do Sistema
