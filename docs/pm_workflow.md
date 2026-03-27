@@ -74,6 +74,8 @@ No início de cada novo ciclo de trabalho, a LLM/PM deve classificar explicitame
 
 Esse início de ciclo deve usar o prompt canônico documentado em `docs/pm_cycle_start_prompt.md`. Esse arquivo faz parte oficial do processo do projeto e não deve presumir handoff técnico automático.
 
+Pedidos diretos por execução técnica ou por "prompt para o Codex" não pulam esse protocolo. Mesmo nesses casos, a LLM/PM deve primeiro classificar o ciclo, justificar a classificação e só então decidir se a próxima ação correta é continuar refinando, atualizar a documentação ou realmente gerar prompt para o Codex.
+
 ### Estados válidos do ciclo
 
 - `REFINAMENTO_EM_ANDAMENTO`
@@ -92,6 +94,8 @@ Antes de propor o próximo passo, a LLM/PM deve responder explicitamente:
 1. qual é o estado atual do ciclo;
 2. por que esse estado foi escolhido;
 3. qual é a próxima ação correta.
+
+Esse passo continua obrigatório mesmo quando o usuário pedir diretamente um prompt para o Codex.
 
 ### Semântica da fatia
 
@@ -127,6 +131,8 @@ Uma fatia está pronta para execução quando já tem:
 ## Como Montar o Prompt para o Codex
 
 Esse prompt só deve ser gerado quando o ciclo já estiver em `PRONTO_PARA_CODEX`.
+
+Pedido direto do usuário por execução técnica ou por "prompt para o Codex" não substitui essa condição.
 
 Todo prompt deve deixar explícito:
 - de qual tema/iniciativa, épico e história de usuário a entrega deriva, quando esse contexto já existir;
@@ -204,7 +210,7 @@ Antes de enviar um prompt ao Codex, confirmar que ele inclui:
 - **Prevalência do documentado:**
   instrução explícita de que esses arquivos devem ser seguidos durante toda a execução e prevalecem sobre suposições locais conflitantes.
 - **Classificação atual do ciclo:**
-  motivo explícito, confirmando que a entrega já está em `PRONTO_PARA_CODEX`.
+  motivo explícito, confirmando que a entrega já está em `PRONTO_PARA_CODEX` e que essa classificação foi feita antes de qualquer handoff técnico, mesmo se o pedido do usuário tiver vindo em forma de "gere o prompt para o Codex".
 - **Objetivo do PR.**
 - **Valor funcional esperado da etapa.**
 - **Tema/iniciativa de origem, épico e história de usuário, quando aplicável.**

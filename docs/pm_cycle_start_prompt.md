@@ -30,6 +30,8 @@ A resposta deve sempre trazer, nesta ordem:
 
 ## Regra explícita sobre prompt para o Codex
 
+- Mesmo se o usuário pedir diretamente um prompt para o Codex, a LLM deve primeiro classificar o estado atual do ciclo.
+- O pedido do usuário, por si só, não substitui a necessidade de classificar o ciclo antes de decidir a próxima ação.
 - A LLM só deve gerar prompt completo para o Codex se o estado atual for `PRONTO_PARA_CODEX`.
 - Se o estado for `REFINAMENTO_EM_ANDAMENTO`, a saída correta é continuar refinando com o usuário.
 - Se o estado for `PRONTO_PARA_DOC`, a saída correta é gerar prompt para atualização documental, e não para execução técnica.
@@ -75,6 +77,9 @@ Antes de propor qualquer handoff técnico, classifique explicitamente o estado a
 - PRONTO_PARA_DOC
 - PRONTO_PARA_CODEX
 
+Mesmo que eu peça diretamente um prompt para o Codex, não pule essa classificação.
+O pedido por si só não substitui a necessidade de decidir conscientemente entre refinamento, documentação ou handoff técnico.
+
 A resposta deve trazer, nesta ordem:
 1. Classificação do ciclo.
 2. Justificativa da classificação.
@@ -92,6 +97,7 @@ Quando houver história em refino, fatia candidata ou fatia pronta, explicite ta
 - se a fatia cria semântica nova ou apenas materializa a semântica atual do sistema.
 
 Regra crítica:
+- mesmo que eu peça diretamente um prompt para o Codex, primeiro classifique o ciclo;
 - só gere prompt completo para o Codex se a classificação for PRONTO_PARA_CODEX;
 - se a classificação for REFINAMENTO_EM_ANDAMENTO, continue refinando com o usuário;
 - se a classificação for PRONTO_PARA_DOC, gere prompt para atualização documental, não para execução técnica.
