@@ -48,6 +48,12 @@ Via PowerShell no Windows:
 powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1 test
 ```
 
+Para PRs que alterem exclusivamente arquivos em `docs/`, rode o check rápido de documentação:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1 test-docs
+```
+
 Para recriar a stack com a última versão e só então rodar a suíte completa:
 
 ```powershell
@@ -64,6 +70,12 @@ Via `make`, a execução padrão também usa paralelismo. Para forçar serial:
 
 ```bash
 make test PYTEST_WORKERS=0
+```
+
+Para PRs que alterem exclusivamente arquivos em `docs/`:
+
+```bash
+make test-docs
 ```
 
 Para recriar containers antes da suíte completa:

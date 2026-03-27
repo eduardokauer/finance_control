@@ -12,6 +12,12 @@ No início de um novo ciclo PM:
 2. ler `docs/pm_workflow.md`, por completo;
 3. tratar esses dois arquivos como fonte de verdade do projeto e do processo do PM.
 
+Quando o tema em refinamento exigir referência externa para decidir direção, benchmark ou melhor solução:
+
+4. consultar fontes relevantes na internet antes de consolidar a recomendação;
+5. priorizar fontes primárias, oficiais ou claramente confiáveis;
+6. se houver decisão a tomar, explicitar a recomendação preferida com base nas instruções do projeto e nas fontes consultadas.
+
 ## Saída obrigatória do início do ciclo
 
 A resposta deve sempre trazer, nesta ordem:
@@ -52,10 +58,17 @@ Quando fizer sentido, diferencie explicitamente:
 
 `docs/project_context.md` e `docs/pm_workflow.md` não são automaticamente a fonte de verdade dos números da fatia; essa fonte precisa ser explicitada.
 
+Quando houver pesquisa externa relevante para a fatia, a resposta também deve deixar claro:
+
+- quais fontes externas ajudaram a embasar a recomendação;
+- o que veio dessas fontes;
+- por que a recomendação final continua aderente ao contexto e às decisões já preservadas do projeto.
+
 ## Critério de suficiência do refinamento
 
 - Não continue refinando indefinidamente quando os pontos em aberto deixarem de ser bloqueadores materiais.
 - O objetivo não é buscar a solução ótima; é chegar ao menor nível de definição suficiente para um PR seguro, útil e revisável.
+- Pesquisar referências externas não deve virar loop infinito; quando o ganho marginal deixar de reduzir ambiguidade material, a LLM deve encerrar a pesquisa e decidir a próxima ação correta.
 - Mesmo com dúvidas menores remanescentes, a fatia pode avançar quando elas não mudarem materialmente o primeiro PR.
 - Se houver rodadas consecutivas sem redução material de ambiguidade, interrompa o refinamento aberto e escolha explicitamente entre:
   - continuar refinando só com uma única pergunta realmente bloqueadora;
@@ -80,6 +93,11 @@ Antes de responder, leia obrigatoriamente:
 2. docs/pm_workflow.md
 
 Use esses dois arquivos como fonte de verdade do estado atual do projeto e do processo do PM.
+
+Quando o tema em refinamento exigir referência externa para decidir direção, benchmark ou melhor solução:
+- consulte fontes relevantes na internet antes de consolidar a recomendação;
+- priorize fontes primárias, oficiais ou claramente confiáveis;
+- se houver decisão a tomar, explicite a recomendação preferida com base nas instruções do projeto e nas fontes consultadas.
 
 Se a leitura for feita por URLs raw do GitHub:
 - tente reler com uma querystring randômica nova, por exemplo ?nocache=<valor_aleatorio>;
@@ -113,12 +131,18 @@ Quando houver história em refino, fatia candidata ou fatia pronta, explicite ta
 - o que não entra;
 - se a fatia cria semântica nova ou apenas materializa a semântica atual do sistema.
 
+Quando houver pesquisa externa relevante, explicite também:
+- quais fontes ajudaram a embasar a recomendação;
+- o que veio dessas fontes;
+- por que a recomendação final segue aderente ao contexto do projeto.
+
 Quando fizer sentido, diferencie explicitamente:
 - fonte de verdade do processo/documentação;
 - fonte de verdade da fatia.
 
 Não continue refinando indefinidamente quando os pontos em aberto deixarem de ser bloqueadores materiais.
 Buscar a solução ótima não deve impedir handoff quando o "bom e seguro" já estiver definido para o primeiro PR.
+Pesquisar referências externas também não deve virar loop infinito quando elas já não estiverem reduzindo ambiguidade material.
 Mesmo com dúvidas menores remanescentes, a fatia pode avançar quando elas não mudarem materialmente o primeiro PR.
 
 Regra crítica:
