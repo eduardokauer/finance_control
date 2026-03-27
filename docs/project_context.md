@@ -400,8 +400,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Próximo passo recomendado
 
-- Concluir o refinamento do primeiro épico até levar a primeira fatia ao estado `PRONTO_PARA_CODEX`, com semântica, escopo e critérios de aceite já fechados.
-- A candidata mais provável para esse primeiro handoff é a fatia de **cards/KPIs visuais do mês** na home em modo padrão de fluxo de caixa, já respeitando a navegação atual e os atalhos de aprofundamento.
+- Concluir o refinamento da fatia de **cards/KPIs visuais do mês** até levá-la ao estado `PRONTO_PARA_CODEX`, com semântica, escopo e critérios de aceite já fechados para o primeiro handoff da home em modo padrão de fluxo de caixa.
 
 ### Fora de escopo imediato desta frente
 

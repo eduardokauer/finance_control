@@ -189,31 +189,34 @@ Na revisão do PR, o PM deve checar:
 
 Antes de enviar um prompt ao Codex, confirmar que ele inclui:
 
-1. Arquivos obrigatórios para leitura.
-   Por padrão: `docs/project_context.md`, `docs/codex_workflow.md` e arquivos adicionais relevantes do trabalho.
-   `docs/pm_workflow.md` não deve ir para o Codex por padrão.
-2. Instrução explícita de que `docs/project_context.md` e `docs/codex_workflow.md` devem ser lidos por completo antes de qualquer análise, planejamento, alteração, teste, commit ou PR.
-3. Instrução explícita de que esses arquivos devem ser seguidos durante toda a execução e prevalecem sobre suposições locais conflitantes.
-4. Classificação atual do ciclo, com motivo explícito, confirmando que a entrega já está em `PRONTO_PARA_CODEX`.
-5. Objetivo do PR.
-6. Valor funcional esperado da etapa.
-7. Tema/iniciativa de origem, épico e história de usuário, quando aplicável.
-8. Fatia pronta para execução explicitada.
-9. Semântica da fatia explicitada:
-   - fonte de verdade;
-   - o que entra;
-   - o que não entra;
-   - se materializa a semântica atual ou cria semântica nova já fechada.
-10. Fora de escopo.
-11. Decisões já fechadas relevantes.
-12. DoD explícito.
-13. Exigência de testes.
-14. Exigência de atualização de documentação/contexto/processo quando aplicável.
-15. Indicação explícita de quais arquivos precisam ser atualizados naquele PR, quando aplicável.
-16. Indicação de que ajustes estruturais necessários devem sustentar a entrega principal do mesmo PR.
-17. Formato esperado da entrega final do Codex.
-18. Exigência de higiene final.
-19. Regra de commit + PR só no final.
+- **Arquivos obrigatórios para leitura:**
+  Por padrão: `docs/project_context.md`, `docs/codex_workflow.md` e arquivos adicionais relevantes do trabalho.
+  `docs/pm_workflow.md` não deve ir para o Codex por padrão.
+- **Leitura obrigatória antes da execução:**
+  instrução explícita de que `docs/project_context.md` e `docs/codex_workflow.md` devem ser lidos por completo antes de qualquer análise, planejamento, alteração, teste, commit ou PR.
+- **Prevalência do documentado:**
+  instrução explícita de que esses arquivos devem ser seguidos durante toda a execução e prevalecem sobre suposições locais conflitantes.
+- **Classificação atual do ciclo:**
+  motivo explícito, confirmando que a entrega já está em `PRONTO_PARA_CODEX`.
+- **Objetivo do PR.**
+- **Valor funcional esperado da etapa.**
+- **Tema/iniciativa de origem, épico e história de usuário, quando aplicável.**
+- **Fatia pronta para execução explicitada.**
+- **Semântica da fatia explicitada:**
+  - fonte de verdade;
+  - o que entra;
+  - o que não entra;
+  - se materializa a semântica atual ou cria semântica nova já fechada.
+- **Fora de escopo.**
+- **Decisões já fechadas relevantes.**
+- **DoD explícito.**
+- **Exigência de testes.**
+- **Exigência de atualização de documentação/contexto/processo quando aplicável.**
+- **Indicação explícita de quais arquivos precisam ser atualizados naquele PR, quando aplicável.**
+- **Indicação de que ajustes estruturais necessários devem sustentar a entrega principal do mesmo PR.**
+- **Formato esperado da entrega final do Codex.**
+- **Exigência de higiene final.**
+- **Regra de commit + PR só no final.**
 
 ### Formato esperado da entrega final do Codex
 
