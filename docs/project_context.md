@@ -226,9 +226,9 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Fluxo de caixa** como visão padrão e **Consumo** como modo alternável.
 - **Épico ativo:** `Home visual de fluxo de caixa`
 - **Histórias em refino:** cards/KPIs visuais do mês; gráfico principal de evolução de 12 meses; comparativo visual das categorias do mês; alternância entre Fluxo de caixa e Consumo; atalhos para `Análise detalhada` e `Conferência`.
-- **Fatia ativa ou candidata:** cards/KPIs visuais do mês ainda em refinamento.
-- **Próxima ação esperada:** continuar o refinamento com o usuário até fechar semântica, escopo e critérios de aceite da primeira fatia; se novas decisões relevantes forem tomadas, preservá-las na documentação antes do handoff técnico.
-- **Motivo resumido:** a direção do tema e do épico já está preservada, mas a semântica exata da primeira fatia e os limites do primeiro handoff ainda precisam ficar explícitos sem ambiguidade antes de um prompt de execução.
+- **Fatia ativa ou candidata:** faixa inicial da home com 4 cards mensais: Fluxo líquido do mês, Entradas do mês, Saídas do mês e Consumo do mês.
+- **Próxima ação esperada:** confirmar se a definição dessa faixa inicial já está suficientemente fechada para handoff técnico, sem forecast, recorrência ou expansão de escopo no primeiro PR.
+- **Motivo resumido:** a semântica principal da primeira fatia já está materialmente definida, mas o ciclo ainda permanece em refinamento até confirmar que o primeiro handoff pode acontecer sem ambiguidade relevante.
 - **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
 
 ### Como ler o roadmap
@@ -297,6 +297,26 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
   4. Como usuário, quero alternar entre Fluxo de caixa e Consumo na home para mudar a lente principal sem sair da entrada do sistema.
   5. Como usuário, quero atalhos claros para `Análise detalhada` e `Conferência` quando precisar aprofundar ou auditar a leitura principal.
 - **Observação de produto:** revisão estética caminha junto com esse épico e não como trilha cosmética isolada posterior.
+
+##### Primeira fatia definida: faixa inicial de 4 cards mensais
+
+- **Objetivo da fatia:** materializar visualmente a semântica financeira já existente do sistema, sem introduzir nova lógica de domínio.
+- **Modo padrão da home nesta fatia:** `Fluxo de caixa`.
+- **Escopo inicial:** a primeira implementação da home deve exibir uma faixa inicial com 4 cards mensais:
+  1. **Fluxo líquido do mês**
+  2. **Entradas do mês**
+  3. **Saídas do mês**
+  4. **Consumo do mês**
+- **Definição dos cards:**
+  - **Fluxo líquido do mês:** `entradas realizadas no mês - saídas realizadas no mês`; é o principal KPI da home e deve responder rapidamente como o caixa do mês está se comportando.
+  - **Entradas do mês:** soma de todas as entradas realizadas no período; serve para dar contexto ao fluxo líquido.
+  - **Saídas do mês:** soma de todas as saídas realizadas no período; serve para dar contexto ao fluxo líquido.
+  - **Consumo do mês:** total de consumo do período na visão de consumo; não deve duplicar pagamento de fatura como consumo e existe para separar leitura de consumo da leitura de liquidação de caixa.
+- **Comparação padrão dos cards:** cada card deve exibir o valor do mês atual, a variação absoluta contra o mês anterior e a variação percentual contra o mês anterior, quando aplicável.
+- **Regra de semântica:** esta fatia não cria semântica nova; ela apenas materializa visualmente a semântica já consolidada do sistema em visão conciliada, separação entre fluxo de caixa e consumo e leitura financeira baseada nas transações já processadas.
+- **O que não entra nesta fatia:** disponível até o fim do mês, projeção de fechamento, próximas obrigações, recorrências, top categorias na home principal, patrimônio, metas, investimentos, nova lógica de conciliação, alteração da semântica de consumo e alteração da semântica de pagamento de fatura.
+- **Decisão de UX da primeira fatia:** a primeira faixa da home deve priorizar leitura rápida e baixo ruído; a intenção não é construir um dashboard completo neste momento, mas sim uma entrada visual clara para o estado financeiro mensal.
+- **Critério de prontidão para implementação:** esta fatia estará pronta quando os 4 cards estiverem assumidos como bloco inicial da home, o modo padrão estiver definido como Fluxo de caixa, a comparação contra o mês anterior estiver assumida como padrão dos cards e estiver explícito que não haverá forecast nem recorrência nesta primeira entrega.
 
 ### Backlog estratégico ordenado
 
