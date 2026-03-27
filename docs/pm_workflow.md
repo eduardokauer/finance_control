@@ -36,7 +36,9 @@ Leitura obrigatória antes de atuar:
 17. Sempre exigir que o Codex só commite e abra PR depois de:
     - DoD cumprido;
     - documentação atualizada quando aplicável;
-    - suíte completa verde.
+    - validação final adequada verde:
+      - `test-docs` quando o PR alterar exclusivamente arquivos em `docs/`;
+      - suíte completa quando o PR alterar qualquer arquivo fora de `docs/`.
 18. Sempre exigir higiene final:
     - mojibake;
     - encoding;
@@ -56,6 +58,9 @@ Leitura obrigatória antes de atuar:
 26. Sempre iniciar um novo ciclo PM usando o prompt canônico documentado em `docs/pm_cycle_start_prompt.md`.
 27. Não tratar prompts-base externos ao conjunto oficial de `docs/` como fonte paralela de verdade do processo.
 28. Se o prompt canônico de início do ciclo mudar, manter essa mudança versionada dentro de `docs/`.
+29. Sempre consultar fontes na internet relacionadas ao tema em refinamento para verificar soluções, padrões e referências relevantes antes de recomendar uma direção.
+30. Sempre priorizar fontes primárias, oficiais ou claramente confiáveis quando essas fontes existirem.
+31. Se houver decisão a ser tomada durante o refinamento, sempre indicar qual é a recomendação mais aderente ao contexto do projeto, explicitando que ela foi baseada nas instruções do projeto e nas fontes consultadas.
 
 ## Como Definir o Próximo Passo
 
@@ -67,6 +72,8 @@ Leitura obrigatória antes de atuar:
 - Evitar misturar feature, refactor e reorganização documental no mesmo PR sem necessidade.
 - Não antecipar etapas que dependem de base ainda não estabilizada.
 - Usar `docs/project_context.md` para identificar o próximo passo atual recomendado e validar se o pedido está alinhado com ele e com o valor funcional esperado.
+- Consultar fontes na internet relacionadas ao tema em refinamento antes de consolidar a recomendação de produto, priorizando referências atuais e confiáveis.
+- Se ainda houver decisão em aberto depois dessa pesquisa, indicar explicitamente a recomendação preferida e o motivo.
 
 ## Protocolo de Decisão do Ciclo
 
@@ -124,6 +131,7 @@ Se o nome da fatia implicar uma semântica que ainda não esteja claramente defi
 - Só transformar a história em prompt do Codex quando ela já puder ser descrita como **fatia pronta para execução**.
 - Não mandar o Codex implementar diretamente um tema amplo ou um épico ainda ambíguo.
 - Se decisões relevantes já estiverem fechadas, mas ainda não registradas, reclassificar o ciclo para `PRONTO_PARA_DOC` antes do handoff técnico.
+- Trazer para o refinamento as melhores referências externas encontradas para o tema, sem deixar que a pesquisa substitua o contexto e as decisões já preservadas no projeto.
 
 ### Critério de suficiência do refinamento
 
@@ -192,7 +200,9 @@ Todo prompt deve deixar explícito:
 - o fora de escopo;
 - as decisões já fechadas relevantes;
 - o DoD;
-- a exigência de testes;
+- a exigência de testes e validação final adequada:
+  - `test-docs` quando o PR alterar exclusivamente `docs/`;
+  - suíte completa quando o PR alterar qualquer arquivo fora de `docs/`;
 - a exigência de atualização de documentação/contexto/processo;
 - que ajustes estruturais necessários devem servir à entrega principal do mesmo PR, e não substituí-la;
 - que o prompt só está sendo emitido porque a fatia já está pronta para execução, e não mais em nível de tema amplo ou épico ambíguo;
@@ -212,7 +222,9 @@ O DoD deve:
 - ser verificável por código, testes, documentação e comportamento esperado;
 - cobrar evidência do valor funcional entregue, e não só conformidade estrutural;
 - incluir atualização de contexto/processo quando o PR mudar estado, decisão ou forma de trabalho;
-- incluir execução da suíte completa ao final;
+- incluir a validação final adequada ao tipo de alteração:
+  - `test-docs` para PRs que alterem exclusivamente `docs/`;
+  - suíte completa para PRs com qualquer alteração fora de `docs/`;
 - evitar considerar como concluída uma entrega puramente preparatória sem justificativa explícita;
 - evitar itens vagos ou impossíveis de validar.
 
@@ -265,6 +277,8 @@ Antes de enviar um prompt ao Codex, confirmar que ele inclui:
 - **Decisões já fechadas relevantes.**
 - **DoD explícito.**
 - **Exigência de testes.**
+- **Validação final adequada ao tipo de alteração:**
+  `test-docs` para PRs que alterem exclusivamente `docs/`; suíte completa para PRs com qualquer alteração fora de `docs/`.
 - **Exigência de atualização de documentação/contexto/processo quando aplicável.**
 - **Indicação explícita de quais arquivos precisam ser atualizados naquele PR, quando aplicável.**
 - **Indicação de que ajustes estruturais necessários devem sustentar a entrega principal do mesmo PR.**

@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('up', 'down', 'logs', 'test', 'test-rebuild', 'test-fast', 'test-e2e', 'test-api', 'test-unit')]
+    [ValidateSet('up', 'down', 'logs', 'test', 'test-docs', 'test-rebuild', 'test-fast', 'test-e2e', 'test-api', 'test-unit')]
     [string]$Task,
 
     [int]$Workers = 4,
@@ -32,6 +32,30 @@ function Invoke-DockerComposeRun {
     if ($LASTEXITCODE -ne 0) {
         throw "Falha ao executar: docker compose run --rm $($Arguments -join ' ')"
     }
+}
+
+function Invoke-ProjectPython {
+    param([string[]]$Arguments)
+
+    $python = Get-Command python -ErrorAction SilentlyContinue
+    if ($python) {
+        & python @Arguments
+        if ($LASTEXITCODE -ne 0) {
+            throw "Falha ao executar: python $($Arguments -join ' ')"
+        }
+        return
+    }
+
+    $py = Get-Command py -ErrorAction SilentlyContinue
+    if ($py) {
+        & py -3 @Arguments
+        if ($LASTEXITCODE -ne 0) {
+            throw "Falha ao executar: py -3 $($Arguments -join ' ')"
+        }
+        return
+    }
+
+    Invoke-DockerComposeRun (@('app', 'python') + $Arguments)
 }
 
 function Format-Duration {
@@ -165,6 +189,13 @@ switch ($Task) {
         Write-Host ("Configuracao de teste: workers={0}, slowest={1}, durations-min={2}s" -f $Workers, $Slowest, $SlowestMinSeconds) -ForegroundColor DarkCyan
         $steps += Invoke-TimedStep -Label 'pytest suite completa' -Action {
             Invoke-DockerCompose (Get-PytestArguments -BaseArguments @('-q') -Workers $Workers -Slowest $Slowest -SlowestMinSeconds $SlowestMinSeconds)
+        }
+        Show-StepSummary -Task $Task -Steps $steps
+    }
+    'test-docs' {
+        $steps = @()
+        $steps += Invoke-TimedStep -Label 'validador rapido de docs' -Action {
+            Invoke-ProjectPython @('scripts/check_docs.py', 'docs')
         }
         Show-StepSummary -Task $Task -Steps $steps
     }

@@ -33,7 +33,10 @@ Essas leituras devem acontecer antes de qualquer análise técnica, planejamento
    - encoding incorreto;
    - BOM residual;
    - problemas de formatação.
-15. Executar a suíte completa antes de considerar a entrega concluída.
+15. Escolher a validação final adequada ao tipo de alteração:
+   - se o PR alterar exclusivamente arquivos dentro de `docs/`, rodar o check rápido de documentação (`test-docs`) antes de fechar a entrega;
+   - se o PR alterar qualquer arquivo fora de `docs/`, rodar a suíte completa antes de fechar a entrega.
+16. Em ambos os casos, se a validação detectar erro, corrigir o que for necessário e repetir o ciclo até a validação aplicável ficar totalmente verde.
 
 ## Regra Crítica de Atualização dos Arquivos
 
@@ -81,8 +84,10 @@ O Codex deve manter estes arquivos atualizados sempre que necessário.
 7. Atualizar documentação/contexto/processo quando necessário.
 8. Validar se o valor prometido ficou perceptível ao final da entrega, além de checar testes e documentação.
 9. Fazer higiene final dos arquivos alterados.
-10. Rodar a suíte completa de testes, garantido que todos os testes estejam passando.
-11. Caso algum erro for encontrado durante a suite completa de testes, fazer os ajustes e testar novamente. Efetuar esse ciclo até a suíte completa de testes estar passando completamente. 
+10. Rodar a validação final adequada:
+    - `test-docs` se o PR alterar exclusivamente arquivos em `docs/`;
+    - suíte completa se o PR alterar qualquer arquivo fora de `docs/`.
+11. Caso algum erro seja encontrado nessa validação final, fazer os ajustes e testar novamente. Efetuar esse ciclo até a validação aplicável estar passando completamente.
 12. Só então considerar commit e PR.
 
 ## Regras para Commit e PR
@@ -91,7 +96,9 @@ O Codex só pode commitar e abrir PR depois de:
 - DoD cumprido;
 - valor prometido pela entrega efetivamente refletido no resultado final do PR;
 - arquivos de contexto/processo atualizados quando necessário;
-- suíte completa verde;
+- validação final adequada verde:
+  - `test-docs` para PRs que alterem exclusivamente `docs/`;
+  - suíte completa para PRs com qualquer alteração fora de `docs/`;
 - higiene final concluída.
 
 Se qualquer um desses pontos falhar, o trabalho ainda não está finalizado.

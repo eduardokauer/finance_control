@@ -45,7 +45,7 @@ Ordem de leitura recomendada:
   - Windows com Docker Desktop é o ambiente operacional esperado.
   - `docker compose up --build -d` sobe `app` e `db`.
   - `Makefile` expõe atalhos básicos para subir a stack e rodar testes quando `make` estiver disponível.
-  - `scripts/dev.ps1` espelha os atalhos principais do `Makefile` para uso nativo no PowerShell/Windows, incluindo um fluxo de `test-rebuild` para recriar a stack antes da suíte completa.
+  - `scripts/dev.ps1` espelha os atalhos principais do `Makefile` para uso nativo no PowerShell/Windows, incluindo um fluxo de `test-rebuild` para recriar a stack antes da suíte completa e um `test-docs` rápido para PRs que alterem exclusivamente arquivos em `docs/`.
 - **Testes:** `pytest`, com execução principal dentro do container.
 
 ## 3. Estado Atual do Sistema
