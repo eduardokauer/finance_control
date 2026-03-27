@@ -45,7 +45,7 @@ Ordem de leitura recomendada:
   - Windows com Docker Desktop é o ambiente operacional esperado.
   - `docker compose up --build -d` sobe `app` e `db`.
   - `Makefile` expõe atalhos básicos para subir a stack e rodar testes quando `make` estiver disponível.
-  - `scripts/dev.ps1` espelha os atalhos principais do `Makefile` para uso nativo no PowerShell/Windows, incluindo um fluxo de `test-rebuild` para recriar a stack antes da suíte completa.
+  - `scripts/dev.ps1` espelha os atalhos principais do `Makefile` para uso nativo no PowerShell/Windows, incluindo um fluxo de `test-rebuild` para recriar a stack antes da suíte completa e um `test-docs` rápido para PRs que alterem exclusivamente arquivos em `docs/`.
 - **Testes:** `pytest`, com execução principal dentro do container.
 
 ## 3. Estado Atual do Sistema
@@ -71,6 +71,7 @@ Ordem de leitura recomendada:
 - Alertas e ações recomendadas recalculados para priorizar sinais da visão de consumo quando falam de consumo, categorias e variação de gasto.
 - Arquitetura da informação do admin reorganizada para separar Resumo, Análise detalhada, Conferência, Operação e Configuração.
 - Home/resumo do admin simplificada para concentrar leitura financeira essencial, categorias prioritárias e atalhos de aprofundamento.
+- Gráfico principal anual de fluxo de caixa materializado na home/resumo, com ano calendário fechado de janeiro a dezembro e meses zerados visíveis.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
 - Deduplicação forte implementada em OFX e faturas.
 
@@ -157,7 +158,7 @@ Esta lista cobre capacidades que ainda não existem no produto ou que ainda não
 ### Leitura analítica atual
 
 - O admin separa a leitura em três entradas analíticas complementares:
-  - **Resumo:** entrada principal, com faixa inicial mensal de fluxo de caixa, consumo do mês, resumo executivo, categorias prioritárias da visão de consumo e alertas mais urgentes.
+  - **Resumo:** entrada principal, com faixa inicial mensal de fluxo de caixa, gráfico principal anual de fluxo de caixa, consumo do mês, resumo executivo, categorias prioritárias da visão de consumo e alertas mais urgentes.
   - **Análise detalhada:** aprofundamento da visão de consumo, com breakdown categorial completo, comparações históricas, gráficos analíticos atuais, alertas e ações.
   - **Conferência:** visão bruta, cobertura da leitura principal, sinais auxiliares de conciliação, itens técnicos e HTML renderizado para auditoria.
 - Essa reorganização é uma decisão explícita de arquitetura da informação do produto, feita antes da próxima etapa de gráficos dedicados por categoria.
@@ -225,10 +226,10 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Estado atual do ciclo:** `REFINAMENTO_EM_ANDAMENTO`
 - **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Fluxo de caixa** como visão padrão e **Consumo** como modo alternável.
 - **Épico ativo:** `Home visual de fluxo de caixa`
-- **Histórias em refino:** gráfico principal de evolução de 12 meses; comparativo visual das categorias do mês; alternância entre Fluxo de caixa e Consumo; atalhos para `Análise detalhada` e `Conferência`.
-- **Fatia ativa ou candidata:** próxima fatia do épico ainda em refinamento, com prioridade para definir o gráfico principal de evolução de 12 meses como próximo recorte seguro da home.
-- **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da primeira faixa de 4 cards materializada.
-- **Motivo resumido:** o primeiro PR técnico da home já materializa a faixa inicial de 4 cards; o ciclo correspondente se encerra com essa entrega e o foco volta para a próxima fatia do mesmo épico.
+- **Histórias em refino:** comparativo visual das categorias do mês; alternância entre Fluxo de caixa e Consumo; atalhos para `Análise detalhada` e `Conferência`.
+- **Fatia ativa ou candidata:** próximo recorte do épico ainda em refinamento, com prioridade para definir o comparativo visual das categorias do mês contra referência histórica como próxima fatia segura da home.
+- **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da faixa inicial de cards e do gráfico anual materializados.
+- **Motivo resumido:** o segundo PR técnico da home já materializa o gráfico principal anual de fluxo de caixa; com isso, o foco volta para fechar a próxima fatia do mesmo épico antes de um novo handoff técnico.
 - **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
 
 ### Como ler o roadmap
@@ -317,6 +318,30 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **O que não entra nesta fatia:** disponível até o fim do mês, projeção de fechamento, próximas obrigações, recorrências, top categorias na home principal, patrimônio, metas, investimentos, nova lógica de conciliação, alteração da semântica de consumo e alteração da semântica de pagamento de fatura.
 - **Decisão de UX da primeira fatia:** a primeira faixa da home deve priorizar leitura rápida e baixo ruído; a intenção não é construir um dashboard completo neste momento, mas sim uma entrada visual clara para o estado financeiro mensal.
 - **Critério de prontidão para implementação:** esta fatia estará pronta quando os 4 cards estiverem assumidos como bloco inicial da home, o modo padrão estiver definido como Fluxo de caixa, a comparação contra o mês anterior estiver assumida como padrão dos cards e estiver explícito que não haverá forecast nem recorrência nesta primeira entrega.
+
+##### Segunda fatia implementada: gráfico principal de evolução anual em fluxo de caixa
+
+- **Objetivo da fatia:** ampliar a capacidade de leitura rápida da home com uma visão temporal clara da evolução do ano, mantendo a home orientada à decisão sem introduzir nova lógica de domínio.
+- **Fonte de verdade da fatia:** a mesma visão de **fluxo de caixa** já usada na faixa inicial da home para fluxo líquido, entradas e saídas.
+- **Escopo inicial:** a home deve exibir um gráfico principal anual com 12 meses do **ano calendário selecionado**, de **janeiro a dezembro**, incluindo meses zerados.
+- **Séries do gráfico:**
+  - **Fluxo líquido mensal** em **barras**
+  - **Entradas mensais** em **linha**
+  - **Saídas mensais** em **linha**
+- **Convenção numérica do gráfico:**
+  - entradas devem ser exibidas **acima de zero**;
+  - saídas devem ser exibidas **abaixo de zero**;
+  - fluxo líquido pode assumir valores positivos ou negativos e cruzar a linha de zero.
+- **Cobertura temporal:** o gráfico deve sempre exibir os 12 meses do ano calendário selecionado, mesmo quando algum mês não tiver movimentação, caso em que o valor do mês deve aparecer como zero.
+- **Regra de semântica:** esta fatia **não cria semântica nova**; ela apenas materializa visualmente a visão de fluxo de caixa já consolidada na home.
+- **O que não entra nesta fatia:**
+  - visão de consumo no mesmo gráfico;
+  - forecast;
+  - comparação por fonte (`Extrato`, `Fatura`, `Conciliado`);
+  - alternância entre `Fluxo de caixa` e `Consumo` dentro do gráfico;
+  - drill-down;
+  - múltiplos gráficos adicionais no mesmo PR.
+- **Estado após implementação:** o gráfico fica materializado na home como bloco principal logo após a faixa inicial, usa ano calendário fechado, mantém meses zerados visíveis, usa barras para fluxo líquido, linhas para entradas e saídas, e preserva a separação semântica entre fluxo de caixa e consumo.
 
 ### Backlog estratégico ordenado
 
@@ -422,7 +447,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Próximo passo recomendado
 
-- Retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, priorizando o **gráfico principal de evolução de 12 meses** como próxima fatia candidata antes de um novo handoff técnico.
+- Retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, priorizando o **comparativo visual das categorias do mês contra referência histórica** como próxima fatia candidata antes de um novo handoff técnico.
 
 ### Fora de escopo imediato desta frente
 

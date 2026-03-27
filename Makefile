@@ -1,10 +1,11 @@
-.PHONY: up down logs test test-rebuild test-fast test-e2e test-api test-unit
+.PHONY: up down logs test test-docs test-rebuild test-fast test-e2e test-api test-unit
 
 PYTEST_WORKERS ?= 4
 PYTEST_PARALLEL = -n $(PYTEST_WORKERS)
 PYTEST_DURATIONS ?= 20
 PYTEST_DURATIONS_MIN ?= 1.0
 PYTEST_BASE = -q --durations=$(PYTEST_DURATIONS) --durations-min=$(PYTEST_DURATIONS_MIN)
+PYTHON ?= python
 
 up:
 	docker compose up --build -d
@@ -17,6 +18,9 @@ logs:
 
 test:
 	docker compose exec app pytest $(PYTEST_PARALLEL) $(PYTEST_BASE)
+
+test-docs:
+	$(PYTHON) scripts/check_docs.py docs
 
 test-rebuild:
 	docker compose down --remove-orphans
