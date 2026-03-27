@@ -190,6 +190,8 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert "Consumo do mês" in home.text
     assert "Evolução anual do fluxo de caixa" in home.text
     assert "home-yearly-cash-flow-chart" in home.text
+    assert "Comparativo" in home.text
+    assert "Sem categorias de consumo no mês-base" in home.text
     assert "chart.js" in home.text.lower()
     assert "Resumo principal conciliado" in home.text
     assert "Análise detalhada" in home.text
@@ -198,6 +200,111 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert "Visão bruta de apoio" not in home.text
     assert "Sinais analíticos de conciliação" not in home.text
     assert "Análise determinística renderizada" not in home.text
+
+
+def test_admin_summary_page_shows_home_category_comparison_block(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO FEV",
+        normalized="salario fev",
+        transaction_date=date(2026, 2, 5),
+        amount=4500.0,
+        transaction_kind="income",
+        category="Salário",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL FEV",
+        normalized="aluguel fev",
+        transaction_date=date(2026, 2, 8),
+        amount=-1500.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_transaction(
+        db_session,
+        description="MERCADO FEV",
+        normalized="mercado fev",
+        transaction_date=date(2026, 2, 12),
+        amount=-700.0,
+        transaction_kind="expense",
+        category="Supermercado",
+    )
+    _seed_transaction(
+        db_session,
+        description="UBER FEV",
+        normalized="uber fev",
+        transaction_date=date(2026, 2, 18),
+        amount=-200.0,
+        transaction_kind="expense",
+        category="Transporte",
+    )
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR",
+        normalized="salario mar",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Salário",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR",
+        normalized="aluguel mar",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_transaction(
+        db_session,
+        description="MERCADO MAR",
+        normalized="mercado mar",
+        transaction_date=date(2026, 3, 12),
+        amount=-900.0,
+        transaction_kind="expense",
+        category="Supermercado",
+    )
+    _seed_transaction(
+        db_session,
+        description="CURSO MAR",
+        normalized="curso mar",
+        transaction_date=date(2026, 3, 14),
+        amount=-500.0,
+        transaction_kind="expense",
+        category="Educação",
+    )
+    _seed_transaction(
+        db_session,
+        description="UBER MAR",
+        normalized="uber mar",
+        transaction_date=date(2026, 3, 18),
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Transporte",
+    )
+    _seed_transaction(
+        db_session,
+        description="OUTROS MAR",
+        normalized="outros mar",
+        transaction_date=date(2026, 3, 22),
+        amount=-60.0,
+        transaction_kind="expense",
+        category="Outros",
+    )
+    _login(client)
+
+    response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31")
+
+    assert response.status_code == 200
+    assert "Comparativo rápido das categorias do mês" in response.text
+    assert "nova no mês" in response.text
+    assert "fev/2026: R$ 0,00" in response.text
+    assert response.text.index("Moradia") < response.text.index("Supermercado") < response.text.index("Educação")
+    assert "Saúde" not in response.text
 
 
 def test_admin_can_create_credit_card_and_upload_invoice(client, db_session, monkeypatch, sample_credit_card_csv_file):

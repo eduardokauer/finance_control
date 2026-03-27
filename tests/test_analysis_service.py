@@ -477,6 +477,56 @@ def test_analysis_snapshot_builds_home_yearly_cash_flow_chart_with_all_zero_mont
     assert all(value == 0.0 for value in chart["balance"])
 
 
+def test_analysis_snapshot_builds_home_category_comparison_from_top_five_consumption_categories(db_session):
+    _add_tx(db_session, tx_date=date(2026, 2, 5), description="SALARIO FEV", amount=4500.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 2, 8), description="ALUGUEL FEV", amount=-1500.0, category="Moradia", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 2, 12), description="MERCADO FEV", amount=-700.0, category="Supermercado", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 2, 18), description="UBER FEV", amount=-200.0, category="Transporte", transaction_kind="expense")
+
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 3, 12), description="MERCADO MAR", amount=-900.0, category="Supermercado", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 3, 14), description="CURSO MAR", amount=-500.0, category="Educação", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 3, 18), description="UBER MAR", amount=-120.0, category="Transporte", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 3, 22), description="OUTROS MAR", amount=-60.0, category="Outros", transaction_kind="expense")
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    comparison = snapshot["home_category_comparison"]
+    rows = comparison["rows"]
+
+    assert comparison["current_month_label"] == "mar/2026"
+    assert comparison["previous_month_label"] == "fev/2026"
+    assert [row["name"] for row in rows] == ["Moradia", "Supermercado", "Educação", "Transporte", "Outros"]
+    assert rows[0]["current_total"] == 1800.0
+    assert rows[0]["previous_total"] == 1500.0
+    assert rows[0]["change"]["delta"] == 300.0
+    assert rows[0]["change"]["percent"] == 0.2
+    assert rows[0]["percent_available"] is True
+    assert rows[2]["previous_total"] == 0.0
+    assert rows[2]["previous_display"] == "R$ 0,00"
+    assert rows[2]["is_new_in_month"] is True
+    assert rows[2]["change"]["delta"] == 500.0
+    assert rows[2]["percent_available"] is False
+    assert rows[3]["previous_total"] == 200.0
+    assert rows[3]["change"]["delta"] == -80.0
+    assert rows[3]["change"]["percent"] == -0.4
+    assert rows[4]["is_new_in_month"] is True
+
+
+def test_analysis_snapshot_builds_home_category_comparison_empty_state_without_consumption_categories(db_session):
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    comparison = snapshot["home_category_comparison"]
+
+    assert comparison["current_month_label"] == "mar/2026"
+    assert comparison["previous_month_label"] == "fev/2026"
+    assert comparison["rows"] == []
+    assert "Top 5 categorias de consumo do mês-base" in comparison["note"]
+
+
 def test_analysis_snapshot_builds_conciliated_category_breakdown_from_account_and_invoice_items(db_session):
     _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
     _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")

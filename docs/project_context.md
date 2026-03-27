@@ -72,6 +72,7 @@ Ordem de leitura recomendada:
 - Arquitetura da informação do admin reorganizada para separar Resumo, Análise detalhada, Conferência, Operação e Configuração.
 - Home/resumo do admin simplificada para concentrar leitura financeira essencial, categorias prioritárias e atalhos de aprofundamento.
 - Gráfico principal anual de fluxo de caixa materializado na home/resumo, com ano calendário fechado de janeiro a dezembro e meses zerados visíveis.
+- Bloco-resumo com comparativo visual das Top 5 categorias de consumo do mês-base materializado na home/resumo, com referência padrão no mês anterior.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
 - Deduplicação forte implementada em OFX e faturas.
 
@@ -158,7 +159,7 @@ Esta lista cobre capacidades que ainda não existem no produto ou que ainda não
 ### Leitura analítica atual
 
 - O admin separa a leitura em três entradas analíticas complementares:
-  - **Resumo:** entrada principal, com faixa inicial mensal de fluxo de caixa, gráfico principal anual de fluxo de caixa, consumo do mês, resumo executivo, categorias prioritárias da visão de consumo e alertas mais urgentes.
+  - **Resumo:** entrada principal, com faixa inicial mensal de fluxo de caixa, gráfico principal anual de fluxo de caixa, bloco-resumo com comparativo das Top 5 categorias da visão de consumo, resumo executivo e alertas mais urgentes.
   - **Análise detalhada:** aprofundamento da visão de consumo, com breakdown categorial completo, comparações históricas, gráficos analíticos atuais, alertas e ações.
   - **Conferência:** visão bruta, cobertura da leitura principal, sinais auxiliares de conciliação, itens técnicos e HTML renderizado para auditoria.
 - Essa reorganização é uma decisão explícita de arquitetura da informação do produto, feita antes da próxima etapa de gráficos dedicados por categoria.
@@ -226,10 +227,10 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Estado atual do ciclo:** `REFINAMENTO_EM_ANDAMENTO`
 - **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Fluxo de caixa** como visão padrão e **Consumo** como modo alternável.
 - **Épico ativo:** `Home visual de fluxo de caixa`
-- **Histórias em refino:** comparativo visual das categorias do mês; alternância entre Fluxo de caixa e Consumo; atalhos para `Análise detalhada` e `Conferência`.
-- **Fatia ativa ou candidata:** próximo recorte do épico ainda em refinamento, com prioridade para definir o comparativo visual das categorias do mês contra referência histórica como próxima fatia segura da home.
-- **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da faixa inicial de cards e do gráfico anual materializados.
-- **Motivo resumido:** o segundo PR técnico da home já materializa o gráfico principal anual de fluxo de caixa; com isso, o foco volta para fechar a próxima fatia do mesmo épico antes de um novo handoff técnico.
+- **Histórias em refino:** alternância entre Fluxo de caixa e Consumo; evolução futura dos atalhos/contexto entre `Resumo`, `Análise detalhada` e `Conferência`.
+- **Fatia ativa ou candidata:** próximo recorte do épico ainda em refinamento, com prioridade para definir a alternância entre Fluxo de caixa e Consumo como próxima fatia segura da home.
+- **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da faixa inicial, do gráfico anual e do comparativo categorial compacto materializados.
+- **Motivo resumido:** o terceiro PR técnico da home já materializa o comparativo visual das Top 5 categorias do mês-base contra o mês anterior; com isso, o foco volta para fechar a próxima fatia do mesmo épico antes de um novo handoff técnico.
 - **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
 
 ### Como ler o roadmap
@@ -343,6 +344,19 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
   - múltiplos gráficos adicionais no mesmo PR.
 - **Estado após implementação:** o gráfico fica materializado na home como bloco principal logo após a faixa inicial, usa ano calendário fechado, mantém meses zerados visíveis, usa barras para fluxo líquido, linhas para entradas e saídas, e preserva a separação semântica entre fluxo de caixa e consumo.
 
+##### Terceira fatia implementada: comparativo visual das categorias do mês na home
+
+- **Objetivo da fatia:** ampliar a leitura gerencial da home com um bloco-resumo que destaque, de forma rápida e comparável, onde o consumo do mês mais pesou em relação ao mês anterior, sem transformar a home em uma análise categorial completa.
+- **Fonte de verdade da fatia:** a mesma visão de **consumo** já consolidada no produto para leitura por categorias.
+- **Escopo materializado:** a home passa a exibir um bloco-resumo com as **Top 5 categorias de consumo do mês-base**, ordenadas pelo maior gasto do mês atual.
+- **Referência histórica padrão:** **mês anterior**.
+- **Formato visual do bloco:** **lista/ranking compacto**, com uma linha principal por categoria.
+- **Conteúdo de cada linha:** nome da categoria, valor do mês atual, valor do mês anterior, variação absoluta e variação percentual quando houver base comparável.
+- **Regra para categoria sem base no mês anterior:** o valor do mês anterior aparece como **R$ 0,00**, a categoria recebe a marcação **“nova no mês”** e não há tentativa de forçar percentual artificial ou infinito.
+- **Regra de semântica:** esta fatia **não cria semântica nova**; ela apenas materializa visualmente a visão de consumo já utilizada na leitura categorial do produto.
+- **O que não entra nesta fatia:** todas as categorias do mês na home, gráfico categorial pesado neste bloco, comparação contra o mesmo mês do ano anterior, mistura com visão de fluxo de caixa, tela completa de categorias no mesmo PR e drill-down a partir da home.
+- **Estado após implementação:** a home mantém caráter de **resumo**, mostra apenas as Top 5 categorias com comparação contra o mês anterior e deixa a visão completa de categorias explicitamente para a análise detalhada ou para fatia futura específica.
+
 ### Backlog estratégico ordenado
 
 #### Ordem 1 - Home orientada à decisão com fluxo de caixa como visão padrão
@@ -447,7 +461,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Próximo passo recomendado
 
-- Retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, priorizando o **comparativo visual das categorias do mês contra referência histórica** como próxima fatia candidata antes de um novo handoff técnico.
+- Retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, priorizando a **alternância entre Fluxo de caixa e Consumo na home** como próxima fatia candidata antes de um novo handoff técnico.
 
 ### Fora de escopo imediato desta frente
 
