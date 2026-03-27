@@ -157,11 +157,11 @@ Esta lista cobre capacidades que ainda não existem no produto ou que ainda não
 ### Leitura analítica atual
 
 - O admin separa a leitura em três entradas analíticas complementares:
-  - **Resumo:** entrada principal, com KPIs conciliados, resumo executivo, categorias prioritárias da visão de consumo e alertas mais urgentes.
+  - **Resumo:** entrada principal, com faixa inicial mensal de fluxo de caixa, consumo do mês, resumo executivo, categorias prioritárias da visão de consumo e alertas mais urgentes.
   - **Análise detalhada:** aprofundamento da visão de consumo, com breakdown categorial completo, comparações históricas, gráficos analíticos atuais, alertas e ações.
   - **Conferência:** visão bruta, cobertura da leitura principal, sinais auxiliares de conciliação, itens técnicos e HTML renderizado para auditoria.
 - Essa reorganização é uma decisão explícita de arquitetura da informação do produto, feita antes da próxima etapa de gráficos dedicados por categoria.
-- Os KPIs principais do mês usam a visão conciliada: receitas, despesas e saldo.
+- A faixa inicial da home usa fluxo de caixa do mês-base para fluxo líquido, entradas e saídas, e separa o consumo do mês pela visão de consumo já consolidada.
 - O resumo executivo principal descreve a leitura conciliada do mês e sua cobertura.
 - O breakdown mensal por categoria do mês-base usa a visão de consumo:
   - transações válidas da conta por `transaction_date`;
@@ -222,13 +222,13 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Estado atual do trabalho
 
-- **Estado atual do ciclo:** `PRONTO_PARA_CODEX`
+- **Estado atual do ciclo:** `REFINAMENTO_EM_ANDAMENTO`
 - **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Fluxo de caixa** como visão padrão e **Consumo** como modo alternável.
 - **Épico ativo:** `Home visual de fluxo de caixa`
-- **Histórias em refino:** cards/KPIs visuais do mês; gráfico principal de evolução de 12 meses; comparativo visual das categorias do mês; alternância entre Fluxo de caixa e Consumo; atalhos para `Análise detalhada` e `Conferência`.
-- **Fatia ativa ou candidata:** faixa inicial da home com 4 cards mensais: Fluxo líquido do mês, Entradas do mês, Saídas do mês e Consumo do mês.
-- **Próxima ação esperada:** executar o primeiro PR técnico da faixa inicial da home, materializando os 4 cards mensais em modo padrão de fluxo de caixa, sem forecast, recorrência ou expansão de escopo.
-- **Motivo resumido:** a primeira fatia já tem semântica, escopo e critérios de aceite suficientemente fechados para um handoff técnico seguro, sem abrir nova lógica de domínio.
+- **Histórias em refino:** gráfico principal de evolução de 12 meses; comparativo visual das categorias do mês; alternância entre Fluxo de caixa e Consumo; atalhos para `Análise detalhada` e `Conferência`.
+- **Fatia ativa ou candidata:** próxima fatia do épico ainda em refinamento, com prioridade para definir o gráfico principal de evolução de 12 meses como próximo recorte seguro da home.
+- **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da primeira faixa de 4 cards materializada.
+- **Motivo resumido:** o primeiro PR técnico da home já materializa a faixa inicial de 4 cards; o ciclo correspondente se encerra com essa entrega e o foco volta para a próxima fatia do mesmo épico.
 - **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
 
 ### Como ler o roadmap
@@ -422,11 +422,11 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Próximo passo recomendado
 
-- Executar o primeiro PR técnico da fatia de **cards/KPIs visuais do mês**, levando a home a materializar a faixa inicial com **Fluxo líquido do mês**, **Entradas do mês**, **Saídas do mês** e **Consumo do mês** em modo padrão de fluxo de caixa.
+- Retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, priorizando o **gráfico principal de evolução de 12 meses** como próxima fatia candidata antes de um novo handoff técnico.
 
 ### Fora de escopo imediato desta frente
 
-- expandir a nova home além da primeira faixa inicial de 4 cards neste momento;
+- empacotar múltiplas novas fatias da home no mesmo PR antes de refinar o próximo recorte do épico;
 - alterar templates, rotas, serviços ou lógica do produto antes do refinamento virar fatia pronta;
 - discutir design visual final em nível de detalhe além do necessário para fechar direção de produto;
 - dashboard completo de fluxo de caixa;
