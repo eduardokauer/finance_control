@@ -50,6 +50,9 @@ Leitura obrigatória antes de atuar:
     - fatia pronta para execução.
 21. Sempre tratar épico como objetivo amplo e história de usuário como fatia menor que ajuda a entregar esse épico.
 22. Só gerar prompt para o Codex quando já existir uma fatia pronta para execução.
+23. Sempre classificar explicitamente o estado atual do ciclo antes de propor o próximo passo.
+24. Sempre justificar essa classificação e explicitar a próxima ação correta do ciclo.
+25. Não gerar prompt para execução de código se a semântica da fatia ainda estiver ambígua ou não estiver preservada na documentação/refinamento atual.
 
 ## Como Definir o Próximo Passo
 
@@ -62,14 +65,49 @@ Leitura obrigatória antes de atuar:
 - Não antecipar etapas que dependem de base ainda não estabilizada.
 - Usar `docs/project_context.md` para identificar o próximo passo atual recomendado e validar se o pedido está alinhado com ele e com o valor funcional esperado.
 
+## Protocolo de Decisão do Ciclo
+
+No início de cada novo ciclo de trabalho, a LLM/PM deve classificar explicitamente o estado atual antes de decidir se continua refinando com o usuário, se preserva contexto na documentação ou se já pode gerar prompt para o Codex.
+
+### Estados válidos do ciclo
+
+- `REFINAMENTO_EM_ANDAMENTO`
+  Usar quando ainda houver ambiguidade relevante sobre objetivo, semântica, escopo, critérios de aceite, prioridade ou dependências.
+  Próxima ação correta: continuar refinando com o usuário e não gerar prompt para execução de código.
+- `PRONTO_PARA_DOC`
+  Usar quando decisões importantes já tiverem sido tomadas, mas ainda não estiverem preservadas na documentação do projeto.
+  Próxima ação correta: atualizar a documentação ou gerar um PR documental antes de qualquer handoff técnico.
+- `PRONTO_PARA_CODEX`
+  Usar quando já existir uma fatia clara e executável, com objetivo claro, valor funcional, fora de escopo explícito, semântica fechada, critérios de aceite e dependências principais resolvidas ou explicitadas.
+  Próxima ação correta: gerar prompt para o Codex executar.
+
+### Classificação obrigatória no início do ciclo
+
+Antes de propor o próximo passo, a LLM/PM deve responder explicitamente:
+1. qual é o estado atual do ciclo;
+2. por que esse estado foi escolhido;
+3. qual é a próxima ação correta.
+
+### Semântica da fatia
+
+Toda fatia em refinamento ou pronta para execução deve deixar explícito:
+- qual é a fonte de verdade dos números, regras ou interpretações envolvidas;
+- o que entra;
+- o que não entra;
+- se a fatia cria semântica nova ou apenas materializa a semântica atual do sistema.
+
+Se o nome da fatia implicar uma semântica que ainda não esteja claramente definida na documentação ou no refinamento atual, a LLM não deve gerar prompt para execução de código.
+
 ## Como Refinar Antes do Handoff
 
+- Esse refinamento é o comportamento esperado quando o ciclo estiver classificado como `REFINAMENTO_EM_ANDAMENTO`.
 - Usar a estrutura de refinamento de forma leve e objetiva, sem transformar o processo em burocracia.
 - Partir do **tema/iniciativa do roadmap** quando a discussão ainda estiver em nível de direção de produto.
 - Quebrar esse tema em **épicos** quando houver mais de um objetivo amplo relevante dentro da mesma iniciativa.
 - Quebrar o épico em **histórias de usuário** quando já for possível explicitar valor entregue em fatias menores.
 - Só transformar a história em prompt do Codex quando ela já puder ser descrita como **fatia pronta para execução**.
 - Não mandar o Codex implementar diretamente um tema amplo ou um épico ainda ambíguo.
+- Se decisões relevantes já estiverem fechadas, mas ainda não registradas, reclassificar o ciclo para `PRONTO_PARA_DOC` antes do handoff técnico.
 
 ### O que significa "pronta para execução"
 
@@ -82,6 +120,8 @@ Uma fatia está pronta para execução quando já tem:
 - dependências principais resolvidas ou explicitadas.
 
 ## Como Montar o Prompt para o Codex
+
+Esse prompt só deve ser gerado quando o ciclo já estiver em `PRONTO_PARA_CODEX`.
 
 Todo prompt deve deixar explícito:
 - de qual tema/iniciativa, épico e história de usuário a entrega deriva, quando esse contexto já existir;
@@ -149,25 +189,34 @@ Na revisão do PR, o PM deve checar:
 
 Antes de enviar um prompt ao Codex, confirmar que ele inclui:
 
-1. Arquivos obrigatórios para leitura.
-   Por padrão: `docs/project_context.md`, `docs/codex_workflow.md` e arquivos adicionais relevantes do trabalho.
-   `docs/pm_workflow.md` não deve ir para o Codex por padrão.
-2. Instrução explícita de que `docs/project_context.md` e `docs/codex_workflow.md` devem ser lidos por completo antes de qualquer análise, planejamento, alteração, teste, commit ou PR.
-3. Instrução explícita de que esses arquivos devem ser seguidos durante toda a execução e prevalecem sobre suposições locais conflitantes.
-4. Objetivo do PR.
-5. Valor funcional esperado da etapa.
-6. Tema/iniciativa de origem, épico e história de usuário, quando aplicável.
-7. Fatia pronta para execução explicitada.
-8. Fora de escopo.
-9. Decisões já fechadas relevantes.
-10. DoD explícito.
-11. Exigência de testes.
-12. Exigência de atualização de documentação/contexto/processo quando aplicável.
-13. Indicação explícita de quais arquivos precisam ser atualizados naquele PR, quando aplicável.
-14. Indicação de que ajustes estruturais necessários devem sustentar a entrega principal do mesmo PR.
-15. Formato esperado da entrega final do Codex.
-16. Exigência de higiene final.
-17. Regra de commit + PR só no final.
+- **Arquivos obrigatórios para leitura:**
+  Por padrão: `docs/project_context.md`, `docs/codex_workflow.md` e arquivos adicionais relevantes do trabalho.
+  `docs/pm_workflow.md` não deve ir para o Codex por padrão.
+- **Leitura obrigatória antes da execução:**
+  instrução explícita de que `docs/project_context.md` e `docs/codex_workflow.md` devem ser lidos por completo antes de qualquer análise, planejamento, alteração, teste, commit ou PR.
+- **Prevalência do documentado:**
+  instrução explícita de que esses arquivos devem ser seguidos durante toda a execução e prevalecem sobre suposições locais conflitantes.
+- **Classificação atual do ciclo:**
+  motivo explícito, confirmando que a entrega já está em `PRONTO_PARA_CODEX`.
+- **Objetivo do PR.**
+- **Valor funcional esperado da etapa.**
+- **Tema/iniciativa de origem, épico e história de usuário, quando aplicável.**
+- **Fatia pronta para execução explicitada.**
+- **Semântica da fatia explicitada:**
+  - fonte de verdade;
+  - o que entra;
+  - o que não entra;
+  - se materializa a semântica atual ou cria semântica nova já fechada.
+- **Fora de escopo.**
+- **Decisões já fechadas relevantes.**
+- **DoD explícito.**
+- **Exigência de testes.**
+- **Exigência de atualização de documentação/contexto/processo quando aplicável.**
+- **Indicação explícita de quais arquivos precisam ser atualizados naquele PR, quando aplicável.**
+- **Indicação de que ajustes estruturais necessários devem sustentar a entrega principal do mesmo PR.**
+- **Formato esperado da entrega final do Codex.**
+- **Exigência de higiene final.**
+- **Regra de commit + PR só no final.**
 
 ### Formato esperado da entrega final do Codex
 

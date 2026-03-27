@@ -219,6 +219,16 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ## 7. Roadmap do Produto
 
+### Estado atual do trabalho
+
+- **Estado atual do ciclo:** `REFINAMENTO_EM_ANDAMENTO`
+- **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Fluxo de caixa** como visão padrão e **Consumo** como modo alternável.
+- **Épico ativo:** `Home visual de fluxo de caixa`
+- **Histórias em refino:** cards/KPIs visuais do mês; gráfico principal de evolução de 12 meses; comparativo visual das categorias do mês; alternância entre Fluxo de caixa e Consumo; atalhos para `Análise detalhada` e `Conferência`.
+- **Fatia ativa ou candidata:** cards/KPIs visuais do mês ainda em refinamento.
+- **Próxima ação esperada:** continuar o refinamento com o usuário até fechar semântica, escopo e critérios de aceite da primeira fatia; se novas decisões relevantes forem tomadas, preservá-las na documentação antes do handoff técnico.
+- **Motivo resumido:** a direção do tema e do épico já está preservada, mas a semântica exata da primeira fatia e os limites do primeiro handoff ainda precisam ficar explícitos sem ambiguidade antes de um prompt de execução.
+
 ### Como ler o roadmap
 
 - **Ordem:** posição atual do tema na fila de evolução do produto.
@@ -390,8 +400,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Próximo passo recomendado
 
-- Concluir o refinamento do primeiro épico até chegar à primeira fatia pronta para execução técnica do Codex.
-- A candidata mais provável para esse primeiro handoff é a fatia de **cards/KPIs visuais do mês** na home em modo padrão de fluxo de caixa, já respeitando a navegação atual e os atalhos de aprofundamento.
+- Concluir o refinamento da fatia de **cards/KPIs visuais do mês** até levá-la ao estado `PRONTO_PARA_CODEX`, com semântica, escopo e critérios de aceite já fechados para o primeiro handoff da home em modo padrão de fluxo de caixa.
 
 ### Fora de escopo imediato desta frente
 
