@@ -28,6 +28,13 @@ def format_currency_br(value: float) -> str:
     return f"{sign}R$ {formatted}"
 
 
+def format_signed_currency_br(value: float) -> str:
+    if abs(float(value)) < 0.01:
+        return "R$ 0,00"
+    prefix = "+" if value > 0 else "-"
+    return f"{prefix}{format_currency_br(abs(float(value)))}"
+
+
 def format_percent_br(value: float | None) -> str:
     if value is None:
         return "n/a"
@@ -146,7 +153,151 @@ def _build_metric_change(current: float, previous: float) -> dict:
         "current_display": format_currency_br(current),
         "previous_display": format_currency_br(previous),
         "delta_display": format_currency_br(delta),
+        "delta_signed_display": format_signed_currency_br(delta),
         "percent_display": format_percent_br(percent),
+    }
+
+
+def _sum_consumption_total_from_breakdown(*, breakdown: dict) -> float:
+    return sum(
+        row["expense_total"]
+        for row in breakdown["rows"]
+        if row["expense_total"] > 0 and not row["is_technical"]
+    )
+
+
+def _build_home_month_snapshot(
+    db: Session,
+    *,
+    anchor_month: date,
+    month_txs: list[Transaction] | None = None,
+    category_breakdown: dict | None = None,
+) -> dict:
+    period_start = month_start(anchor_month)
+    period_end = month_end(anchor_month)
+    materialized_txs = (
+        month_txs
+        if month_txs is not None
+        else _load_transactions_for_period(
+            db,
+            period_start=period_start,
+            period_end=period_end,
+        )
+    )
+    materialized_breakdown = (
+        category_breakdown
+        if category_breakdown is not None
+        else _build_conciliated_category_breakdown(
+            db,
+            period_start=period_start,
+            period_end=period_end,
+            current_txs=materialized_txs,
+        )
+    )
+    consumption_total = _sum_consumption_total_from_breakdown(breakdown=materialized_breakdown)
+    return {
+        "month": period_start.strftime("%Y-%m"),
+        "label": format_month_label(period_start),
+        "period_start": period_start,
+        "period_end": period_end,
+        "flow_summary": _build_summary(materialized_txs),
+        "flow_has_activity": bool(materialized_txs),
+        "consumption_total": consumption_total,
+        "consumption_display": format_currency_br(consumption_total),
+        "consumption_has_activity": bool(materialized_breakdown["rows"]),
+    }
+
+
+def _build_home_metric_card(
+    *,
+    key: str,
+    title: str,
+    subtitle: str,
+    current: float,
+    previous: float | None,
+    reference_label: str,
+    value_class: str,
+    is_primary: bool = False,
+) -> dict:
+    change = _build_metric_change(current, previous) if previous is not None else None
+    return {
+        "key": key,
+        "title": title,
+        "subtitle": subtitle,
+        "current": current,
+        "current_display": format_currency_br(current),
+        "value_class": value_class,
+        "is_primary": is_primary,
+        "reference_label": reference_label,
+        "change": change,
+        "comparison_available": change is not None,
+    }
+
+
+def _build_home_cards(
+    db: Session,
+    *,
+    anchor_month: date,
+    current_month_txs: list[Transaction],
+    current_category_breakdown: dict,
+) -> dict:
+    current_snapshot = _build_home_month_snapshot(
+        db,
+        anchor_month=anchor_month,
+        month_txs=current_month_txs,
+        category_breakdown=current_category_breakdown,
+    )
+    previous_month = add_months(month_start(anchor_month), -1)
+    previous_snapshot = _build_home_month_snapshot(db, anchor_month=previous_month)
+    previous_flow_summary = previous_snapshot["flow_summary"] if previous_snapshot["flow_has_activity"] else None
+    previous_consumption_total = (
+        previous_snapshot["consumption_total"]
+        if previous_snapshot["consumption_has_activity"]
+        else None
+    )
+
+    return {
+        "current_month_label": current_snapshot["label"],
+        "previous_month_label": previous_snapshot["label"],
+        "cards": [
+            _build_home_metric_card(
+                key="net_flow",
+                title="Fluxo líquido do mês",
+                subtitle="Entradas realizadas menos saídas realizadas no mês-base.",
+                current=current_snapshot["flow_summary"]["balance"],
+                previous=previous_flow_summary["balance"] if previous_flow_summary is not None else None,
+                reference_label=previous_snapshot["label"],
+                value_class="amount-positive" if current_snapshot["flow_summary"]["balance"] >= 0 else "amount-negative",
+                is_primary=True,
+            ),
+            _build_home_metric_card(
+                key="income",
+                title="Entradas do mês",
+                subtitle="Todas as entradas realizadas no período.",
+                current=current_snapshot["flow_summary"]["income_total"],
+                previous=previous_flow_summary["income_total"] if previous_flow_summary is not None else None,
+                reference_label=previous_snapshot["label"],
+                value_class="amount-positive",
+            ),
+            _build_home_metric_card(
+                key="expense",
+                title="Saídas do mês",
+                subtitle="Todas as saídas realizadas no período.",
+                current=current_snapshot["flow_summary"]["expense_total"],
+                previous=previous_flow_summary["expense_total"] if previous_flow_summary is not None else None,
+                reference_label=previous_snapshot["label"],
+                value_class="amount-negative",
+            ),
+            _build_home_metric_card(
+                key="consumption",
+                title="Consumo do mês",
+                subtitle="Visão de consumo sem duplicar pagamento de fatura.",
+                current=current_snapshot["consumption_total"],
+                previous=previous_consumption_total,
+                reference_label=previous_snapshot["label"],
+                value_class="amount-negative",
+            ),
+        ],
     }
 
 
@@ -904,6 +1055,12 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         period_end=current_month_end,
         current_txs=current_month_txs,
     )
+    home_cards = _build_home_cards(
+        db,
+        anchor_month=anchor_month,
+        current_month_txs=current_month_txs,
+        current_category_breakdown=category_breakdown,
+    )
     category_rows = category_breakdown["rows"]
     technical_items = _build_technical_items(current_month_txs, expense_total=current_month_summary["expense_total"])
     quality = _build_quality(summary)
@@ -942,6 +1099,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         "primary_summary": primary_summary,
         "summary": summary,
         "comparison": comparison,
+        "home_cards": home_cards,
         "monthly_series": monthly_series,
         "category_breakdown": category_breakdown,
         "category_history": category_history,

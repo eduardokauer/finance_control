@@ -6,6 +6,7 @@
 
 Arquivos complementares:
 - `docs/pm_workflow.md`: regras da LLM que atua como PM/guia.
+- `docs/pm_cycle_start_prompt.md`: prompt canônico para iniciar um novo ciclo PM/LLM.
 - `docs/codex_workflow.md`: regras do Codex como executor técnico.
 
 Ordem de leitura recomendada:
@@ -156,11 +157,11 @@ Esta lista cobre capacidades que ainda não existem no produto ou que ainda não
 ### Leitura analítica atual
 
 - O admin separa a leitura em três entradas analíticas complementares:
-  - **Resumo:** entrada principal, com KPIs conciliados, resumo executivo, categorias prioritárias da visão de consumo e alertas mais urgentes.
+  - **Resumo:** entrada principal, com faixa inicial mensal de fluxo de caixa, consumo do mês, resumo executivo, categorias prioritárias da visão de consumo e alertas mais urgentes.
   - **Análise detalhada:** aprofundamento da visão de consumo, com breakdown categorial completo, comparações históricas, gráficos analíticos atuais, alertas e ações.
   - **Conferência:** visão bruta, cobertura da leitura principal, sinais auxiliares de conciliação, itens técnicos e HTML renderizado para auditoria.
 - Essa reorganização é uma decisão explícita de arquitetura da informação do produto, feita antes da próxima etapa de gráficos dedicados por categoria.
-- Os KPIs principais do mês usam a visão conciliada: receitas, despesas e saldo.
+- A faixa inicial da home usa fluxo de caixa do mês-base para fluxo líquido, entradas e saídas, e separa o consumo do mês pela visão de consumo já consolidada.
 - O resumo executivo principal descreve a leitura conciliada do mês e sua cobertura.
 - O breakdown mensal por categoria do mês-base usa a visão de consumo:
   - transações válidas da conta por `transaction_date`;
@@ -218,6 +219,17 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - O MVP continua dependente do layout oficial de OFX Itaú e CSV Itaú já suportados.
 
 ## 7. Roadmap do Produto
+
+### Estado atual do trabalho
+
+- **Estado atual do ciclo:** `REFINAMENTO_EM_ANDAMENTO`
+- **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Fluxo de caixa** como visão padrão e **Consumo** como modo alternável.
+- **Épico ativo:** `Home visual de fluxo de caixa`
+- **Histórias em refino:** gráfico principal de evolução de 12 meses; comparativo visual das categorias do mês; alternância entre Fluxo de caixa e Consumo; atalhos para `Análise detalhada` e `Conferência`.
+- **Fatia ativa ou candidata:** próxima fatia do épico ainda em refinamento, com prioridade para definir o gráfico principal de evolução de 12 meses como próximo recorte seguro da home.
+- **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da primeira faixa de 4 cards materializada.
+- **Motivo resumido:** o primeiro PR técnico da home já materializa a faixa inicial de 4 cards; o ciclo correspondente se encerra com essa entrega e o foco volta para a próxima fatia do mesmo épico.
+- **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
 
 ### Como ler o roadmap
 
@@ -285,6 +297,26 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
   4. Como usuário, quero alternar entre Fluxo de caixa e Consumo na home para mudar a lente principal sem sair da entrada do sistema.
   5. Como usuário, quero atalhos claros para `Análise detalhada` e `Conferência` quando precisar aprofundar ou auditar a leitura principal.
 - **Observação de produto:** revisão estética caminha junto com esse épico e não como trilha cosmética isolada posterior.
+
+##### Primeira fatia definida: faixa inicial de 4 cards mensais
+
+- **Objetivo da fatia:** materializar visualmente a semântica financeira já existente do sistema, sem introduzir nova lógica de domínio.
+- **Modo padrão da home nesta fatia:** `Fluxo de caixa`.
+- **Escopo inicial:** a primeira implementação da home deve exibir uma faixa inicial com 4 cards mensais:
+  1. **Fluxo líquido do mês**
+  2. **Entradas do mês**
+  3. **Saídas do mês**
+  4. **Consumo do mês**
+- **Definição dos cards:**
+  - **Fluxo líquido do mês:** `entradas realizadas no mês - saídas realizadas no mês`; é o principal KPI da home e deve responder rapidamente como o caixa do mês está se comportando.
+  - **Entradas do mês:** soma de todas as entradas realizadas no período; serve para dar contexto ao fluxo líquido.
+  - **Saídas do mês:** soma de todas as saídas realizadas no período; serve para dar contexto ao fluxo líquido.
+  - **Consumo do mês:** total de consumo do período na visão de consumo; não deve duplicar pagamento de fatura como consumo e existe para separar leitura de consumo da leitura de liquidação de caixa.
+- **Comparação padrão dos cards:** cada card deve exibir o valor do mês atual, a variação absoluta contra o mês anterior e a variação percentual contra o mês anterior, quando aplicável.
+- **Regra de semântica:** esta fatia não cria semântica nova; ela apenas materializa visualmente a semântica já consolidada do sistema em visão conciliada, separação entre fluxo de caixa e consumo e leitura financeira baseada nas transações já processadas.
+- **O que não entra nesta fatia:** disponível até o fim do mês, projeção de fechamento, próximas obrigações, recorrências, top categorias na home principal, patrimônio, metas, investimentos, nova lógica de conciliação, alteração da semântica de consumo e alteração da semântica de pagamento de fatura.
+- **Decisão de UX da primeira fatia:** a primeira faixa da home deve priorizar leitura rápida e baixo ruído; a intenção não é construir um dashboard completo neste momento, mas sim uma entrada visual clara para o estado financeiro mensal.
+- **Critério de prontidão para implementação:** esta fatia estará pronta quando os 4 cards estiverem assumidos como bloco inicial da home, o modo padrão estiver definido como Fluxo de caixa, a comparação contra o mês anterior estiver assumida como padrão dos cards e estiver explícito que não haverá forecast nem recorrência nesta primeira entrega.
 
 ### Backlog estratégico ordenado
 
@@ -390,12 +422,11 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Próximo passo recomendado
 
-- Concluir o refinamento do primeiro épico até chegar à primeira fatia pronta para execução técnica do Codex.
-- A candidata mais provável para esse primeiro handoff é a fatia de **cards/KPIs visuais do mês** na home em modo padrão de fluxo de caixa, já respeitando a navegação atual e os atalhos de aprofundamento.
+- Retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, priorizando o **gráfico principal de evolução de 12 meses** como próxima fatia candidata antes de um novo handoff técnico.
 
 ### Fora de escopo imediato desta frente
 
-- implementar a nova home neste momento;
+- empacotar múltiplas novas fatias da home no mesmo PR antes de refinar o próximo recorte do épico;
 - alterar templates, rotas, serviços ou lógica do produto antes do refinamento virar fatia pronta;
 - discutir design visual final em nível de detalhe além do necessário para fechar direção de produto;
 - dashboard completo de fluxo de caixa;

@@ -62,6 +62,7 @@ def _analysis_page_context(
     if payload_snapshot and "primary_summary" not in payload_snapshot:
         payload_snapshot["primary_summary"] = live_snapshot["primary_summary"]
     if payload_snapshot:
+        payload_snapshot["home_cards"] = live_snapshot["home_cards"]
         payload_snapshot["category_breakdown"] = live_snapshot["category_breakdown"]
         payload_snapshot["category_history"] = live_snapshot["category_history"]
         payload_snapshot["categories"] = live_snapshot["categories"]

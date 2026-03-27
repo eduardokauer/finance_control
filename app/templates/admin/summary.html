@@ -9,27 +9,29 @@
 {% set analysis_show_generate = True %}
 {% include "admin/partials/analysis_period_form.html" %}
 
-<section class="kpi-grid">
-  <div class="card">
-    <div class="subtle">Receitas conciliadas</div>
-    <div class="metric-value amount-positive">{{ summary.income_display }}</div>
-  </div>
-  <div class="card">
-    <div class="subtle">Despesas conciliadas</div>
-    <div class="metric-value amount-negative">{{ summary.expense_display }}</div>
-  </div>
-  <div class="card">
-    <div class="subtle">Saldo conciliado</div>
-    <div class="metric-value {% if summary.balance < 0 %}amount-negative{% else %}amount-positive{% endif %}">{{ summary.balance_display }}</div>
-  </div>
-  <div class="card">
-    <div class="subtle">Faturas conciliadas</div>
-    <div class="metric-value">{{ analysis_data.primary_summary.included_invoice_count }}</div>
-  </div>
-  <div class="card">
-    <div class="subtle">Faturas fora da leitura</div>
-    <div class="metric-value">{{ analysis_data.primary_summary.outside_invoice_count }}</div>
-  </div>
+<section class="home-kpi-strip" aria-label="Faixa inicial da home financeira">
+  {% for card in analysis_data.home_cards.cards %}
+    <div class="card home-kpi-card {% if card.is_primary %}home-kpi-card-primary{% endif %}">
+      <div class="home-kpi-eyebrow">
+        {% if card.is_primary %}
+          Fluxo de caixa | {{ analysis_data.home_cards.current_month_label }}
+        {% else %}
+          {{ analysis_data.home_cards.current_month_label }}
+        {% endif %}
+      </div>
+      <div class="subtle">{{ card.title }}</div>
+      <div class="home-kpi-subtitle">{{ card.subtitle }}</div>
+      <div class="metric-value {{ card.value_class }}">{{ card.current_display }}</div>
+      <div class="home-kpi-comparison">
+        {% if card.change %}
+          <span><strong>{{ card.change.delta_signed_display }}</strong> vs {{ card.reference_label }}</span>
+          <span>{{ card.change.percent_display }}</span>
+        {% else %}
+          <span>Sem base em {{ card.reference_label }}</span>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
 </section>
 
 <section class="analysis-grid analysis-grid-2" style="margin-top:12px;">

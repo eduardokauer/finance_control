@@ -294,6 +294,147 @@ def test_analysis_snapshot_builds_conciliated_month_view_without_changing_main_t
     assert snapshot["primary_summary"]["excluded_bank_payment_count"] == 1
 
 
+def test_analysis_snapshot_builds_home_cards_from_cash_flow_and_consumption_view(db_session):
+    _add_tx(db_session, tx_date=date(2026, 2, 5), description="SALARIO FEV", amount=4500.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 2, 8), description="ALUGUEL FEV", amount=-1500.0, category="Moradia", transaction_kind="expense")
+    payment_february = _add_tx(
+        db_session,
+        tx_date=date(2026, 2, 18),
+        description="FATURA FEV",
+        amount=-650.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice_february = _add_invoice(
+        db_session,
+        due_date=date(2026, 2, 20),
+        card_final="4242",
+        item_specs=[
+            ("SUPERMERCADO FEV", "700.00"),
+            ("DESCONTO NA FATURA FEV", "-50.00"),
+            ("PAGAMENTO EFETUADO FEV", "-650.00"),
+        ],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice_february.id,
+        categories_by_description={"SUPERMERCADO FEV": "Supermercado"},
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice_february.id,
+        bank_transaction_ids=[payment_february.id],
+    )
+
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
+    payment_march = _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 18),
+        description="FATURA MAR",
+        amount=-1300.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice_march = _add_invoice(
+        db_session,
+        due_date=date(2026, 3, 20),
+        card_final="4343",
+        item_specs=[
+            ("SUPERMERCADO MAR", "900.00"),
+            ("CURSO MAR", "500.00"),
+            ("DESCONTO NA FATURA MAR", "-100.00"),
+            ("PAGAMENTO EFETUADO MAR", "-1300.00"),
+        ],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice_march.id,
+        categories_by_description={
+            "SUPERMERCADO MAR": "Supermercado",
+            "CURSO MAR": "Educação",
+        },
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice_march.id,
+        bank_transaction_ids=[payment_march.id],
+    )
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    cards = {item["key"]: item for item in snapshot["home_cards"]["cards"]}
+
+    assert snapshot["home_cards"]["current_month_label"] == "mar/2026"
+    assert snapshot["home_cards"]["previous_month_label"] == "fev/2026"
+
+    assert cards["net_flow"]["current"] == 1900.0
+    assert cards["net_flow"]["change"]["previous"] == 2350.0
+    assert cards["net_flow"]["change"]["delta"] == -450.0
+
+    assert cards["income"]["current"] == 5000.0
+    assert cards["income"]["change"]["previous"] == 4500.0
+    assert cards["income"]["change"]["delta"] == 500.0
+
+    assert cards["expense"]["current"] == 3100.0
+    assert cards["expense"]["change"]["previous"] == 2150.0
+    assert cards["expense"]["change"]["delta"] == 950.0
+
+    assert cards["consumption"]["current"] == 3200.0
+    assert cards["consumption"]["change"]["previous"] == 2200.0
+    assert cards["consumption"]["change"]["delta"] == 1000.0
+    assert cards["consumption"]["current"] != cards["expense"]["current"]
+
+
+def test_analysis_snapshot_home_cards_show_clear_fallback_without_previous_month_base(db_session):
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
+    payment = _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 18),
+        description="FATURA MAR",
+        amount=-1300.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice = _add_invoice(
+        db_session,
+        due_date=date(2026, 3, 20),
+        card_final="4444",
+        item_specs=[
+            ("SUPERMERCADO MAR", "900.00"),
+            ("CURSO MAR", "500.00"),
+            ("DESCONTO NA FATURA MAR", "-100.00"),
+            ("PAGAMENTO EFETUADO MAR", "-1300.00"),
+        ],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice.id,
+        categories_by_description={
+            "SUPERMERCADO MAR": "Supermercado",
+            "CURSO MAR": "Educação",
+        },
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice.id,
+        bank_transaction_ids=[payment.id],
+    )
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    cards = {item["key"]: item for item in snapshot["home_cards"]["cards"]}
+
+    assert snapshot["home_cards"]["previous_month_label"] == "fev/2026"
+    assert all(card["comparison_available"] is False for card in cards.values())
+    assert all(card["change"] is None for card in cards.values())
+    assert cards["consumption"]["current"] == 3200.0
+
+
 def test_analysis_snapshot_builds_conciliated_category_breakdown_from_account_and_invoice_items(db_session):
     _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
     _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
