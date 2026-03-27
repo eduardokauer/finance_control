@@ -73,6 +73,17 @@ O Codex deve manter estes arquivos atualizados sempre que necessário.
 
 - Se uma entrega alterar contexto ou processo e o arquivo correspondente não for atualizado, a entrega **não está completa**.
 
+### Regra para PRs de implementação
+
+- Quando o prompt já trouxer uma fatia pronta para execução, o padrão esperado é um único PR contendo a documentação necessária, a implementação e os testes, salvo quando o próprio prompt disser explicitamente que se trata de um PR apenas documental.
+- Em PRs de implementação, o Codex deve atualizar a documentação necessária no mesmo PR sempre que a entrega alterar:
+  - estado do sistema;
+  - próximo passo recomendado;
+  - fatias implementadas;
+  - decisões preservadas no contexto;
+  - processo aplicável.
+- PR documental isolado deve ser tratado como exceção explícita, e não como etapa automática entre refinamento e implementação.
+
 ## Como Executar uma Entrega
 
 1. Ler por completo os arquivos obrigatórios.

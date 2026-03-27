@@ -90,10 +90,10 @@ Pedidos diretos por execução técnica ou por "prompt para o Codex" não pulam 
   Próxima ação correta: continuar refinando com o usuário e não gerar prompt para execução de código.
 - `PRONTO_PARA_DOC`
   Usar quando decisões importantes já tiverem sido tomadas, mas ainda não estiverem preservadas na documentação do projeto.
-  Próxima ação correta: atualizar a documentação ou gerar um PR documental antes de qualquer handoff técnico.
+  Próxima ação correta: atualizar a documentação ou gerar um PR documental antes de qualquer handoff técnico quando a fatia ainda não estiver pronta para execução, quando for necessário preservar contexto antes de interromper o trabalho ou quando a mudança for apenas de contexto/processo.
 - `PRONTO_PARA_CODEX`
   Usar quando já existir uma fatia clara e executável, com objetivo claro, valor funcional, fora de escopo explícito, semântica fechada, critérios de aceite e dependências principais resolvidas ou explicitadas.
-  Próxima ação correta: gerar prompt para o Codex executar.
+  Próxima ação correta: gerar, por padrão, um único prompt para o Codex que já inclua a atualização de documentação necessária, a implementação do incremento, os testes e o fluxo até commit/PR.
 
 ### Classificação obrigatória no início do ciclo
 
@@ -182,6 +182,13 @@ Uma fatia está pronta para execução quando já tem:
 Esse prompt só deve ser gerado quando o ciclo já estiver em `PRONTO_PARA_CODEX`.
 
 Pedido direto do usuário por execução técnica ou por "prompt para o Codex" não substitui essa condição.
+
+Quando a fatia já estiver pronta para execução, o comportamento padrão do PM deve ser gerar um único prompt para o Codex que cubra a atualização de documentação necessária, a implementação, os testes e a abertura do PR. PR documental isolado deixa de ser o padrão nesse estado e só deve ser proposto quando:
+- o ciclo ainda estiver em `PRONTO_PARA_DOC` e a fatia não estiver pronta para execução;
+- houver necessidade explícita de preservar contexto antes de interromper o trabalho;
+- a mudança for apenas de contexto/processo, sem incremento funcional.
+
+O PM não deve pedir ao usuário uma atualização manual ou separada de documentação como passo intermediário por padrão quando a fatia já estiver em `PRONTO_PARA_CODEX`; a expectativa é entregar diretamente o prompt adequado para o Codex executar o pacote completo.
 
 Todo prompt deve deixar explícito:
 - de qual tema/iniciativa, épico e história de usuário a entrega deriva, quando esse contexto já existir;
