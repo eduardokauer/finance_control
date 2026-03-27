@@ -64,6 +64,7 @@ def _analysis_page_context(
     if payload_snapshot:
         payload_snapshot["home_cards"] = live_snapshot["home_cards"]
         payload_snapshot["home_yearly_chart"] = live_snapshot["home_yearly_chart"]
+        payload_snapshot["home_category_comparison"] = live_snapshot["home_category_comparison"]
         payload_snapshot["category_breakdown"] = live_snapshot["category_breakdown"]
         payload_snapshot["category_history"] = live_snapshot["category_history"]
         payload_snapshot["categories"] = live_snapshot["categories"]
@@ -73,9 +74,6 @@ def _analysis_page_context(
         payload_snapshot.setdefault("charts", {})
         payload_snapshot["charts"]["categories"] = live_snapshot["charts"]["categories"]
     analysis_data = payload_snapshot or live_snapshot
-    summary_categories = [
-        item for item in analysis_data.get("top_expense_categories", []) if not item.get("is_technical")
-    ][:4]
     return {
         "selection_mode": selected_mode,
         "period_start": resolved_start,
@@ -90,7 +88,6 @@ def _analysis_page_context(
         "analysis_data": analysis_data,
         "analysis_html_fragment": renderable_analysis_html(analysis_run.html_output) if analysis_run else None,
         "llm_html_available": False,
-        "summary_categories": summary_categories,
         "priority_alerts": analysis_data.get("alerts", [])[:3],
         "priority_actions": analysis_data.get("actions", [])[:2],
         "analysis_urls": {

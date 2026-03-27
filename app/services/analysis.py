@@ -362,6 +362,56 @@ def _build_home_yearly_cash_flow_chart(db: Session, *, anchor_month: date) -> di
     }
 
 
+def _build_home_category_comparison(db: Session, *, anchor_month: date) -> dict:
+    current_snapshot = _build_conciliated_category_month_snapshot(db, anchor_month=anchor_month)
+    previous_month = add_months(month_start(anchor_month), -1)
+    earliest_month = _earliest_history_month(db)
+    previous_snapshot = (
+        _build_conciliated_category_month_snapshot(db, anchor_month=previous_month)
+        if earliest_month is not None and previous_month >= earliest_month
+        else None
+    )
+    previous_expense_by_category = (
+        previous_snapshot["expense_by_category"]
+        if previous_snapshot is not None and previous_snapshot["has_activity"]
+        else {}
+    )
+
+    rows: list[dict] = []
+    current_rows = [
+        row
+        for row in current_snapshot["breakdown"]["rows"]
+        if row["expense_total"] > 0 and not row["is_technical"]
+    ]
+    current_rows.sort(key=lambda entry: entry["expense_total"], reverse=True)
+    for item in current_rows[:5]:
+        previous_total = previous_expense_by_category.get(item["name"], 0.0)
+        change = _build_metric_change(item["expense_total"], previous_total)
+        is_new_in_month = abs(previous_total) < 0.01
+        rows.append(
+            {
+                "name": item["name"],
+                "current_total": item["expense_total"],
+                "current_display": item["expense_display"],
+                "previous_total": previous_total,
+                "previous_display": format_currency_br(previous_total),
+                "change": change,
+                "percent_available": change["percent"] is not None,
+                "is_new_in_month": is_new_in_month,
+            }
+        )
+
+    return {
+        "current_month_label": current_snapshot["label"],
+        "previous_month_label": format_month_label(previous_month),
+        "rows": rows,
+        "note": (
+            "Top 5 categorias de consumo do mês-base, ordenadas pelo maior gasto atual e comparadas com o mês anterior. "
+            "A home segue como resumo; a leitura completa continua na análise detalhada."
+        ),
+    }
+
+
 def _build_monthly_series(db: Session, *, anchor_month: date) -> list[dict]:
     series_start = add_months(month_start(anchor_month), -11)
     series_end = month_end(anchor_month)
@@ -1127,6 +1177,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
     technical_items = _build_technical_items(current_month_txs, expense_total=current_month_summary["expense_total"])
     quality = _build_quality(summary)
     category_history = _build_conciliated_category_history(db, anchor_month=anchor_month)
+    home_category_comparison = _build_home_category_comparison(db, anchor_month=anchor_month)
     conciliation_signals = build_conciliation_analytics_snapshot(db, period_start=period_start, period_end=period_end)
     conciliated_month = _build_conciliated_month_snapshot(
         db,
@@ -1163,6 +1214,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         "comparison": comparison,
         "home_cards": home_cards,
         "home_yearly_chart": home_yearly_chart,
+        "home_category_comparison": home_category_comparison,
         "monthly_series": monthly_series,
         "category_breakdown": category_breakdown,
         "category_history": category_history,

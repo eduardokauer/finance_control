@@ -70,22 +70,34 @@
 
   <div class="card stack" style="margin-bottom:0;">
     <div>
-      <strong>Categorias prioritárias da visão de consumo</strong>
-      <div class="subtle">Bloco enxuto para destacar onde o consumo mais pesou no mês-base antes de entrar na análise detalhada.</div>
+      <strong>Comparativo rápido das categorias do mês</strong>
+      <div class="subtle">{{ analysis_data.home_category_comparison.note }}</div>
     </div>
-    <div class="analysis-list">
-      {% for category in summary_categories %}
-        <div class="analysis-item">
-          <div class="analysis-item-title">
-            <strong>{{ category.name }}</strong>
-            <span class="badge">{{ category.flow_label }}</span>
+    <div class="home-category-ranking" aria-label="Comparativo das Top 5 categorias do mês-base">
+      {% for category in analysis_data.home_category_comparison.rows %}
+        <div class="home-category-row">
+          <div class="home-category-rank">#{{ loop.index }}</div>
+          <div class="home-category-body">
+            <div class="home-category-title">
+              <strong>{{ category.name }}</strong>
+              {% if category.is_new_in_month %}
+                <span class="badge warn">nova no mês</span>
+              {% endif %}
+            </div>
+            <div class="subtle">
+              {{ analysis_data.home_category_comparison.current_month_label }}: {{ category.current_display }}
+              | {{ analysis_data.home_category_comparison.previous_month_label }}: {{ category.previous_display }}
+              | delta: {{ category.change.delta_signed_display }}
+              {% if category.percent_available %}
+                | {{ category.change.percent_display }}
+              {% endif %}
+            </div>
           </div>
-          <p>{{ category.expense_display }} | peso nas despesas: {{ category.share_of_expense_display }} | {{ category.transaction_count }} lançamento(s)</p>
         </div>
       {% else %}
         <div class="analysis-item">
           <strong>Sem categorias de consumo no mês-base</strong>
-          <p>A leitura principal ainda não encontrou categorias de consumo relevantes para o período selecionado.</p>
+          <p>A home segue enxuta neste período. A visão completa de categorias continua disponível na análise detalhada.</p>
         </div>
       {% endfor %}
     </div>

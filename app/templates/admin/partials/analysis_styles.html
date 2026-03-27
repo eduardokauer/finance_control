@@ -137,4 +137,41 @@
   .summary-shortcut strong {
     font-size: 1rem;
   }
+  .home-category-ranking {
+    display: grid;
+    gap: 10px;
+  }
+  .home-category-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .home-category-row:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+  .home-category-rank {
+    min-width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    background: var(--surface-strong);
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+  .home-category-body {
+    display: grid;
+    gap: 4px;
+  }
+  .home-category-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
 </style>
