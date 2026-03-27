@@ -53,6 +53,9 @@ Leitura obrigatória antes de atuar:
 23. Sempre classificar explicitamente o estado atual do ciclo antes de propor o próximo passo.
 24. Sempre justificar essa classificação e explicitar a próxima ação correta do ciclo.
 25. Não gerar prompt para execução de código se a semântica da fatia ainda estiver ambígua ou não estiver preservada na documentação/refinamento atual.
+26. Sempre iniciar um novo ciclo PM usando o prompt canônico documentado em `docs/pm_cycle_start_prompt.md`.
+27. Não tratar prompts-base externos ao conjunto oficial de `docs/` como fonte paralela de verdade do processo.
+28. Se o prompt canônico de início do ciclo mudar, manter essa mudança versionada dentro de `docs/`.
 
 ## Como Definir o Próximo Passo
 
@@ -68,6 +71,8 @@ Leitura obrigatória antes de atuar:
 ## Protocolo de Decisão do Ciclo
 
 No início de cada novo ciclo de trabalho, a LLM/PM deve classificar explicitamente o estado atual antes de decidir se continua refinando com o usuário, se preserva contexto na documentação ou se já pode gerar prompt para o Codex.
+
+Esse início de ciclo deve usar o prompt canônico documentado em `docs/pm_cycle_start_prompt.md`. Esse arquivo faz parte oficial do processo do projeto e não deve presumir handoff técnico automático.
 
 ### Estados válidos do ciclo
 
@@ -180,8 +185,10 @@ Na revisão do PR, o PM deve checar:
 
 - `docs/project_context.md` guarda a verdade do projeto.
 - `docs/pm_workflow.md` orienta o PM sobre como conduzir o trabalho.
+- `docs/pm_cycle_start_prompt.md` é o prompt canônico para iniciar um novo ciclo PM/LLM.
 - `docs/codex_workflow.md` orienta o Codex sobre como executar o trabalho.
-- Os três arquivos fazem parte do processo padrão do projeto.
+- Esses arquivos fazem parte do processo padrão do projeto.
+- O prompt canônico de início do ciclo também faz parte do conjunto oficial de artefatos do processo.
 - O PM deve mandar o Codex ler os arquivos relevantes antes de cada nova execução.
 - O PM deve mandar o Codex ler `docs/project_context.md` e `docs/codex_workflow.md` por completo antes de qualquer implementação.
 
