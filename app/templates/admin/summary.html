@@ -34,6 +34,16 @@
   {% endfor %}
 </section>
 
+<section class="card stack" style="margin-top:0; margin-bottom:12px;">
+  <div>
+    <strong>Evolução anual do fluxo de caixa</strong>
+    <div class="subtle">{{ analysis_data.home_yearly_chart.note }}</div>
+  </div>
+  <div class="chart-shell chart-shell-tall">
+    <canvas id="home-yearly-cash-flow-chart" aria-label="Gráfico principal anual de fluxo de caixa"></canvas>
+  </div>
+</section>
+
 <section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
   <div class="card stack" style="margin-bottom:0;">
     <div>
@@ -136,5 +146,99 @@
   </div>
 </section>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  (() => {
+    const yearlyElement = document.getElementById('home-yearly-cash-flow-chart');
+    if (yearlyElement) {
+      const chartData = {{ analysis_data.home_yearly_chart|tojson }};
+      const compactCurrency = new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        maximumFractionDigits: 0,
+      });
+      const tooltipCurrency = new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      });
+      new Chart(yearlyElement, {
+        type: 'bar',
+        data: {
+          labels: chartData.labels,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'Fluxo líquido mensal',
+              data: chartData.balance,
+              backgroundColor: chartData.balance.map((value) => (
+                value >= 0 ? 'rgba(15, 118, 110, 0.72)' : 'rgba(180, 35, 24, 0.65)'
+              )),
+              borderRadius: 8,
+              maxBarThickness: 34,
+              order: 2,
+            },
+            {
+              type: 'line',
+              label: 'Entradas mensais',
+              data: chartData.income,
+              borderColor: '#18794e',
+              backgroundColor: 'rgba(24, 121, 78, 0.14)',
+              pointBackgroundColor: '#18794e',
+              tension: 0.22,
+              borderWidth: 2,
+              pointRadius: 3,
+              pointHoverRadius: 4,
+              order: 1,
+            },
+            {
+              type: 'line',
+              label: 'Saídas mensais',
+              data: chartData.expense,
+              borderColor: '#b42318',
+              backgroundColor: 'rgba(180, 35, 24, 0.14)',
+              pointBackgroundColor: '#b42318',
+              tension: 0.22,
+              borderWidth: 2,
+              pointRadius: 3,
+              pointHoverRadius: 4,
+              order: 1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          scales: {
+            x: {
+              grid: {
+                display: false,
+              },
+            },
+            y: {
+              ticks: {
+                callback(value) {
+                  return compactCurrency.format(value);
+                },
+              },
+            },
+          },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return `${context.dataset.label}: ${tooltipCurrency.format(context.parsed.y || 0)}`;
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+  })();
+</script>
 {% include "admin/partials/analysis_period_form_script.html" %}
 {% endblock %}

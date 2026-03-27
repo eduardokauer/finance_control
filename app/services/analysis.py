@@ -301,6 +301,67 @@ def _build_home_cards(
     }
 
 
+def _round_chart_value(value: float) -> float:
+    return 0.0 if abs(float(value)) < 0.01 else round(float(value), 2)
+
+
+def _build_home_yearly_cash_flow_chart(db: Session, *, anchor_month: date) -> dict:
+    selected_year = anchor_month.year
+    year_start = date(selected_year, 1, 1)
+    year_end = date(selected_year, 12, 31)
+    txs = _load_transactions_for_period(db, period_start=year_start, period_end=year_end)
+    grouped: dict[int, list[Transaction]] = defaultdict(list)
+    for tx in txs:
+        grouped[tx.transaction_date.month].append(tx)
+
+    months: list[dict] = []
+    for month_number in range(1, 13):
+        current_month = date(selected_year, month_number, 1)
+        summary = _build_summary(grouped.get(month_number, []))
+        expense_chart_total = -summary["expense_total"] if summary["expense_total"] > 0 else 0.0
+        months.append(
+            {
+                "month": current_month.strftime("%Y-%m"),
+                "label": MONTH_LABELS[month_number - 1],
+                "income_total": summary["income_total"],
+                "expense_total": summary["expense_total"],
+                "expense_chart_total": expense_chart_total,
+                "balance": summary["balance"],
+                "transaction_count": summary["transaction_count"],
+                "income_display": summary["income_display"],
+                "expense_display": summary["expense_display"],
+                "balance_display": summary["balance_display"],
+            }
+        )
+
+    all_zero = all(
+        month["income_total"] == 0.0 and month["expense_total"] == 0.0 and month["balance"] == 0.0
+        for month in months
+    )
+    if all_zero:
+        note = (
+            f"Ano calendário {selected_year}, de janeiro a dezembro, sem movimentação registrada; "
+            "os meses zerados seguem visíveis para preservar a leitura anual."
+        )
+    else:
+        note = (
+            f"Ano calendário {selected_year}, de janeiro a dezembro, com meses zerados visíveis. "
+            "Fluxo líquido em barras; entradas e saídas em linha."
+        )
+
+    return {
+        "year": selected_year,
+        "year_label": str(selected_year),
+        "labels": [month["label"] for month in months],
+        "income": [_round_chart_value(month["income_total"]) for month in months],
+        "expense": [_round_chart_value(month["expense_chart_total"]) for month in months],
+        "balance": [_round_chart_value(month["balance"]) for month in months],
+        "months": months,
+        "all_zero": all_zero,
+        "note": note,
+    }
+
+
 def _build_monthly_series(db: Session, *, anchor_month: date) -> list[dict]:
     series_start = add_months(month_start(anchor_month), -11)
     series_end = month_end(anchor_month)
@@ -1061,6 +1122,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         current_month_txs=current_month_txs,
         current_category_breakdown=category_breakdown,
     )
+    home_yearly_chart = _build_home_yearly_cash_flow_chart(db, anchor_month=anchor_month)
     category_rows = category_breakdown["rows"]
     technical_items = _build_technical_items(current_month_txs, expense_total=current_month_summary["expense_total"])
     quality = _build_quality(summary)
@@ -1100,6 +1162,7 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         "summary": summary,
         "comparison": comparison,
         "home_cards": home_cards,
+        "home_yearly_chart": home_yearly_chart,
         "monthly_series": monthly_series,
         "category_breakdown": category_breakdown,
         "category_history": category_history,
