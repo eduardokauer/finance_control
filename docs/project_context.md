@@ -222,13 +222,13 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Estado atual do trabalho
 
-- **Estado atual do ciclo:** `REFINAMENTO_EM_ANDAMENTO`
+- **Estado atual do ciclo:** `PRONTO_PARA_CODEX`
 - **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Fluxo de caixa** como visão padrão e **Consumo** como modo alternável.
 - **Épico ativo:** `Home visual de fluxo de caixa`
 - **Histórias em refino:** cards/KPIs visuais do mês; gráfico principal de evolução de 12 meses; comparativo visual das categorias do mês; alternância entre Fluxo de caixa e Consumo; atalhos para `Análise detalhada` e `Conferência`.
 - **Fatia ativa ou candidata:** faixa inicial da home com 4 cards mensais: Fluxo líquido do mês, Entradas do mês, Saídas do mês e Consumo do mês.
-- **Próxima ação esperada:** confirmar se a definição dessa faixa inicial já está suficientemente fechada para handoff técnico, sem forecast, recorrência ou expansão de escopo no primeiro PR.
-- **Motivo resumido:** a semântica principal da primeira fatia já está materialmente definida, mas o ciclo ainda permanece em refinamento até confirmar que o primeiro handoff pode acontecer sem ambiguidade relevante.
+- **Próxima ação esperada:** executar o primeiro PR técnico da faixa inicial da home, materializando os 4 cards mensais em modo padrão de fluxo de caixa, sem forecast, recorrência ou expansão de escopo.
+- **Motivo resumido:** a primeira fatia já tem semântica, escopo e critérios de aceite suficientemente fechados para um handoff técnico seguro, sem abrir nova lógica de domínio.
 - **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
 
 ### Como ler o roadmap
@@ -422,11 +422,11 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Próximo passo recomendado
 
-- Concluir o refinamento da fatia de **cards/KPIs visuais do mês** até levá-la ao estado `PRONTO_PARA_CODEX`, com semântica, escopo e critérios de aceite já fechados para o primeiro handoff da home em modo padrão de fluxo de caixa.
+- Executar o primeiro PR técnico da fatia de **cards/KPIs visuais do mês**, levando a home a materializar a faixa inicial com **Fluxo líquido do mês**, **Entradas do mês**, **Saídas do mês** e **Consumo do mês** em modo padrão de fluxo de caixa.
 
 ### Fora de escopo imediato desta frente
 
-- implementar a nova home neste momento;
+- expandir a nova home além da primeira faixa inicial de 4 cards neste momento;
 - alterar templates, rotas, serviços ou lógica do produto antes do refinamento virar fatia pronta;
 - discutir design visual final em nível de detalhe além do necessário para fechar direção de produto;
 - dashboard completo de fluxo de caixa;

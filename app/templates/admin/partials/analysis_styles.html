@@ -11,6 +11,49 @@
     gap: 12px;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
+  .home-kpi-strip {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    margin-bottom: 12px;
+  }
+  .home-kpi-card {
+    display: grid;
+    gap: 8px;
+    align-content: start;
+    margin-bottom: 0;
+    background: var(--surface-strong);
+  }
+  .home-kpi-card-primary {
+    border-width: 2px;
+    border-color: #cdb58a;
+  }
+  .home-kpi-eyebrow {
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .home-kpi-subtitle {
+    font-size: 0.92rem;
+    color: var(--muted);
+    min-height: 2.6em;
+  }
+  .home-kpi-comparison {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .home-kpi-comparison strong {
+    color: var(--ink);
+  }
+  @media (min-width: 900px) {
+    .home-kpi-card-primary {
+      grid-column: span 2;
+    }
+  }
   .comparison-grid {
     display: grid;
     gap: 12px;
