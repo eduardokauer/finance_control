@@ -222,13 +222,13 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Estado atual do trabalho
 
-- **Estado atual do ciclo:** `REFINAMENTO_EM_ANDAMENTO`
+- **Estado atual do ciclo:** `PRONTO_PARA_CODEX`
 - **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Fluxo de caixa** como visão padrão e **Consumo** como modo alternável.
 - **Épico ativo:** `Home visual de fluxo de caixa`
-- **Histórias em refino:** gráfico principal de evolução de 12 meses; comparativo visual das categorias do mês; alternância entre Fluxo de caixa e Consumo; atalhos para `Análise detalhada` e `Conferência`.
-- **Fatia ativa ou candidata:** próxima fatia do épico ainda em refinamento, com prioridade para definir o gráfico principal de evolução de 12 meses como próximo recorte seguro da home.
-- **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da primeira faixa de 4 cards materializada.
-- **Motivo resumido:** o primeiro PR técnico da home já materializa a faixa inicial de 4 cards; o ciclo correspondente se encerra com essa entrega e o foco volta para a próxima fatia do mesmo épico.
+- **Histórias em refino:** comparativo visual das categorias do mês; alternância entre Fluxo de caixa e Consumo; atalhos para `Análise detalhada` e `Conferência`.
+- **Fatia ativa ou candidata:** gráfico principal de evolução anual em fluxo de caixa, já definido como próximo recorte seguro da home e pronto para handoff técnico.
+- **Próxima ação esperada:** gerar o próximo prompt técnico para implementar o gráfico principal de evolução anual em fluxo de caixa na home.
+- **Motivo resumido:** a semântica da próxima fatia já foi fechada e agora fica preservada no contexto do produto, deixando o ciclo pronto para seguir para execução técnica sem reabrir discussão de escopo.
 - **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
 
 ### Como ler o roadmap
@@ -317,6 +317,30 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **O que não entra nesta fatia:** disponível até o fim do mês, projeção de fechamento, próximas obrigações, recorrências, top categorias na home principal, patrimônio, metas, investimentos, nova lógica de conciliação, alteração da semântica de consumo e alteração da semântica de pagamento de fatura.
 - **Decisão de UX da primeira fatia:** a primeira faixa da home deve priorizar leitura rápida e baixo ruído; a intenção não é construir um dashboard completo neste momento, mas sim uma entrada visual clara para o estado financeiro mensal.
 - **Critério de prontidão para implementação:** esta fatia estará pronta quando os 4 cards estiverem assumidos como bloco inicial da home, o modo padrão estiver definido como Fluxo de caixa, a comparação contra o mês anterior estiver assumida como padrão dos cards e estiver explícito que não haverá forecast nem recorrência nesta primeira entrega.
+
+##### Próxima fatia candidata: gráfico principal de evolução anual em fluxo de caixa
+
+- **Objetivo da fatia:** ampliar a capacidade de leitura rápida da home com uma visão temporal clara da evolução do ano, mantendo a home orientada à decisão sem introduzir nova lógica de domínio.
+- **Fonte de verdade da fatia:** a mesma visão de **fluxo de caixa** já usada na faixa inicial da home para fluxo líquido, entradas e saídas.
+- **Escopo inicial:** a home deve exibir um gráfico principal anual com 12 meses do **ano calendário selecionado**, de **janeiro a dezembro**, incluindo meses zerados.
+- **Séries do gráfico:**
+  - **Fluxo líquido mensal** em **barras**
+  - **Entradas mensais** em **linha**
+  - **Saídas mensais** em **linha**
+- **Convenção numérica do gráfico:**
+  - entradas devem ser exibidas **acima de zero**;
+  - saídas devem ser exibidas **abaixo de zero**;
+  - fluxo líquido pode assumir valores positivos ou negativos e cruzar a linha de zero.
+- **Cobertura temporal:** o gráfico deve sempre exibir os 12 meses do ano calendário selecionado, mesmo quando algum mês não tiver movimentação, caso em que o valor do mês deve aparecer como zero.
+- **Regra de semântica:** esta fatia **não cria semântica nova**; ela apenas materializa visualmente a visão de fluxo de caixa já consolidada na home.
+- **O que não entra nesta fatia:**
+  - visão de consumo no mesmo gráfico;
+  - forecast;
+  - comparação por fonte (`Extrato`, `Fatura`, `Conciliado`);
+  - alternância entre `Fluxo de caixa` e `Consumo` dentro do gráfico;
+  - drill-down;
+  - múltiplos gráficos adicionais no mesmo PR.
+- **Critério de prontidão para implementação:** esta fatia estará pronta quando estiver explícito que o gráfico usa ano calendário fechado, mantém meses zerados visíveis, usa barras para fluxo líquido, linhas para entradas e saídas, e preserva a separação semântica entre fluxo de caixa e consumo.
 
 ### Backlog estratégico ordenado
 
@@ -422,7 +446,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Próximo passo recomendado
 
-- Retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, priorizando o **gráfico principal de evolução de 12 meses** como próxima fatia candidata antes de um novo handoff técnico.
+- Gerar o próximo prompt técnico para implementar o **gráfico principal de evolução anual em fluxo de caixa** como segunda fatia da home, já com a semântica preservada neste contexto.
 
 ### Fora de escopo imediato desta frente
 
