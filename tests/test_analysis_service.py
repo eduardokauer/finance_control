@@ -435,6 +435,48 @@ def test_analysis_snapshot_home_cards_show_clear_fallback_without_previous_month
     assert cards["consumption"]["current"] == 3200.0
 
 
+def test_analysis_snapshot_builds_home_yearly_cash_flow_chart_with_calendar_year_and_zero_months(db_session):
+    _add_tx(db_session, tx_date=date(2025, 12, 5), description="SALARIO DEZ 2025", amount=4100.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 1, 5), description="SALARIO JAN 2026", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 1, 8), description="ALUGUEL JAN 2026", amount=-1500.0, category="Moradia", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR 2026", amount=3200.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR 2026", amount=-1200.0, category="Moradia", transaction_kind="expense")
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    chart = snapshot["home_yearly_chart"]
+
+    assert chart["year"] == 2026
+    assert chart["labels"] == ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
+    assert chart["income"][0] == 5000.0
+    assert chart["expense"][0] == -1500.0
+    assert chart["balance"][0] == 3500.0
+    assert chart["income"][1] == 0.0
+    assert chart["expense"][1] == 0.0
+    assert chart["balance"][1] == 0.0
+    assert chart["income"][2] == 3200.0
+    assert chart["expense"][2] == -1200.0
+    assert chart["balance"][2] == 2000.0
+    assert chart["months"][11]["month"] == "2026-12"
+    assert chart["months"][11]["transaction_count"] == 0
+    assert chart["all_zero"] is False
+
+
+def test_analysis_snapshot_builds_home_yearly_cash_flow_chart_with_all_zero_months_when_year_is_empty(db_session):
+    _add_tx(db_session, tx_date=date(2025, 12, 5), description="SALARIO DEZ 2025", amount=4100.0, category="Salário", transaction_kind="income")
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    chart = snapshot["home_yearly_chart"]
+
+    assert chart["year"] == 2026
+    assert chart["all_zero"] is True
+    assert len(chart["labels"]) == 12
+    assert all(value == 0.0 for value in chart["income"])
+    assert all(value == 0.0 for value in chart["expense"])
+    assert all(value == 0.0 for value in chart["balance"])
+
+
 def test_analysis_snapshot_builds_conciliated_category_breakdown_from_account_and_invoice_items(db_session):
     _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
     _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")

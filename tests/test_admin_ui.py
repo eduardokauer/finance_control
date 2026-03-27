@@ -188,6 +188,9 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert "Entradas do mês" in home.text
     assert "Saídas do mês" in home.text
     assert "Consumo do mês" in home.text
+    assert "Evolução anual do fluxo de caixa" in home.text
+    assert "home-yearly-cash-flow-chart" in home.text
+    assert "chart.js" in home.text.lower()
     assert "Resumo principal conciliado" in home.text
     assert "Análise detalhada" in home.text
     assert "Conferência" in home.text
