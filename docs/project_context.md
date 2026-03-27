@@ -228,7 +228,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Fluxo de caixa** como visão padrão e **Consumo** como modo alternável.
 - **Épico ativo:** `Home visual de fluxo de caixa`
 - **Histórias em refino:** alternância entre Fluxo de caixa e Consumo; evolução futura dos atalhos/contexto entre `Resumo`, `Análise detalhada` e `Conferência`.
-- **Fatia ativa ou candidata:** próximo recorte do épico ainda em refinamento, com prioridade para definir a alternância entre Fluxo de caixa e Consumo como próxima fatia segura da home.
+- **Fatia ativa ou candidata:** próximo recorte do épico ainda em refinamento, sem prioridade definitiva fechada entre as histórias remanescentes da home.
 - **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da faixa inicial, do gráfico anual e do comparativo categorial compacto materializados.
 - **Motivo resumido:** o terceiro PR técnico da home já materializa o comparativo visual das Top 5 categorias do mês-base contra o mês anterior; com isso, o foco volta para fechar a próxima fatia do mesmo épico antes de um novo handoff técnico.
 - **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
@@ -461,7 +461,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Próximo passo recomendado
 
-- Retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, priorizando a **alternância entre Fluxo de caixa e Consumo na home** como próxima fatia candidata antes de um novo handoff técnico.
+- Retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da faixa inicial, do gráfico anual e do comparativo categorial compacto materializados, sem cristalizar neste momento qual das histórias remanescentes será a próxima fatia candidata.
 
 ### Fora de escopo imediato desta frente
 
