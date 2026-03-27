@@ -184,6 +184,10 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert home.status_code == 200
     assert "Finance Control Admin" in home.text
     assert "Resumo financeiro" in home.text
+    assert "Fluxo líquido do mês" in home.text
+    assert "Entradas do mês" in home.text
+    assert "Saídas do mês" in home.text
+    assert "Consumo do mês" in home.text
     assert "Resumo principal conciliado" in home.text
     assert "Análise detalhada" in home.text
     assert "Conferência" in home.text
