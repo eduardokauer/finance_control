@@ -6,6 +6,7 @@
 
 Arquivos complementares:
 - `docs/pm_workflow.md`: regras da LLM que atua como PM/guia.
+- `docs/pm_cycle_start_prompt.md`: prompt canônico para iniciar um novo ciclo PM/LLM.
 - `docs/codex_workflow.md`: regras do Codex como executor técnico.
 
 Ordem de leitura recomendada:
@@ -228,6 +229,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Fatia ativa ou candidata:** cards/KPIs visuais do mês ainda em refinamento.
 - **Próxima ação esperada:** continuar o refinamento com o usuário até fechar semântica, escopo e critérios de aceite da primeira fatia; se novas decisões relevantes forem tomadas, preservá-las na documentação antes do handoff técnico.
 - **Motivo resumido:** a direção do tema e do épico já está preservada, mas a semântica exata da primeira fatia e os limites do primeiro handoff ainda precisam ficar explícitos sem ambiguidade antes de um prompt de execução.
+- **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
 
 ### Como ler o roadmap
 
