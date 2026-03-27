@@ -45,6 +45,23 @@ Quando houver história em refino, fatia candidata ou fatia pronta, a resposta d
 - o que não entra;
 - se a fatia cria semântica nova ou apenas materializa a semântica atual do sistema.
 
+Quando fizer sentido, diferencie explicitamente:
+
+- **fonte de verdade do processo/documentação**: contexto do projeto, regras do PM, estado do ciclo e decisões já preservadas em `docs/`;
+- **fonte de verdade da fatia**: números, regras operacionais, semântica funcional e critérios usados pela fatia específica.
+
+`docs/project_context.md` e `docs/pm_workflow.md` não são automaticamente a fonte de verdade dos números da fatia; essa fonte precisa ser explicitada.
+
+## Critério de suficiência do refinamento
+
+- Não continue refinando indefinidamente quando os pontos em aberto deixarem de ser bloqueadores materiais.
+- O objetivo não é buscar a solução ótima; é chegar ao menor nível de definição suficiente para um PR seguro, útil e revisável.
+- Mesmo com dúvidas menores remanescentes, a fatia pode avançar quando elas não mudarem materialmente o primeiro PR.
+- Se houver rodadas consecutivas sem redução material de ambiguidade, interrompa o refinamento aberto e escolha explicitamente entre:
+  - continuar refinando só com uma única pergunta realmente bloqueadora;
+  - `PRONTO_PARA_DOC`;
+  - `PRONTO_PARA_CODEX`.
+
 ## Instrução para cache e URLs raw do GitHub
 
 Ao ler arquivos raw do GitHub:
@@ -96,9 +113,18 @@ Quando houver história em refino, fatia candidata ou fatia pronta, explicite ta
 - o que não entra;
 - se a fatia cria semântica nova ou apenas materializa a semântica atual do sistema.
 
+Quando fizer sentido, diferencie explicitamente:
+- fonte de verdade do processo/documentação;
+- fonte de verdade da fatia.
+
+Não continue refinando indefinidamente quando os pontos em aberto deixarem de ser bloqueadores materiais.
+Buscar a solução ótima não deve impedir handoff quando o "bom e seguro" já estiver definido para o primeiro PR.
+Mesmo com dúvidas menores remanescentes, a fatia pode avançar quando elas não mudarem materialmente o primeiro PR.
+
 Regra crítica:
 - mesmo que eu peça diretamente um prompt para o Codex, primeiro classifique o ciclo;
 - só gere prompt completo para o Codex se a classificação for PRONTO_PARA_CODEX;
 - se a classificação for REFINAMENTO_EM_ANDAMENTO, continue refinando com o usuário;
 - se a classificação for PRONTO_PARA_DOC, gere prompt para atualização documental, não para execução técnica.
+- se houver rodadas consecutivas sem redução material de ambiguidade, interrompa o refinamento aberto e escolha conscientemente entre uma única pergunta bloqueadora, PRONTO_PARA_DOC ou PRONTO_PARA_CODEX.
 ```

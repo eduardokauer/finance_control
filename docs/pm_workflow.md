@@ -107,6 +107,13 @@ Toda fatia em refinamento ou pronta para execução deve deixar explícito:
 
 Se o nome da fatia implicar uma semântica que ainda não esteja claramente definida na documentação ou no refinamento atual, a LLM não deve gerar prompt para execução de código.
 
+### Fonte de verdade do processo/documentação x fonte de verdade da fatia
+
+- `docs/project_context.md` e `docs/pm_workflow.md` são fonte de verdade do contexto do projeto, do processo, das decisões já preservadas e do estado do ciclo.
+- Esses arquivos não são automaticamente a fonte de verdade dos números, das regras operacionais específicas ou da semântica funcional detalhada da fatia em discussão.
+- A fonte de verdade da fatia deve ser explicitada no refinamento ou no prompt de execução, deixando claro de onde vêm os números, as regras e os critérios usados naquele recorte específico.
+- Quando houver risco de mistura entre contexto/processo e regra operacional da fatia, a LLM/PM deve nomear explicitamente os dois níveis para evitar ambiguidade.
+
 ## Como Refinar Antes do Handoff
 
 - Esse refinamento é o comportamento esperado quando o ciclo estiver classificado como `REFINAMENTO_EM_ANDAMENTO`.
@@ -118,6 +125,39 @@ Se o nome da fatia implicar uma semântica que ainda não esteja claramente defi
 - Não mandar o Codex implementar diretamente um tema amplo ou um épico ainda ambíguo.
 - Se decisões relevantes já estiverem fechadas, mas ainda não registradas, reclassificar o ciclo para `PRONTO_PARA_DOC` antes do handoff técnico.
 
+### Critério de suficiência do refinamento
+
+- O objetivo do refinamento não é encontrar a solução ótima.
+- O objetivo é chegar à menor definição suficiente para um PR seguro, útil e revisável.
+- Quando a fatia já tiver definição suficiente, o refinamento deve parar e o ciclo deve ser reclassificado.
+- Uma fatia deve sair de `REFINAMENTO_EM_ANDAMENTO` quando já tiver, no mínimo:
+  - objetivo claro;
+  - valor visível;
+  - fora de escopo claro;
+  - semântica suficientemente definida;
+  - critérios de aceite verificáveis;
+  - dependências principais conhecidas;
+  - dúvidas remanescentes que não alterem materialmente o primeiro PR.
+
+### Trava anti-loop do refinamento
+
+- Se houver rodadas consecutivas de refinamento sem redução material de ambiguidade, a LLM/PM deve interromper o refinamento aberto e escolher explicitamente entre:
+  - continuar refinando só com uma única pergunta realmente bloqueadora;
+  - consolidar o estado como `PRONTO_PARA_DOC`;
+  - consolidar o estado como `PRONTO_PARA_CODEX`.
+- Conta como redução material de ambiguidade:
+  - fechar a semântica da fatia;
+  - fechar a fonte de verdade dos números ou regras;
+  - fechar escopo;
+  - fechar critérios de aceite;
+  - reduzir risco de retrabalho;
+  - fechar dependência relevante.
+- Não conta como redução material:
+  - naming fino;
+  - detalhe cosmético;
+  - preferência visual sem impacto estrutural;
+  - hipótese secundária que pode ficar para PR posterior.
+
 ### O que significa "pronta para execução"
 
 Uma fatia está pronta para execução quando já tem:
@@ -127,6 +167,7 @@ Uma fatia está pronta para execução quando já tem:
 - decisões já preservadas;
 - critérios de aceite verificáveis;
 - dependências principais resolvidas ou explicitadas.
+- Dúvidas menores podem permanecer abertas quando não mudarem materialmente o primeiro PR.
 
 ## Como Montar o Prompt para o Codex
 
