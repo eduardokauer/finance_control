@@ -586,14 +586,14 @@ def _build_home_primary_chart(
     }
     metric_map = {
         "cash": {
-            "balance": {"label": "Fluxo líquido", "style": "cash-balance", "type": "bar"},
-            "income": {"label": "Entradas", "style": "cash-income", "type": "line"},
-            "expense": {"label": "Saídas", "style": "cash-expense", "type": "line"},
+            "balance": {"label": "Fluxo líquido", "style": "cash-balance", "type": "line"},
+            "income": {"label": "Entradas", "style": "cash-income", "type": "bar"},
+            "expense": {"label": "Saídas", "style": "cash-expense", "type": "bar"},
         },
         "competence": {
-            "balance": {"label": "Resultado", "style": "competence-balance", "type": "bar"},
-            "income": {"label": "Receitas", "style": "competence-income", "type": "line"},
-            "expense": {"label": "Despesas", "style": "competence-expense", "type": "line"},
+            "balance": {"label": "Resultado", "style": "competence-balance", "type": "line"},
+            "income": {"label": "Receitas", "style": "competence-income", "type": "bar"},
+            "expense": {"label": "Despesas", "style": "competence-expense", "type": "bar"},
         },
     }
     metric_definitions = metric_map[lens]

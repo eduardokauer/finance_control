@@ -229,62 +229,70 @@
 
     const styleMap = {
       'cash-balance': {
-        backgroundColor(context) {
+        borderColor(context) {
           const value = Number(context.raw || 0);
-          return value >= 0 ? 'rgba(15, 118, 110, 0.72)' : 'rgba(180, 35, 24, 0.65)';
+          return value >= 0 ? 'rgba(15, 118, 110, 0.92)' : 'rgba(180, 35, 24, 0.92)';
         },
-        borderRadius: 8,
-        maxBarThickness: 34,
-        order: 2,
+        backgroundColor: 'transparent',
+        pointBackgroundColor(context) {
+          const value = Number(context.raw || 0);
+          return value >= 0 ? 'rgba(15, 118, 110, 0.92)' : 'rgba(180, 35, 24, 0.92)';
+        },
+        tension: 0.24,
+        borderWidth: 2.5,
+        pointRadius: 3,
+        pointHoverRadius: 4,
+        fill: false,
+        order: 1,
       },
       'cash-income': {
-        borderColor: '#18794e',
-        backgroundColor: 'rgba(24, 121, 78, 0.14)',
-        pointBackgroundColor: '#18794e',
-        tension: 0.22,
-        borderWidth: 2,
-        pointRadius: 3,
-        pointHoverRadius: 4,
-        order: 1,
-      },
-      'cash-expense': {
-        borderColor: '#b42318',
-        backgroundColor: 'rgba(180, 35, 24, 0.14)',
-        pointBackgroundColor: '#b42318',
-        tension: 0.22,
-        borderWidth: 2,
-        pointRadius: 3,
-        pointHoverRadius: 4,
-        order: 1,
-      },
-      'competence-balance': {
-        backgroundColor(context) {
-          const value = Number(context.raw || 0);
-          return value >= 0 ? 'rgba(9, 94, 151, 0.72)' : 'rgba(180, 35, 24, 0.65)';
-        },
+        backgroundColor: 'rgba(24, 121, 78, 0.72)',
+        borderColor: 'rgba(24, 121, 78, 0.92)',
         borderRadius: 8,
-        maxBarThickness: 34,
+        maxBarThickness: 28,
+        borderSkipped: false,
         order: 2,
       },
-      'competence-income': {
-        borderColor: '#095e97',
-        backgroundColor: 'rgba(9, 94, 151, 0.14)',
-        pointBackgroundColor: '#095e97',
-        tension: 0.22,
-        borderWidth: 2,
+      'cash-expense': {
+        backgroundColor: 'rgba(180, 35, 24, 0.72)',
+        borderColor: 'rgba(180, 35, 24, 0.92)',
+        borderRadius: 8,
+        maxBarThickness: 28,
+        borderSkipped: false,
+        order: 2,
+      },
+      'competence-balance': {
+        borderColor(context) {
+          const value = Number(context.raw || 0);
+          return value >= 0 ? 'rgba(9, 94, 151, 0.92)' : 'rgba(180, 35, 24, 0.92)';
+        },
+        backgroundColor: 'transparent',
+        pointBackgroundColor(context) {
+          const value = Number(context.raw || 0);
+          return value >= 0 ? 'rgba(9, 94, 151, 0.92)' : 'rgba(180, 35, 24, 0.92)';
+        },
+        tension: 0.24,
+        borderWidth: 2.5,
         pointRadius: 3,
         pointHoverRadius: 4,
+        fill: false,
         order: 1,
       },
+      'competence-income': {
+        backgroundColor: 'rgba(9, 94, 151, 0.72)',
+        borderColor: 'rgba(9, 94, 151, 0.92)',
+        borderRadius: 8,
+        maxBarThickness: 28,
+        borderSkipped: false,
+        order: 2,
+      },
       'competence-expense': {
-        borderColor: '#b54708',
-        backgroundColor: 'rgba(181, 71, 8, 0.14)',
-        pointBackgroundColor: '#b54708',
-        tension: 0.22,
-        borderWidth: 2,
-        pointRadius: 3,
-        pointHoverRadius: 4,
-        order: 1,
+        backgroundColor: 'rgba(181, 71, 8, 0.72)',
+        borderColor: 'rgba(181, 71, 8, 0.92)',
+        borderRadius: 8,
+        maxBarThickness: 28,
+        borderSkipped: false,
+        order: 2,
       },
       'comparison-cash-balance': {
         borderColor: 'rgba(15, 118, 110, 0.38)',
