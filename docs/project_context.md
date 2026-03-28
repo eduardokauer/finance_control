@@ -72,7 +72,7 @@ Ordem de leitura recomendada:
 - Arquitetura da informação do admin reorganizada para separar Resumo, Análise detalhada, Conferência, Operação e Configuração.
 - Home/resumo do admin simplificada para concentrar leitura financeira essencial, categorias prioritárias e atalhos de aprofundamento.
 - Home/resumo do admin evoluída para alternar entre `Visão de Caixa` e `Visão de Competência`, com cards, resumo executivo e alertas coerentes com a lente ativa.
-- Gráfico principal da home/resumo materializado com controle temporal local (`Ano` e `Últimos 12 meses`), dropdown de ano e abas curtas de comparação por métrica.
+- Gráfico principal da home/resumo materializado com controle temporal local (`Ano` e `Últimos 12 meses`), dropdown de ano, abas curtas de comparação por métrica e convenção visual com barras para entradas/saídas ou receitas/despesas e linha para fluxo/resultado.
 - Bloco-resumo com comparativo visual das Top 5 categorias de consumo do mês-base materializado apenas na `Visão de Competência`, com referência padrão no mês anterior.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
 - Deduplicação forte implementada em OFX e faturas.
@@ -166,7 +166,7 @@ Esta lista cobre capacidades que ainda não existem no produto ou que ainda não
 - Essa reorganização é uma decisão explícita de arquitetura da informação do produto, feita antes da próxima etapa de gráficos dedicados por categoria.
 - A `Visão de Caixa` da home usa a leitura de caixa do mês-base para fluxo líquido, entradas, saídas e maior saída individual do período.
 - A `Visão de Competência` da home usa a leitura gerencial já suportada pelo produto para resultado do mês, receitas por competência, despesas por competência e margem do mês.
-- O gráfico principal da home acompanha a lente ativa, mas o controle temporal é local ao próprio bloco.
+- O gráfico principal da home acompanha a lente ativa, usa barras para entradas/saídas ou receitas/despesas e linha para fluxo/resultado, e mantém o controle temporal local ao próprio bloco.
 - O resumo executivo principal e os alertas prioritários acompanham a lente ativa sem misturar caixa com competência de forma artificial.
 - O breakdown mensal por categoria do mês-base usa a visão de consumo:
   - transações válidas da conta por `transaction_date`;
@@ -330,9 +330,9 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Fonte de verdade da fatia:** a mesma visão de **fluxo de caixa** já usada na faixa inicial da home para fluxo líquido, entradas e saídas.
 - **Escopo inicial:** a home deve exibir um gráfico principal anual com 12 meses do **ano calendário selecionado**, de **janeiro a dezembro**, incluindo meses zerados.
 - **Séries do gráfico:**
-  - **Fluxo líquido mensal** em **barras**
-  - **Entradas mensais** em **linha**
-  - **Saídas mensais** em **linha**
+  - **Fluxo líquido mensal** em **linha**
+  - **Entradas mensais** em **barras**
+  - **Saídas mensais** em **barras**
 - **Convenção numérica do gráfico:**
   - entradas devem ser exibidas **acima de zero**;
   - saídas devem ser exibidas **abaixo de zero**;
@@ -346,7 +346,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
   - alternância entre `Visão de Caixa` e `Visão de Competência` dentro do gráfico;
   - drill-down;
   - múltiplos gráficos adicionais no mesmo PR.
-- **Estado após implementação:** o gráfico fica materializado na home como bloco principal logo após a faixa inicial, usa ano calendário fechado, mantém meses zerados visíveis, usa barras para fluxo líquido, linhas para entradas e saídas, e preserva a separação semântica entre fluxo de caixa e consumo.
+- **Estado após implementação:** o gráfico fica materializado na home como bloco principal logo após a faixa inicial, usa ano calendário fechado, mantém meses zerados visíveis, usa barras para entradas e saídas e linha para fluxo líquido, e preserva a separação semântica entre fluxo de caixa e consumo.
 
 ##### Terceira fatia implementada: comparativo visual das categorias do mês na home
 
@@ -379,6 +379,9 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
   - **Visão de Caixa:** `Fluxo líquido do mês`, `Entradas do mês`, `Saídas do mês` e `Maior saída do mês`.
   - **Visão de Competência:** `Resultado do mês`, `Receitas por competência`, `Despesas por competência` e `Margem do mês`.
 - **Regra do gráfico nesta fatia:** o controle temporal afeta apenas o gráfico principal; o restante da home continua mensal, ancorado no mês-base da página.
+- **Estrutura visual atual do gráfico por lente:**
+  - **Visão de Caixa:** `Entradas` e `Saídas` em barras, com `Fluxo líquido` em linha.
+  - **Visão de Competência:** `Receitas` e `Despesas` em barras, com `Resultado` em linha.
 - **Regra do Top 5 categorias:** o ranking compacto continua usando a visão de consumo já consolidada, mas fica oculto na `Visão de Caixa` e aparece apenas na `Visão de Competência`.
 - **O que continua fora desta fatia:** tela completa de categorias, drill-down novo a partir da home, comparação por fonte (`Extrato`, `Fatura`, `Conciliado`), dashboard separado de fluxo de caixa, novo motor contábil e refatoração ampla do sistema de alertas.
 - **Estado após implementação:** a home passa a ter `Visão de Caixa` como padrão inicial, `Visão de Competência` como leitura alternável, cards coerentes por lente, gráfico principal com controle temporal local e comparação enxuta por abas, mantendo a home como **resumo** e não como análise completa.
