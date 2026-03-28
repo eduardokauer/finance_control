@@ -71,8 +71,9 @@ Ordem de leitura recomendada:
 - Alertas e ações recomendadas recalculados para priorizar sinais da visão de consumo quando falam de consumo, categorias e variação de gasto.
 - Arquitetura da informação do admin reorganizada para separar Resumo, Análise detalhada, Conferência, Operação e Configuração.
 - Home/resumo do admin simplificada para concentrar leitura financeira essencial, categorias prioritárias e atalhos de aprofundamento.
-- Gráfico principal anual de fluxo de caixa materializado na home/resumo, com ano calendário fechado de janeiro a dezembro e meses zerados visíveis.
-- Bloco-resumo com comparativo visual das Top 5 categorias de consumo do mês-base materializado na home/resumo, com referência padrão no mês anterior.
+- Home/resumo do admin evoluída para alternar entre `Visão de Caixa` e `Visão de Competência`, com cards, resumo executivo e alertas coerentes com a lente ativa.
+- Gráfico principal da home/resumo materializado com controle temporal local (`Ano` e `Últimos 12 meses`), dropdown de ano e abas curtas de comparação por métrica.
+- Bloco-resumo com comparativo visual das Top 5 categorias de consumo do mês-base materializado apenas na `Visão de Competência`, com referência padrão no mês anterior.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
 - Deduplicação forte implementada em OFX e faturas.
 
@@ -159,12 +160,14 @@ Esta lista cobre capacidades que ainda não existem no produto ou que ainda não
 ### Leitura analítica atual
 
 - O admin separa a leitura em três entradas analíticas complementares:
-  - **Resumo:** entrada principal, com faixa inicial mensal de fluxo de caixa, gráfico principal anual de fluxo de caixa, bloco-resumo com comparativo das Top 5 categorias da visão de consumo, resumo executivo e alertas mais urgentes.
+  - **Resumo:** entrada principal, com alternância entre `Visão de Caixa` e `Visão de Competência`, faixa inicial de cards por lente, gráfico principal com controle temporal local, comparativo compacto de categorias apenas na lente de competência, resumo executivo e alertas mais urgentes.
   - **Análise detalhada:** aprofundamento da visão de consumo, com breakdown categorial completo, comparações históricas, gráficos analíticos atuais, alertas e ações.
   - **Conferência:** visão bruta, cobertura da leitura principal, sinais auxiliares de conciliação, itens técnicos e HTML renderizado para auditoria.
 - Essa reorganização é uma decisão explícita de arquitetura da informação do produto, feita antes da próxima etapa de gráficos dedicados por categoria.
-- A faixa inicial da home usa fluxo de caixa do mês-base para fluxo líquido, entradas e saídas, e separa o consumo do mês pela visão de consumo já consolidada.
-- O resumo executivo principal descreve a leitura conciliada do mês e sua cobertura.
+- A `Visão de Caixa` da home usa a leitura de caixa do mês-base para fluxo líquido, entradas, saídas e maior saída individual do período.
+- A `Visão de Competência` da home usa a leitura gerencial já suportada pelo produto para resultado do mês, receitas por competência, despesas por competência e margem do mês.
+- O gráfico principal da home acompanha a lente ativa, mas o controle temporal é local ao próprio bloco.
+- O resumo executivo principal e os alertas prioritários acompanham a lente ativa sem misturar caixa com competência de forma artificial.
 - O breakdown mensal por categoria do mês-base usa a visão de consumo:
   - transações válidas da conta por `transaction_date`;
   - itens `charge` de faturas `conciliated` por `purchase_date`;
@@ -225,12 +228,12 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 ### Estado atual do trabalho
 
 - **Estado atual do ciclo:** `REFINAMENTO_EM_ANDAMENTO`
-- **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Fluxo de caixa** como visão padrão e **Consumo** como modo alternável.
+- **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Visão de Caixa** como leitura padrão e **Visão de Competência** como leitura alternável.
 - **Épico ativo:** `Home visual de fluxo de caixa`
-- **Histórias em refino:** alternância entre Fluxo de caixa e Consumo; evolução futura dos atalhos/contexto entre `Resumo`, `Análise detalhada` e `Conferência`.
+- **Histórias em refino:** próximos blocos da home ainda não materializados; evolução futura dos atalhos/contexto entre `Resumo`, `Análise detalhada` e `Conferência`.
 - **Fatia ativa ou candidata:** próximo recorte do épico ainda em refinamento, sem prioridade definitiva fechada entre as histórias remanescentes da home.
-- **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da faixa inicial, do gráfico anual e do comparativo categorial compacto materializados.
-- **Motivo resumido:** o terceiro PR técnico da home já materializa o comparativo visual das Top 5 categorias do mês-base contra o mês anterior; com isso, o foco volta para fechar a próxima fatia do mesmo épico antes de um novo handoff técnico.
+- **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da alternância entre lentes, do gráfico com controle temporal local e do comparativo categorial compacto já materializados.
+- **Motivo resumido:** o quarto PR técnico da home já materializa a alternância entre `Visão de Caixa` e `Visão de Competência`, incluindo cards por lente, gráfico principal com controle temporal local e ajuste contextual do resumo executivo; com isso, o foco volta para fechar a próxima fatia do mesmo épico antes de um novo handoff técnico.
 - **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
 
 ### Como ler o roadmap
@@ -267,10 +270,10 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Tema ativo do roadmap
 
-- **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Fluxo de caixa** como visão padrão e **Consumo** como modo alternável.
+- **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Visão de Caixa** como leitura padrão e **Visão de Competência** como leitura alternável.
 - **Referência no backlog:** corresponde à **Ordem 1** do backlog estratégico.
 - **Status:** ativo em refinamento.
-- **Decisão consolidada:** a home deve evoluir para uma entrada mais visual e mais orientada à decisão, com **Fluxo de caixa** como modo padrão e **Consumo** como modo alternável de leitura.
+- **Decisão consolidada:** a home deve evoluir para uma entrada mais visual e mais orientada à decisão, com **Visão de Caixa** como leitura padrão e **Visão de Competência** como leitura alternável.
 - **Observação:** este bloco é apenas um recorte operacional da Ordem 1 e não uma segunda estrutura paralela de prioridade.
 
 ### Estrutura de refinamento do tema ativo
@@ -296,14 +299,15 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
   1. Como usuário, quero ver cards/KPIs visuais do mês para entender rapidamente o estado financeiro atual.
   2. Como usuário, quero ver um gráfico principal de evolução de 12 meses para perceber tendência e direção geral sem depender de leitura textual extensa.
   3. Como usuário, quero um comparativo visual das categorias do mês contra uma referência histórica para identificar desvios relevantes com rapidez.
-  4. Como usuário, quero alternar entre Fluxo de caixa e Consumo na home para mudar a lente principal sem sair da entrada do sistema.
+  4. Como usuário, quero alternar entre Visão de Caixa e Visão de Competência na home para mudar a lente principal sem sair da entrada do sistema.
   5. Como usuário, quero atalhos claros para `Análise detalhada` e `Conferência` quando precisar aprofundar ou auditar a leitura principal.
 - **Observação de produto:** revisão estética caminha junto com esse épico e não como trilha cosmética isolada posterior.
 
 ##### Primeira fatia definida: faixa inicial de 4 cards mensais
 
+- **Observação de evolução:** esta definição inicial foi posteriormente absorvida pela alternância entre `Visão de Caixa` e `Visão de Competência`; a home continua começando com uma faixa de quatro cards, mas a composição atual por lente está registrada na quarta fatia implementada abaixo.
 - **Objetivo da fatia:** materializar visualmente a semântica financeira já existente do sistema, sem introduzir nova lógica de domínio.
-- **Modo padrão da home nesta fatia:** `Fluxo de caixa`.
+- **Modo padrão da home nesta fatia:** `Visão de Caixa`, materializando a leitura de fluxo de caixa já existente.
 - **Escopo inicial:** a primeira implementação da home deve exibir uma faixa inicial com 4 cards mensais:
   1. **Fluxo líquido do mês**
   2. **Entradas do mês**
@@ -318,7 +322,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Regra de semântica:** esta fatia não cria semântica nova; ela apenas materializa visualmente a semântica já consolidada do sistema em visão conciliada, separação entre fluxo de caixa e consumo e leitura financeira baseada nas transações já processadas.
 - **O que não entra nesta fatia:** disponível até o fim do mês, projeção de fechamento, próximas obrigações, recorrências, top categorias na home principal, patrimônio, metas, investimentos, nova lógica de conciliação, alteração da semântica de consumo e alteração da semântica de pagamento de fatura.
 - **Decisão de UX da primeira fatia:** a primeira faixa da home deve priorizar leitura rápida e baixo ruído; a intenção não é construir um dashboard completo neste momento, mas sim uma entrada visual clara para o estado financeiro mensal.
-- **Critério de prontidão para implementação:** esta fatia estará pronta quando os 4 cards estiverem assumidos como bloco inicial da home, o modo padrão estiver definido como Fluxo de caixa, a comparação contra o mês anterior estiver assumida como padrão dos cards e estiver explícito que não haverá forecast nem recorrência nesta primeira entrega.
+- **Critério de prontidão para implementação:** esta fatia estará pronta quando os 4 cards estiverem assumidos como bloco inicial da home, o modo padrão estiver definido como `Visão de Caixa`, a comparação contra o mês anterior estiver assumida como padrão dos cards e estiver explícito que não haverá forecast nem recorrência nesta primeira entrega.
 
 ##### Segunda fatia implementada: gráfico principal de evolução anual em fluxo de caixa
 
@@ -339,7 +343,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
   - visão de consumo no mesmo gráfico;
   - forecast;
   - comparação por fonte (`Extrato`, `Fatura`, `Conciliado`);
-  - alternância entre `Fluxo de caixa` e `Consumo` dentro do gráfico;
+  - alternância entre `Visão de Caixa` e `Visão de Competência` dentro do gráfico;
   - drill-down;
   - múltiplos gráficos adicionais no mesmo PR.
 - **Estado após implementação:** o gráfico fica materializado na home como bloco principal logo após a faixa inicial, usa ano calendário fechado, mantém meses zerados visíveis, usa barras para fluxo líquido, linhas para entradas e saídas, e preserva a separação semântica entre fluxo de caixa e consumo.
@@ -357,15 +361,37 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **O que não entra nesta fatia:** todas as categorias do mês na home, gráfico categorial pesado neste bloco, comparação contra o mesmo mês do ano anterior, mistura com visão de fluxo de caixa, tela completa de categorias no mesmo PR e drill-down a partir da home.
 - **Estado após implementação:** a home mantém caráter de **resumo**, mostra apenas as Top 5 categorias com comparação contra o mês anterior e deixa a visão completa de categorias explicitamente para a análise detalhada ou para fatia futura específica.
 
+##### Quarta fatia implementada: alternância entre Visão de Caixa e Visão de Competência na home
+
+- **Objetivo da fatia:** transformar a home em uma entrada realmente orientada à decisão, separando com clareza a leitura de caixa da leitura por competência sem exigir que o usuário saia da home para trocar a lente principal.
+- **Nomenclatura de interface consolidada:** a home passa a usar `Visão de Caixa` e `Visão de Competência` como rótulos oficiais da alternância principal.
+- **Semântica geral:** esta fatia não cria motor contábil novo; ela materializa visualmente duas lentes gerenciais sobre dados já disponíveis no produto.
+- **Escopo materializado:**
+  - tabs curtas no topo da home para alternar entre `Visão de Caixa` e `Visão de Competência`;
+  - quatro cards específicos por lente;
+  - gráfico principal acompanhando a lente ativa;
+  - controle temporal local do gráfico com `Ano` e `Últimos 12 meses`;
+  - dropdown próprio de ano no modo `Ano`;
+  - abas curtas de comparação visual por métrica, com série comparativa em linha mais leve/pontilhada;
+  - bloco Top 5 categorias visível apenas na `Visão de Competência`;
+  - resumo executivo e alertas prioritários acompanhando a lente ativa sem refatoração ampla do motor analítico.
+- **Cards materializados por lente:**
+  - **Visão de Caixa:** `Fluxo líquido do mês`, `Entradas do mês`, `Saídas do mês` e `Maior saída do mês`.
+  - **Visão de Competência:** `Resultado do mês`, `Receitas por competência`, `Despesas por competência` e `Margem do mês`.
+- **Regra do gráfico nesta fatia:** o controle temporal afeta apenas o gráfico principal; o restante da home continua mensal, ancorado no mês-base da página.
+- **Regra do Top 5 categorias:** o ranking compacto continua usando a visão de consumo já consolidada, mas fica oculto na `Visão de Caixa` e aparece apenas na `Visão de Competência`.
+- **O que continua fora desta fatia:** tela completa de categorias, drill-down novo a partir da home, comparação por fonte (`Extrato`, `Fatura`, `Conciliado`), dashboard separado de fluxo de caixa, novo motor contábil e refatoração ampla do sistema de alertas.
+- **Estado após implementação:** a home passa a ter `Visão de Caixa` como padrão inicial, `Visão de Competência` como leitura alternável, cards coerentes por lente, gráfico principal com controle temporal local e comparação enxuta por abas, mantendo a home como **resumo** e não como análise completa.
+
 ### Backlog estratégico ordenado
 
-#### Ordem 1 - Home orientada à decisão com fluxo de caixa como visão padrão
+#### Ordem 1 - Home orientada à decisão com Visão de Caixa como leitura padrão
 
 - **Frente:** Leitura financeira e visualização
 - **Objetivo de valor:** transformar a home na entrada principal do sistema, com leitura visual e valor real em poucos segundos.
 - **Prioridade:** P0
 - **Refino de produto necessário?:** Sim
-- **Motivo do refino:** precisa fechar estrutura da home, hierarquia da informação, KPIs, modo padrão de fluxo de caixa, alternância com consumo, comparação mensal/anual e distribuição dos blocos.
+- **Motivo do refino:** precisa fechar estrutura da home, hierarquia da informação, KPIs, leitura padrão em `Visão de Caixa`, alternância com `Visão de Competência`, comparação mensal/anual e distribuição dos blocos.
 - **Dependências:** base atual de consumo já estabilizada.
 - **Status:** ativo em refinamento.
 

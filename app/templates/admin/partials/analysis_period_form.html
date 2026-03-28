@@ -16,6 +16,11 @@
 
   <form method="get" action="{{ analysis_form_action }}" class="stack" id="analysis-period-form">
     <input type="hidden" name="selection_mode" id="selection-mode-input" value="{{ selection_mode }}">
+    {% for field in analysis_extra_hidden_fields or [] %}
+      {% if field.value is not none %}
+        <input type="hidden" name="{{ field.name }}" value="{{ field.value }}">
+      {% endif %}
+    {% endfor %}
 
     <div class="inline" style="gap:8px;">
       <button type="button" class="button period-tab {% if selection_mode == 'closed' %}button-primary{% endif %}" data-mode="closed">Último mês fechado</button>
