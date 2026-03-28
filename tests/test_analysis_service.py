@@ -382,10 +382,11 @@ def test_analysis_snapshot_builds_home_cards_from_cash_flow_and_consumption_view
     assert cards["expense"]["change"]["previous"] == 2150.0
     assert cards["expense"]["change"]["delta"] == 950.0
 
-    assert cards["consumption"]["current"] == 3200.0
-    assert cards["consumption"]["change"]["previous"] == 2200.0
-    assert cards["consumption"]["change"]["delta"] == 1000.0
-    assert cards["consumption"]["current"] != cards["expense"]["current"]
+    assert "consumption" not in cards
+    assert cards["largest_expense"]["current"] == 1800.0
+    assert cards["largest_expense"]["change"]["previous"] == 1500.0
+    assert cards["largest_expense"]["change"]["delta"] == 300.0
+    assert cards["largest_expense"]["detail"] == "ALUGUEL MAR"
 
 
 def test_analysis_snapshot_home_cards_show_clear_fallback_without_previous_month_base(db_session):
@@ -432,7 +433,9 @@ def test_analysis_snapshot_home_cards_show_clear_fallback_without_previous_month
     assert snapshot["home_cards"]["previous_month_label"] == "fev/2026"
     assert all(card["comparison_available"] is False for card in cards.values())
     assert all(card["change"] is None for card in cards.values())
-    assert cards["consumption"]["current"] == 3200.0
+    assert "consumption" not in cards
+    assert cards["largest_expense"]["current"] == 1800.0
+    assert cards["largest_expense"]["detail"] == "ALUGUEL MAR"
 
 
 def test_analysis_snapshot_builds_home_yearly_cash_flow_chart_with_calendar_year_and_zero_months(db_session):
@@ -446,19 +449,20 @@ def test_analysis_snapshot_builds_home_yearly_cash_flow_chart_with_calendar_year
 
     chart = snapshot["home_yearly_chart"]
 
-    assert chart["year"] == 2026
+    assert chart["selected_year"] == 2026
     assert chart["labels"] == ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
-    assert chart["income"][0] == 5000.0
-    assert chart["expense"][0] == -1500.0
-    assert chart["balance"][0] == 3500.0
-    assert chart["income"][1] == 0.0
-    assert chart["expense"][1] == 0.0
-    assert chart["balance"][1] == 0.0
-    assert chart["income"][2] == 3200.0
-    assert chart["expense"][2] == -1200.0
-    assert chart["balance"][2] == 2000.0
-    assert chart["months"][11]["month"] == "2026-12"
-    assert chart["months"][11]["transaction_count"] == 0
+    assert chart["datasets"][0]["label"] == "Fluxo líquido"
+    assert chart["datasets"][1]["label"] == "Entradas"
+    assert chart["datasets"][2]["label"] == "Saídas"
+    assert chart["datasets"][0]["data"][0] == 3500.0
+    assert chart["datasets"][1]["data"][0] == 5000.0
+    assert chart["datasets"][2]["data"][0] == -1500.0
+    assert chart["datasets"][0]["data"][1] == 0.0
+    assert chart["datasets"][1]["data"][1] == 0.0
+    assert chart["datasets"][2]["data"][1] == 0.0
+    assert chart["datasets"][0]["data"][2] == 2000.0
+    assert chart["datasets"][1]["data"][2] == 3200.0
+    assert chart["datasets"][2]["data"][2] == -1200.0
     assert chart["all_zero"] is False
 
 
@@ -469,12 +473,13 @@ def test_analysis_snapshot_builds_home_yearly_cash_flow_chart_with_all_zero_mont
 
     chart = snapshot["home_yearly_chart"]
 
-    assert chart["year"] == 2026
-    assert chart["all_zero"] is True
+    assert chart["selected_year"] == 2026
+    assert chart["all_zero"] is False
     assert len(chart["labels"]) == 12
-    assert all(value == 0.0 for value in chart["income"])
-    assert all(value == 0.0 for value in chart["expense"])
-    assert all(value == 0.0 for value in chart["balance"])
+    assert all(value == 0.0 for value in chart["datasets"][0]["data"])
+    assert all(value == 0.0 for value in chart["datasets"][1]["data"])
+    assert all(value == 0.0 for value in chart["datasets"][2]["data"])
+    assert any(value != 0.0 for value in chart["datasets"][-1]["data"])
 
 
 def test_analysis_snapshot_builds_home_category_comparison_from_top_five_consumption_categories(db_session):
@@ -526,6 +531,166 @@ def test_analysis_snapshot_builds_home_category_comparison_empty_state_without_c
     assert comparison["rows"] == []
     assert "Top 5 categorias de consumo do mês-base" in comparison["note"]
 
+
+def test_analysis_snapshot_builds_home_dashboard_for_cash_and_competence_lenses(db_session):
+    _add_tx(db_session, tx_date=date(2026, 2, 5), description="SALARIO FEV", amount=4500.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 2, 8), description="ALUGUEL FEV", amount=-1500.0, category="Moradia", transaction_kind="expense")
+    payment_february = _add_tx(
+        db_session,
+        tx_date=date(2026, 2, 18),
+        description="FATURA FEV",
+        amount=-650.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice_february = _add_invoice(
+        db_session,
+        due_date=date(2026, 2, 20),
+        card_final="4242",
+        item_specs=[
+            ("SUPERMERCADO FEV", "700.00"),
+            ("DESCONTO NA FATURA FEV", "-50.00"),
+            ("PAGAMENTO EFETUADO FEV", "-650.00"),
+        ],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice_february.id,
+        categories_by_description={"SUPERMERCADO FEV": "Supermercado"},
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice_february.id,
+        bank_transaction_ids=[payment_february.id],
+    )
+
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
+    payment_march = _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 18),
+        description="FATURA MAR",
+        amount=-1300.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice_march = _add_invoice(
+        db_session,
+        due_date=date(2026, 3, 20),
+        card_final="4343",
+        item_specs=[
+            ("SUPERMERCADO MAR", "900.00"),
+            ("CURSO MAR", "500.00"),
+            ("DESCONTO NA FATURA MAR", "-100.00"),
+            ("PAGAMENTO EFETUADO MAR", "-1300.00"),
+        ],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice_march.id,
+        categories_by_description={
+            "SUPERMERCADO MAR": "Supermercado",
+            "CURSO MAR": "Educação",
+        },
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice_march.id,
+        bank_transaction_ids=[payment_march.id],
+    )
+
+    cash_snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+    competence_snapshot = build_analysis_snapshot(
+        db_session,
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        home_lens="competence",
+    )
+
+    cash_dashboard = cash_snapshot["home_dashboard"]
+    cash_cards = {item["key"]: item for item in cash_dashboard["cards"]}
+    assert cash_dashboard["active_lens"] == "cash"
+    assert list(cash_cards) == ["net_flow", "income", "expense", "largest_expense"]
+    assert cash_cards["largest_expense"]["current"] == 1800.0
+    assert cash_cards["largest_expense"]["detail"] == "ALUGUEL MAR"
+    assert cash_dashboard["category_comparison"]["visible"] is False
+
+    competence_dashboard = competence_snapshot["home_dashboard"]
+    competence_cards = {item["key"]: item for item in competence_dashboard["cards"]}
+    assert competence_dashboard["active_lens"] == "competence"
+    assert list(competence_cards) == ["result", "competence_income", "competence_expense", "margin"]
+    assert competence_cards["result"]["current"] == 1800.0
+    assert competence_cards["competence_income"]["current"] == 5000.0
+    assert competence_cards["competence_expense"]["current"] == 3200.0
+    assert competence_cards["margin"]["current_display"] == "36,0%"
+    assert competence_dashboard["category_comparison"]["visible"] is True
+
+
+def test_analysis_snapshot_home_dashboard_competence_margin_shows_dash_when_revenue_is_zero(db_session):
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-900.0, category="Moradia", transaction_kind="expense")
+
+    snapshot = build_analysis_snapshot(
+        db_session,
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        home_lens="competence",
+    )
+
+    cards = {item["key"]: item for item in snapshot["home_dashboard"]["cards"]}
+    assert cards["result"]["current"] == -900.0
+    assert cards["competence_income"]["current"] == 0.0
+    assert cards["competence_expense"]["current"] == 900.0
+    assert cards["margin"]["current_display"] == "—"
+    assert cards["margin"]["comparison_available"] is False
+
+
+def test_analysis_snapshot_builds_home_primary_chart_for_year_and_rolling_windows(db_session):
+    _add_tx(db_session, tx_date=date(2025, 4, 5), description="SALARIO ABR 2025", amount=4000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2025, 4, 8), description="ALUGUEL ABR 2025", amount=-1200.0, category="Moradia", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 1, 5), description="SALARIO JAN 2026", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 1, 8), description="ALUGUEL JAN 2026", amount=-1500.0, category="Moradia", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR 2026", amount=3200.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR 2026", amount=-1200.0, category="Moradia", transaction_kind="expense")
+
+    yearly_snapshot = build_analysis_snapshot(
+        db_session,
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        home_lens="cash",
+        home_chart_mode="year",
+        home_chart_year=2026,
+        home_chart_compare="income",
+    )
+    rolling_snapshot = build_analysis_snapshot(
+        db_session,
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        home_lens="competence",
+        home_chart_mode="rolling_12",
+        home_chart_compare="expense",
+    )
+
+    yearly_chart = yearly_snapshot["home_dashboard"]["chart"]
+    assert yearly_chart["mode"] == "year"
+    assert yearly_chart["selected_year"] == 2026
+    assert yearly_chart["labels"] == ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
+    assert yearly_chart["datasets"][0]["label"] == "Fluxo líquido"
+    assert yearly_chart["datasets"][0]["data"][0] == 3500.0
+    assert yearly_chart["datasets"][1]["data"][0] == 5000.0
+    assert yearly_chart["datasets"][2]["data"][0] == -1500.0
+    assert yearly_chart["datasets"][0]["data"][1] == 0.0
+    assert yearly_chart["datasets"][-1]["label"] == "Entradas | período anterior"
+
+    rolling_chart = rolling_snapshot["home_dashboard"]["chart"]
+    assert rolling_chart["mode"] == "rolling_12"
+    assert len(rolling_chart["labels"]) == 12
+    assert rolling_chart["labels"][-1] == "mar/26"
+    assert rolling_chart["datasets"][0]["label"] == "Resultado"
+    assert rolling_chart["datasets"][2]["label"] == "Despesas"
+    assert rolling_chart["datasets"][-1]["label"] == "Despesas | período anterior"
+    assert rolling_chart["datasets"][-1]["dashed"] is True
 
 def test_analysis_snapshot_builds_conciliated_category_breakdown_from_account_and_invoice_items(db_session):
     _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")

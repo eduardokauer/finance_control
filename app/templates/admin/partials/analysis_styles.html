@@ -39,6 +39,11 @@
     color: var(--muted);
     min-height: 2.6em;
   }
+  .home-kpi-detail {
+    font-size: 0.88rem;
+    color: var(--ink);
+    line-height: 1.35;
+  }
   .home-kpi-comparison {
     display: flex;
     flex-wrap: wrap;
@@ -173,5 +178,71 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
+  }
+  .home-view-tabs,
+  .home-inline-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .home-view-tab,
+  .home-inline-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.92rem;
+    font-weight: 600;
+  }
+  .home-view-tab-active,
+  .home-inline-tab-active {
+    border-color: #cdb58a;
+    background: var(--surface-strong);
+    color: var(--ink);
+  }
+  .home-chart-header {
+    display: grid;
+    gap: 12px;
+  }
+  .home-chart-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .home-chart-year-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .home-chart-year-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .home-chart-year-label select {
+    min-width: 92px;
+  }
+  @media (max-width: 760px) {
+    .home-chart-controls {
+      align-items: flex-start;
+      justify-content: flex-start;
+    }
+    .home-chart-year-form {
+      width: 100%;
+    }
+    .home-chart-year-label {
+      width: 100%;
+      justify-content: space-between;
+    }
   }
 </style>
