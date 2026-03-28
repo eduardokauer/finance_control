@@ -677,20 +677,28 @@ def test_analysis_snapshot_builds_home_primary_chart_for_year_and_rolling_window
     assert yearly_chart["selected_year"] == 2026
     assert yearly_chart["labels"] == ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
     assert yearly_chart["datasets"][0]["label"] == "Fluxo líquido"
+    assert yearly_chart["datasets"][0]["type"] == "line"
+    assert yearly_chart["datasets"][1]["type"] == "bar"
+    assert yearly_chart["datasets"][2]["type"] == "bar"
     assert yearly_chart["datasets"][0]["data"][0] == 3500.0
     assert yearly_chart["datasets"][1]["data"][0] == 5000.0
     assert yearly_chart["datasets"][2]["data"][0] == -1500.0
     assert yearly_chart["datasets"][0]["data"][1] == 0.0
     assert yearly_chart["datasets"][-1]["label"] == "Entradas | período anterior"
+    assert yearly_chart["datasets"][-1]["type"] == "line"
 
     rolling_chart = rolling_snapshot["home_dashboard"]["chart"]
     assert rolling_chart["mode"] == "rolling_12"
     assert len(rolling_chart["labels"]) == 12
     assert rolling_chart["labels"][-1] == "mar/26"
     assert rolling_chart["datasets"][0]["label"] == "Resultado"
+    assert rolling_chart["datasets"][0]["type"] == "line"
+    assert rolling_chart["datasets"][1]["type"] == "bar"
+    assert rolling_chart["datasets"][2]["type"] == "bar"
     assert rolling_chart["datasets"][2]["label"] == "Despesas"
     assert rolling_chart["datasets"][-1]["label"] == "Despesas | período anterior"
     assert rolling_chart["datasets"][-1]["dashed"] is True
+    assert rolling_chart["datasets"][-1]["type"] == "line"
 
 def test_analysis_snapshot_builds_conciliated_category_breakdown_from_account_and_invoice_items(db_session):
     _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
