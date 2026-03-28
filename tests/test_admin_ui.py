@@ -184,16 +184,16 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert home.status_code == 200
     assert "Finance Control Admin" in home.text
     assert "Resumo financeiro" in home.text
+    assert "Visão de Caixa" in home.text
+    assert "Visão de Competência" in home.text
     assert "Fluxo líquido do mês" in home.text
     assert "Entradas do mês" in home.text
     assert "Saídas do mês" in home.text
-    assert "Consumo do mês" in home.text
-    assert "Evolução anual do fluxo de caixa" in home.text
-    assert "home-yearly-cash-flow-chart" in home.text
-    assert "Comparativo" in home.text
-    assert "Sem categorias de consumo no mês-base" in home.text
+    assert "Maior saída do mês" in home.text
+    assert "home-primary-chart" in home.text
+    assert "Sem categorias de consumo no mês-base" not in home.text
     assert "chart.js" in home.text.lower()
-    assert "Resumo principal conciliado" in home.text
+    assert "Resumo executivo da Visão de Caixa" in home.text
     assert "Análise detalhada" in home.text
     assert "Conferência" in home.text
     assert "Central operacional" in home.text
@@ -297,7 +297,7 @@ def test_admin_summary_page_shows_home_category_comparison_block(client, db_sess
     )
     _login(client)
 
-    response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31")
+    response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence")
 
     assert response.status_code == 200
     assert "Comparativo rápido das categorias do mês" in response.text
@@ -305,6 +305,97 @@ def test_admin_summary_page_shows_home_category_comparison_block(client, db_sess
     assert "fev/2026: R$ 0,00" in response.text
     assert response.text.index("Moradia") < response.text.index("Supermercado") < response.text.index("Educação")
     assert "Saúde" not in response.text
+
+
+def test_admin_summary_page_switches_home_lenses_and_hides_top_categories_in_cash_view(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR",
+        normalized="salario mar cash lens",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Salário",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR",
+        normalized="aluguel mar cash lens",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_transaction(
+        db_session,
+        description="MERCADO MAR",
+        normalized="mercado mar cash lens",
+        transaction_date=date(2026, 3, 12),
+        amount=-900.0,
+        transaction_kind="expense",
+        category="Supermercado",
+    )
+    _login(client)
+
+    cash_response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31")
+    competence_response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence")
+
+    assert cash_response.status_code == 200
+    assert "Resumo executivo da Visão de Caixa" in cash_response.text
+    assert "Maior saída do mês" in cash_response.text
+    assert "Comparativo rápido das categorias do mês" not in cash_response.text
+
+    assert competence_response.status_code == 200
+    assert "Resumo executivo da Visão de Competência" in competence_response.text
+    assert "Resultado do mês" in competence_response.text
+    assert "Margem do mês" in competence_response.text
+    assert "Comparativo rápido das categorias do mês" in competence_response.text
+
+
+def test_admin_summary_page_shows_local_chart_controls_for_both_lenses(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR",
+        normalized="salario mar chart controls",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Salário",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR",
+        normalized="aluguel mar chart controls",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _login(client)
+
+    cash_response = client.get(
+        "/admin?period_start=2026-03-01&period_end=2026-03-31&home_chart_mode=year&home_chart_year=2026&home_chart_compare=income"
+    )
+    competence_response = client.get(
+        "/admin?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence&home_chart_mode=rolling_12&home_chart_compare=expense"
+    )
+
+    assert cash_response.status_code == 200
+    assert 'name="home_chart_year"' in cash_response.text
+    assert "Fluxo líquido" in cash_response.text
+    assert "Entradas" in cash_response.text
+    assert "Saídas" in cash_response.text
+    assert "Visão de Caixa: evolução principal" in cash_response.text
+
+    assert competence_response.status_code == 200
+    assert "Resultado" in competence_response.text
+    assert "Receitas" in competence_response.text
+    assert "Despesas" in competence_response.text
+    assert "Visão de Competência: evolução principal" in competence_response.text
 
 
 def test_admin_can_create_credit_card_and_upload_invoice(client, db_session, monkeypatch, sample_credit_card_csv_file):

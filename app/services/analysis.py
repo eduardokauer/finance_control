@@ -41,6 +41,17 @@ def format_percent_br(value: float | None) -> str:
     return f"{value * 100:.1f}%".replace(".", ",")
 
 
+def format_percent_points_br(value: float) -> str:
+    return f"{abs(value) * 100:.1f} p.p.".replace(".", ",")
+
+
+def format_signed_percent_points_br(value: float) -> str:
+    if abs(float(value)) < 0.0001:
+        return "0,0 p.p."
+    prefix = "+" if value > 0 else "-"
+    return f"{prefix}{format_percent_points_br(value)}"
+
+
 def format_date_br(value: date) -> str:
     return value.strftime("%d/%m/%Y")
 
@@ -158,6 +169,29 @@ def _build_metric_change(current: float, previous: float) -> dict:
     }
 
 
+def _build_percent_point_change(current: float, previous: float) -> dict:
+    delta = current - previous
+    if abs(delta) < 0.0001:
+        trend = "stable"
+    elif delta > 0:
+        trend = "up"
+    else:
+        trend = "down"
+    return {
+        "current": current,
+        "previous": previous,
+        "delta": delta,
+        "percent": None,
+        "trend": trend,
+        "trend_label": {"up": "subiu", "down": "desceu", "stable": "estável"}[trend],
+        "current_display": format_percent_br(current),
+        "previous_display": format_percent_br(previous),
+        "delta_display": format_percent_points_br(delta),
+        "delta_signed_display": format_signed_percent_points_br(delta),
+        "percent_display": None,
+    }
+
+
 def _sum_consumption_total_from_breakdown(*, breakdown: dict) -> float:
     return sum(
         row["expense_total"]
@@ -218,23 +252,69 @@ def _build_home_metric_card(
     reference_label: str,
     value_class: str,
     is_primary: bool = False,
+    current_display_override: str | None = None,
+    detail: str | None = None,
+    change: dict | None = None,
+    comparison_primary_display: str | None = None,
+    comparison_secondary_display: str | None = None,
 ) -> dict:
-    change = _build_metric_change(current, previous) if previous is not None else None
+    materialized_change = change if change is not None else (
+        _build_metric_change(current, previous)
+        if previous is not None
+        else None
+    )
     return {
         "key": key,
         "title": title,
         "subtitle": subtitle,
         "current": current,
-        "current_display": format_currency_br(current),
+        "current_display": current_display_override or format_currency_br(current),
         "value_class": value_class,
         "is_primary": is_primary,
         "reference_label": reference_label,
-        "change": change,
-        "comparison_available": change is not None,
+        "detail": detail,
+        "change": materialized_change,
+        "comparison_available": materialized_change is not None,
+        "comparison_primary_display": comparison_primary_display
+        or (
+            f"{materialized_change['delta_signed_display']} vs {reference_label}"
+            if materialized_change is not None
+            else None
+        ),
+        "comparison_secondary_display": comparison_secondary_display
+        if comparison_secondary_display is not None
+        else (
+            materialized_change["percent_display"]
+            if materialized_change is not None and materialized_change["percent"] is not None
+            else None
+        ),
     }
 
 
-def _build_home_cards(
+def _build_largest_expense_snapshot(month_txs: list[Transaction]) -> dict:
+    expense_candidates = [tx for tx in month_txs if _expense_amount(tx) > 0]
+    if not expense_candidates:
+        return {
+            "amount": 0.0,
+            "display": format_currency_br(0.0),
+            "description": "Sem saídas individuais no mês-base.",
+            "has_expense": False,
+        }
+
+    largest = max(
+        expense_candidates,
+        key=lambda tx: (_expense_amount(tx), tx.transaction_date, tx.id or 0),
+    )
+    amount = _expense_amount(largest)
+    return {
+        "amount": amount,
+        "display": format_currency_br(amount),
+        "description": largest.description_raw or "Saída sem descrição",
+        "has_expense": True,
+    }
+
+
+def _build_cash_home_cards(
     db: Session,
     *,
     anchor_month: date,
@@ -250,13 +330,25 @@ def _build_home_cards(
     previous_month = add_months(month_start(anchor_month), -1)
     previous_snapshot = _build_home_month_snapshot(db, anchor_month=previous_month)
     previous_flow_summary = previous_snapshot["flow_summary"] if previous_snapshot["flow_has_activity"] else None
-    previous_consumption_total = (
-        previous_snapshot["consumption_total"]
-        if previous_snapshot["consumption_has_activity"]
+    current_largest_expense = _build_largest_expense_snapshot(current_month_txs)
+    previous_month_txs = (
+        _load_transactions_for_period(
+            db,
+            period_start=previous_snapshot["period_start"],
+            period_end=previous_snapshot["period_end"],
+        )
+        if previous_snapshot["flow_has_activity"]
+        else []
+    )
+    previous_largest_expense = (
+        _build_largest_expense_snapshot(previous_month_txs)
+        if previous_snapshot["flow_has_activity"]
         else None
     )
 
     return {
+        "lens": "cash",
+        "lens_label": "Visão de Caixa",
         "current_month_label": current_snapshot["label"],
         "previous_month_label": previous_snapshot["label"],
         "cards": [
@@ -289,80 +381,306 @@ def _build_home_cards(
                 value_class="amount-negative",
             ),
             _build_home_metric_card(
-                key="consumption",
-                title="Consumo do mês",
-                subtitle="Visão de consumo sem duplicar pagamento de fatura.",
-                current=current_snapshot["consumption_total"],
-                previous=previous_consumption_total,
+                key="largest_expense",
+                title="Maior saída do mês",
+                subtitle=(
+                    "Maior lançamento individual de saída do mês-base."
+                    if current_largest_expense["has_expense"]
+                    else "Sem saídas individuais registradas no mês-base."
+                ),
+                current=current_largest_expense["amount"],
+                previous=(
+                    previous_largest_expense["amount"]
+                    if previous_largest_expense is not None
+                    else None
+                ),
                 reference_label=previous_snapshot["label"],
-                value_class="amount-negative",
+                value_class="amount-negative" if current_largest_expense["has_expense"] else "trend-stable",
+                current_display_override=current_largest_expense["display"],
+                detail=current_largest_expense["description"],
             ),
         ],
     }
+
+
+def _build_competence_home_cards(
+    db: Session,
+    *,
+    anchor_month: date,
+    current_month_txs: list[Transaction],
+    current_category_breakdown: dict,
+) -> dict:
+    current_snapshot = _build_home_month_snapshot(
+        db,
+        anchor_month=anchor_month,
+        month_txs=current_month_txs,
+        category_breakdown=current_category_breakdown,
+    )
+    previous_month = add_months(month_start(anchor_month), -1)
+    previous_snapshot = _build_home_month_snapshot(db, anchor_month=previous_month)
+    previous_has_base = previous_snapshot["flow_has_activity"] or previous_snapshot["consumption_has_activity"]
+
+    current_revenue_total = current_snapshot["flow_summary"]["income_total"]
+    current_expense_total = current_snapshot["consumption_total"]
+    current_result_total = current_revenue_total - current_expense_total
+    current_margin = current_result_total / current_revenue_total if current_revenue_total > 0 else None
+
+    previous_revenue_total = previous_snapshot["flow_summary"]["income_total"] if previous_has_base else None
+    previous_expense_total = previous_snapshot["consumption_total"] if previous_has_base else None
+    previous_result_total = (
+        (previous_revenue_total or 0.0) - (previous_expense_total or 0.0)
+        if previous_has_base
+        else None
+    )
+    previous_margin = (
+        previous_result_total / previous_revenue_total
+        if previous_has_base and previous_revenue_total is not None and previous_revenue_total > 0
+        else None
+    )
+    margin_change = (
+        _build_percent_point_change(current_margin, previous_margin)
+        if current_margin is not None and previous_margin is not None
+        else None
+    )
+
+    return {
+        "lens": "competence",
+        "lens_label": "Visão de Competência",
+        "current_month_label": current_snapshot["label"],
+        "previous_month_label": previous_snapshot["label"],
+        "cards": [
+            _build_home_metric_card(
+                key="result",
+                title="Resultado do mês",
+                subtitle="Receitas por competência menos despesas por competência do mês-base.",
+                current=current_result_total,
+                previous=previous_result_total,
+                reference_label=previous_snapshot["label"],
+                value_class="amount-positive" if current_result_total >= 0 else "amount-negative",
+                is_primary=True,
+            ),
+            _build_home_metric_card(
+                key="competence_income",
+                title="Receitas por competência",
+                subtitle="Receitas reconhecidas no mês-base dentro da leitura mensal já disponível no produto.",
+                current=current_revenue_total,
+                previous=previous_revenue_total,
+                reference_label=previous_snapshot["label"],
+                value_class="amount-positive",
+            ),
+            _build_home_metric_card(
+                key="competence_expense",
+                title="Despesas por competência",
+                subtitle="Despesas reconhecidas pela visão de consumo no mês-base.",
+                current=current_expense_total,
+                previous=previous_expense_total,
+                reference_label=previous_snapshot["label"],
+                value_class="amount-negative",
+            ),
+            _build_home_metric_card(
+                key="margin",
+                title="Margem do mês",
+                subtitle="Resultado dividido pelas receitas por competência do mês-base.",
+                current=current_margin or 0.0,
+                previous=previous_margin,
+                reference_label=previous_snapshot["label"],
+                value_class=(
+                    "amount-positive"
+                    if current_margin is not None and current_margin >= 0
+                    else ("amount-negative" if current_margin is not None else "trend-stable")
+                ),
+                current_display_override=format_percent_br(current_margin) if current_margin is not None else "—",
+                change=margin_change,
+                comparison_primary_display=(
+                    f"{margin_change['delta_signed_display']} vs {previous_snapshot['label']}"
+                    if margin_change is not None
+                    else None
+                ),
+                comparison_secondary_display=None,
+            ),
+        ],
+    }
+
+
+def _build_home_cards(
+    db: Session,
+    *,
+    anchor_month: date,
+    current_month_txs: list[Transaction],
+    current_category_breakdown: dict,
+    lens: str = "cash",
+) -> dict:
+    if lens == "competence":
+        return _build_competence_home_cards(
+            db,
+            anchor_month=anchor_month,
+            current_month_txs=current_month_txs,
+            current_category_breakdown=current_category_breakdown,
+        )
+    return _build_cash_home_cards(
+        db,
+        anchor_month=anchor_month,
+        current_month_txs=current_month_txs,
+        current_category_breakdown=current_category_breakdown,
+    )
 
 
 def _round_chart_value(value: float) -> float:
     return 0.0 if abs(float(value)) < 0.01 else round(float(value), 2)
 
 
-def _build_home_yearly_cash_flow_chart(db: Session, *, anchor_month: date) -> dict:
-    selected_year = anchor_month.year
-    year_start = date(selected_year, 1, 1)
-    year_end = date(selected_year, 12, 31)
-    txs = _load_transactions_for_period(db, period_start=year_start, period_end=year_end)
-    grouped: dict[int, list[Transaction]] = defaultdict(list)
-    for tx in txs:
-        grouped[tx.transaction_date.month].append(tx)
-
-    months: list[dict] = []
-    for month_number in range(1, 13):
-        current_month = date(selected_year, month_number, 1)
-        summary = _build_summary(grouped.get(month_number, []))
-        expense_chart_total = -summary["expense_total"] if summary["expense_total"] > 0 else 0.0
-        months.append(
-            {
-                "month": current_month.strftime("%Y-%m"),
-                "label": MONTH_LABELS[month_number - 1],
-                "income_total": summary["income_total"],
-                "expense_total": summary["expense_total"],
-                "expense_chart_total": expense_chart_total,
-                "balance": summary["balance"],
-                "transaction_count": summary["transaction_count"],
-                "income_display": summary["income_display"],
-                "expense_display": summary["expense_display"],
-                "balance_display": summary["balance_display"],
-            }
-        )
-
-    all_zero = all(
-        month["income_total"] == 0.0 and month["expense_total"] == 0.0 and month["balance"] == 0.0
-        for month in months
-    )
-    if all_zero:
-        note = (
-            f"Ano calendário {selected_year}, de janeiro a dezembro, sem movimentação registrada; "
-            "os meses zerados seguem visíveis para preservar a leitura anual."
-        )
-    else:
-        note = (
-            f"Ano calendário {selected_year}, de janeiro a dezembro, com meses zerados visíveis. "
-            "Fluxo líquido em barras; entradas e saídas em linha."
-        )
-
+def _build_cash_chart_month_metrics(db: Session, *, anchor_month: date) -> dict:
+    snapshot = _build_home_month_snapshot(db, anchor_month=anchor_month)
+    flow_summary = snapshot["flow_summary"]
     return {
-        "year": selected_year,
-        "year_label": str(selected_year),
-        "labels": [month["label"] for month in months],
-        "income": [_round_chart_value(month["income_total"]) for month in months],
-        "expense": [_round_chart_value(month["expense_chart_total"]) for month in months],
-        "balance": [_round_chart_value(month["balance"]) for month in months],
-        "months": months,
-        "all_zero": all_zero,
-        "note": note,
+        "month": anchor_month.strftime("%Y-%m"),
+        "income_total": flow_summary["income_total"],
+        "expense_total": flow_summary["expense_total"],
+        "expense_chart_total": -flow_summary["expense_total"] if flow_summary["expense_total"] > 0 else 0.0,
+        "balance": flow_summary["balance"],
+        "transaction_count": flow_summary["transaction_count"],
     }
 
 
-def _build_home_category_comparison(db: Session, *, anchor_month: date) -> dict:
+def _build_competence_chart_month_metrics(db: Session, *, anchor_month: date) -> dict:
+    snapshot = _build_home_month_snapshot(db, anchor_month=anchor_month)
+    revenue_total = snapshot["flow_summary"]["income_total"]
+    expense_total = snapshot["consumption_total"]
+    result_total = revenue_total - expense_total
+    return {
+        "month": anchor_month.strftime("%Y-%m"),
+        "income_total": revenue_total,
+        "expense_total": expense_total,
+        "expense_chart_total": -expense_total if expense_total > 0 else 0.0,
+        "balance": result_total,
+        "transaction_count": snapshot["flow_summary"]["transaction_count"],
+    }
+
+
+def _chart_axis_label(value: date, *, mode: str) -> str:
+    if mode == "year":
+        return MONTH_LABELS[value.month - 1]
+    return f"{MONTH_LABELS[value.month - 1]}/{str(value.year)[2:]}"
+
+
+def _build_chart_month_sequence(*, anchor_month: date, mode: str, selected_year: int) -> list[date]:
+    if mode == "year":
+        return [date(selected_year, month_number, 1) for month_number in range(1, 13)]
+    rolling_start = add_months(month_start(anchor_month), -11)
+    return [add_months(rolling_start, offset) for offset in range(12)]
+
+
+def _build_home_primary_chart(
+    db: Session,
+    *,
+    anchor_month: date,
+    lens: str,
+    mode: str,
+    selected_year: int,
+    compare_metric: str,
+) -> dict:
+    value_key_map = {
+        "balance": "balance",
+        "income": "income_total",
+        "expense": "expense_chart_total",
+    }
+    metric_map = {
+        "cash": {
+            "balance": {"label": "Fluxo líquido", "style": "cash-balance", "type": "bar"},
+            "income": {"label": "Entradas", "style": "cash-income", "type": "line"},
+            "expense": {"label": "Saídas", "style": "cash-expense", "type": "line"},
+        },
+        "competence": {
+            "balance": {"label": "Resultado", "style": "competence-balance", "type": "bar"},
+            "income": {"label": "Receitas", "style": "competence-income", "type": "line"},
+            "expense": {"label": "Despesas", "style": "competence-expense", "type": "line"},
+        },
+    }
+    metric_definitions = metric_map[lens]
+    if compare_metric not in metric_definitions:
+        compare_metric = "balance"
+
+    current_months = _build_chart_month_sequence(
+        anchor_month=anchor_month,
+        mode=mode,
+        selected_year=selected_year,
+    )
+    if mode == "year":
+        comparison_months = [date(selected_year - 1, month_number, 1) for month_number in range(1, 13)]
+    else:
+        comparison_start = add_months(month_start(anchor_month), -23)
+        comparison_months = [add_months(comparison_start, offset) for offset in range(12)]
+
+    builder = _build_cash_chart_month_metrics if lens == "cash" else _build_competence_chart_month_metrics
+    current_series = [builder(db, anchor_month=item) for item in current_months]
+    comparison_series = [builder(db, anchor_month=item) for item in comparison_months]
+
+    labels = [_chart_axis_label(item, mode=mode) for item in current_months]
+    datasets: list[dict] = []
+    for key, spec in metric_definitions.items():
+        value_key = value_key_map[key]
+        values = [
+            _round_chart_value(series[value_key])
+            for series in current_series
+        ]
+        datasets.append(
+            {
+                "type": spec["type"],
+                "label": spec["label"],
+                "style": spec["style"],
+                "data": values,
+            }
+        )
+
+    comparison_spec = metric_definitions[compare_metric]
+    comparison_value_key = value_key_map[compare_metric]
+    comparison_values = [
+        _round_chart_value(series[comparison_value_key])
+        for series in comparison_series
+    ]
+    datasets.append(
+        {
+            "type": "line",
+            "label": f"{comparison_spec['label']} | período anterior",
+            "style": f"comparison-{comparison_spec['style']}",
+            "data": comparison_values,
+            "dashed": True,
+        }
+    )
+
+    all_zero = all(all(abs(value) < 0.01 for value in dataset["data"]) for dataset in datasets)
+    if mode == "year":
+        period_note = f"Ano calendário {selected_year}, de janeiro a dezembro, com meses zerados visíveis."
+        comparison_note = f"Comparação mês a mês contra o ano calendário {selected_year - 1}."
+    else:
+        comparison_note = (
+            f"Comparação contra a janela anterior até {format_month_label(add_months(anchor_month, -12))}."
+        )
+        period_note = f"Janela móvel de 12 meses ancorada em {format_month_label(anchor_month)}."
+
+    lens_label = "Visão de Caixa" if lens == "cash" else "Visão de Competência"
+    return {
+        "lens": lens,
+        "lens_label": lens_label,
+        "mode": mode,
+        "selected_year": selected_year,
+        "compare_metric": compare_metric,
+        "labels": labels,
+        "datasets": datasets,
+        "all_zero": all_zero,
+        "title": f"{lens_label}: evolução principal",
+        "note": f"{period_note} {comparison_note}",
+    }
+
+
+def _available_chart_years(db: Session, *, anchor_month: date) -> list[int]:
+    earliest_month = _earliest_history_month(db)
+    if earliest_month is None:
+        return [anchor_month.year]
+    return list(reversed(list(range(earliest_month.year, anchor_month.year + 1))))
+
+
+def _build_home_category_comparison(db: Session, *, anchor_month: date, visible: bool = True) -> dict:
     current_snapshot = _build_conciliated_category_month_snapshot(db, anchor_month=anchor_month)
     previous_month = add_months(month_start(anchor_month), -1)
     earliest_month = _earliest_history_month(db)
@@ -405,10 +723,306 @@ def _build_home_category_comparison(db: Session, *, anchor_month: date) -> dict:
         "current_month_label": current_snapshot["label"],
         "previous_month_label": format_month_label(previous_month),
         "rows": rows,
+        "visible": visible,
         "note": (
             "Top 5 categorias de consumo do mês-base, ordenadas pelo maior gasto atual e comparadas com o mês anterior. "
             "A home segue como resumo; a leitura completa continua na análise detalhada."
         ),
+    }
+
+
+def _build_home_cash_summary(*, cash_cards: dict) -> dict:
+    cards = {item["key"]: item for item in cash_cards["cards"]}
+    return {
+        "title": "Resumo executivo da Visão de Caixa",
+        "executive_summary": (
+            f"No mês-base, entradas de {cards['income']['current_display']}, saídas de "
+            f"{cards['expense']['current_display']} e fluxo líquido de {cards['net_flow']['current_display']}."
+        ),
+        "coverage_note": (
+            "Leitura ancorada na movimentação de caixa do período. Pagamentos de fatura seguem como liquidação de caixa, "
+            "sem misturar essa visão com o consumo por competência."
+        ),
+    }
+
+
+def _build_home_competence_summary(*, competence_cards: dict) -> dict:
+    cards = {item["key"]: item for item in competence_cards["cards"]}
+    return {
+        "title": "Resumo executivo da Visão de Competência",
+        "executive_summary": (
+            f"No mês-base, receitas por competência de {cards['competence_income']['current_display']}, despesas por competência "
+            f"de {cards['competence_expense']['current_display']} e resultado de {cards['result']['current_display']}."
+        ),
+        "coverage_note": (
+            f"Margem do mês: {cards['margin']['current_display']}. A despesa usa a visão de consumo já consolidada; a receita "
+            "segue a leitura mensal já disponível no produto, sem criar motor contábil novo."
+        ),
+    }
+
+
+def _build_home_cash_alerts(*, cash_cards: dict) -> list[dict]:
+    cards = {item["key"]: item for item in cash_cards["cards"]}
+    alerts: list[dict] = []
+    if cards["net_flow"]["current"] < 0:
+        alerts.append(
+            {
+                "level": "danger",
+                "title": "Fluxo de caixa negativo no mês",
+                "body": (
+                    f"A Visão de Caixa fechou o mês-base com fluxo líquido de {cards['net_flow']['current_display']}."
+                ),
+            }
+        )
+    if cards["largest_expense"]["current"] > 0:
+        alerts.append(
+            {
+                "level": "warn",
+                "title": "Maior saída individual sob atenção",
+                "body": (
+                    f"A maior saída do mês-base foi {cards['largest_expense']['current_display']} em "
+                    f"{cards['largest_expense']['detail']}."
+                ),
+            }
+        )
+    return alerts[:5]
+
+
+def _build_home_cash_actions(*, cash_cards: dict) -> list[dict]:
+    cards = {item["key"]: item for item in cash_cards["cards"]}
+    actions: list[dict] = []
+    if cards["largest_expense"]["current"] > 0:
+        actions.append(
+            {
+                "title": "Revisar a maior saída do mês",
+                "body": (
+                    f"Comece por {cards['largest_expense']['detail']} ({cards['largest_expense']['current_display']}) "
+                    "antes de aprofundar a leitura na análise detalhada."
+                ),
+            }
+        )
+    if cards["net_flow"]["current"] < 0:
+        actions.append(
+            {
+                "title": "Atacar o fluxo de caixa negativo",
+                "body": (
+                    "Priorize as maiores saídas já liquidadas no mês-base para recuperar caixa no período seguinte."
+                ),
+            }
+        )
+    return actions[:5]
+
+
+def _build_home_competence_alerts(*, competence_cards: dict, consumption_context: dict) -> list[dict]:
+    cards = {item["key"]: item for item in competence_cards["cards"]}
+    alerts: list[dict] = []
+    if cards["result"]["current"] < 0:
+        alerts.append(
+            {
+                "level": "danger",
+                "title": "Resultado negativo na Visão de Competência",
+                "body": (
+                    f"O mês-base fechou com resultado de {cards['result']['current_display']} na leitura por competência."
+                ),
+            }
+        )
+    top_expense_category = consumption_context["top_category"]
+    if top_expense_category and top_expense_category["consumption_share"] >= 0.35:
+        alerts.append(
+            {
+                "level": "warn",
+                "title": "Alta concentração em uma categoria de consumo",
+                "body": (
+                    f"Na Visão de Competência, {top_expense_category['name']} respondeu por "
+                    f"{top_expense_category['consumption_share_display']} do gasto do mês-base."
+                ),
+            }
+        )
+    largest_increase = consumption_context["largest_increase"]
+    if largest_increase and _is_meaningful_consumption_change(largest_increase["previous_month_change"]):
+        alerts.append(
+            {
+                "level": "warn",
+                "title": f"Alta relevante no consumo de {largest_increase['name']}",
+                "body": (
+                    f"Na Visão de Competência, {largest_increase['name']} subiu "
+                    f"{largest_increase['previous_month_change']['delta_display']} contra "
+                    f"{consumption_context['previous_month_label']}."
+                ),
+            }
+        )
+    if consumption_context["uncategorized_share"] >= 0.08:
+        alerts.append(
+            {
+                "level": "warn",
+                "title": "Não categorizado ainda alto na Visão de Competência",
+                "body": (
+                    f"Ainda existem {consumption_context['uncategorized_display']} sem categoria definida, o que representa "
+                    f"{consumption_context['uncategorized_share_display']} do gasto categorial de consumo."
+                ),
+            }
+        )
+    return alerts[:5]
+
+
+def _build_home_competence_actions(*, competence_cards: dict, consumption_context: dict) -> list[dict]:
+    cards = {item["key"]: item for item in competence_cards["cards"]}
+    actions: list[dict] = []
+    if consumption_context["uncategorized_share"] >= 0.05:
+        actions.append(
+            {
+                "title": "Melhorar a qualidade da Visão de Competência",
+                "body": (
+                    f"Priorize a revisão do não categorizado ({consumption_context['uncategorized_display']}) "
+                    "para reduzir ruído na leitura por categorias."
+                ),
+            }
+        )
+    top_expense_category = consumption_context["top_category"]
+    if top_expense_category and (
+        top_expense_category["expense_total"] >= 100.0
+        and (
+            top_expense_category["consumption_share"] >= 0.3
+            or _is_meaningful_consumption_change(top_expense_category.get("previous_month_change"))
+        )
+    ):
+        top_category_change = top_expense_category.get("previous_month_change")
+        top_category_change_text = ""
+        if top_category_change is not None and top_category_change["delta"] > 0:
+            top_category_change_text = (
+                f" e subiu {top_category_change['delta_display']} contra "
+                f"{consumption_context['previous_month_label']}"
+            )
+        actions.append(
+            {
+                "title": f"Revisar a categoria {top_expense_category['name']}",
+                "body": (
+                    f"Na Visão de Competência, ela concentrou {top_expense_category['consumption_share_display']} do gasto do mês-base"
+                    f"{top_category_change_text}."
+                ),
+            }
+        )
+    if cards["result"]["current"] < 0:
+        focus_categories = [item["name"] for item in consumption_context["top_categories"]]
+        categories_text = ", ".join(focus_categories) if focus_categories else "as maiores despesas variáveis"
+        actions.append(
+            {
+                "title": "Recuperar o resultado do mês",
+                "body": (
+                    f"Comece por {categories_text} para reduzir pressão na Visão de Competência já no próximo fechamento."
+                ),
+            }
+        )
+    return actions[:5]
+
+
+def _build_home_dashboard(
+    db: Session,
+    *,
+    anchor_month: date,
+    current_month_txs: list[Transaction],
+    category_breakdown: dict,
+    category_history: dict,
+    active_lens: str,
+    chart_mode: str,
+    chart_year: int | None,
+    chart_compare: str | None,
+) -> dict:
+    active_lens = active_lens if active_lens in {"cash", "competence"} else "cash"
+    chart_mode = chart_mode if chart_mode in {"year", "rolling_12"} else "year"
+    available_years = _available_chart_years(db, anchor_month=anchor_month)
+    if chart_year not in available_years:
+        chart_year = anchor_month.year
+        if chart_year not in available_years:
+            available_years = [chart_year, *available_years]
+            available_years = list(dict.fromkeys(available_years))
+
+    cash_cards = _build_cash_home_cards(
+        db,
+        anchor_month=anchor_month,
+        current_month_txs=current_month_txs,
+        current_category_breakdown=category_breakdown,
+    )
+    competence_cards = _build_competence_home_cards(
+        db,
+        anchor_month=anchor_month,
+        current_month_txs=current_month_txs,
+        current_category_breakdown=category_breakdown,
+    )
+    category_comparison = _build_home_category_comparison(
+        db,
+        anchor_month=anchor_month,
+        visible=active_lens == "competence",
+    )
+    consumption_context = _build_consumption_signal_context(
+        category_breakdown=category_breakdown,
+        category_history=category_history,
+    )
+    lens_config = {
+        "cash": {
+            "label": "Visão de Caixa",
+            "cards": cash_cards,
+            "summary": _build_home_cash_summary(cash_cards=cash_cards),
+            "alerts": _build_home_cash_alerts(cash_cards=cash_cards),
+            "actions": _build_home_cash_actions(cash_cards=cash_cards),
+            "compare_tabs": [
+                {"key": "balance", "label": "Fluxo líquido"},
+                {"key": "income", "label": "Entradas"},
+                {"key": "expense", "label": "Saídas"},
+            ],
+        },
+        "competence": {
+            "label": "Visão de Competência",
+            "cards": competence_cards,
+            "summary": _build_home_competence_summary(competence_cards=competence_cards),
+            "alerts": _build_home_competence_alerts(
+                competence_cards=competence_cards,
+                consumption_context=consumption_context,
+            ),
+            "actions": _build_home_competence_actions(
+                competence_cards=competence_cards,
+                consumption_context=consumption_context,
+            ),
+            "compare_tabs": [
+                {"key": "balance", "label": "Resultado"},
+                {"key": "income", "label": "Receitas"},
+                {"key": "expense", "label": "Despesas"},
+            ],
+        },
+    }
+
+    active_compare = chart_compare or "balance"
+    chart = _build_home_primary_chart(
+        db,
+        anchor_month=anchor_month,
+        lens=active_lens,
+        mode=chart_mode,
+        selected_year=chart_year,
+        compare_metric=active_compare,
+    )
+    chart["available_years"] = available_years
+
+    return {
+        "active_lens": active_lens,
+        "current_month_label": lens_config[active_lens]["cards"]["current_month_label"],
+        "previous_month_label": lens_config[active_lens]["cards"]["previous_month_label"],
+        "lenses": [
+            {"key": "cash", "label": lens_config["cash"]["label"]},
+            {"key": "competence", "label": lens_config["competence"]["label"]},
+        ],
+        "cards": lens_config[active_lens]["cards"]["cards"],
+        "summary": lens_config[active_lens]["summary"],
+        "alerts": lens_config[active_lens]["alerts"],
+        "actions": lens_config[active_lens]["actions"],
+        "category_comparison": category_comparison,
+        "chart": {
+            **chart,
+            "mode_tabs": [
+                {"key": "year", "label": "Ano"},
+                {"key": "rolling_12", "label": "Últimos 12 meses"},
+            ],
+            "compare_tabs": lens_config[active_lens]["compare_tabs"],
+        },
     }
 
 
@@ -1139,7 +1753,16 @@ def _build_actions(
     return unique[:5]
 
 
-def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date) -> dict:
+def build_analysis_snapshot(
+    db: Session,
+    *,
+    period_start: date,
+    period_end: date,
+    home_lens: str = "cash",
+    home_chart_mode: str = "year",
+    home_chart_year: int | None = None,
+    home_chart_compare: str | None = None,
+) -> dict:
     current_txs = _load_transactions_for_period(db, period_start=period_start, period_end=period_end)
     summary = _build_summary(current_txs)
 
@@ -1166,18 +1789,22 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         period_end=current_month_end,
         current_txs=current_month_txs,
     )
+    category_history = _build_conciliated_category_history(db, anchor_month=anchor_month)
     home_cards = _build_home_cards(
         db,
         anchor_month=anchor_month,
         current_month_txs=current_month_txs,
         current_category_breakdown=category_breakdown,
+        lens=home_lens,
     )
-    home_yearly_chart = _build_home_yearly_cash_flow_chart(db, anchor_month=anchor_month)
     category_rows = category_breakdown["rows"]
     technical_items = _build_technical_items(current_month_txs, expense_total=current_month_summary["expense_total"])
     quality = _build_quality(summary)
-    category_history = _build_conciliated_category_history(db, anchor_month=anchor_month)
-    home_category_comparison = _build_home_category_comparison(db, anchor_month=anchor_month)
+    home_category_comparison = _build_home_category_comparison(
+        db,
+        anchor_month=anchor_month,
+        visible=(home_lens == "competence"),
+    )
     conciliation_signals = build_conciliation_analytics_snapshot(db, period_start=period_start, period_end=period_end)
     conciliated_month = _build_conciliated_month_snapshot(
         db,
@@ -1189,6 +1816,17 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
     consumption_context = _build_consumption_signal_context(
         category_breakdown=category_breakdown,
         category_history=category_history,
+    )
+    home_dashboard = _build_home_dashboard(
+        db,
+        anchor_month=anchor_month,
+        current_month_txs=current_month_txs,
+        category_breakdown=category_breakdown,
+        category_history=category_history,
+        active_lens=home_lens,
+        chart_mode=home_chart_mode,
+        chart_year=home_chart_year,
+        chart_compare=home_chart_compare,
     )
 
     alerts = _build_alerts(
@@ -1213,8 +1851,9 @@ def build_analysis_snapshot(db: Session, *, period_start: date, period_end: date
         "summary": summary,
         "comparison": comparison,
         "home_cards": home_cards,
-        "home_yearly_chart": home_yearly_chart,
+        "home_yearly_chart": home_dashboard["chart"],
         "home_category_comparison": home_category_comparison,
+        "home_dashboard": home_dashboard,
         "monthly_series": monthly_series,
         "category_breakdown": category_breakdown,
         "category_history": category_history,

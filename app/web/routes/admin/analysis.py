@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -16,6 +17,13 @@ from .helpers import render_admin
 router = APIRouter()
 
 
+def _url_with_query(path: str, params: dict[str, str | int | None]) -> str:
+    filtered = {key: value for key, value in params.items() if value not in (None, "")}
+    if not filtered:
+        return path
+    return f"{path}?{urlencode(filtered)}"
+
+
 def _analysis_page_context(
     db: Session,
     *,
@@ -24,6 +32,10 @@ def _analysis_page_context(
     month: str | None,
     period_start: date | None,
     period_end: date | None,
+    home_lens: str | None = None,
+    home_chart_mode: str | None = None,
+    home_chart_year: int | None = None,
+    home_chart_compare: str | None = None,
 ) -> dict:
     latest_closed_start, latest_closed_end = resolve_analysis_period(
         db,
@@ -52,8 +64,27 @@ def _analysis_page_context(
     else:
         resolved_start, resolved_end = latest_closed_start, latest_closed_end
 
+    summary_query_params = {
+        "selection_mode": selected_mode,
+        "month": month_value if selected_mode == "month" else None,
+        "period_start": resolved_start.isoformat(),
+        "period_end": resolved_end.isoformat(),
+        "home_lens": home_lens,
+        "home_chart_mode": home_chart_mode,
+        "home_chart_year": home_chart_year if home_chart_mode == "year" else None,
+        "home_chart_compare": home_chart_compare,
+    }
+
     analysis_run = latest_analysis_run_for_period(db, period_start=resolved_start, period_end=resolved_end)
-    live_snapshot = build_analysis_snapshot(db, period_start=resolved_start, period_end=resolved_end)
+    live_snapshot = build_analysis_snapshot(
+        db,
+        period_start=resolved_start,
+        period_end=resolved_end,
+        home_lens=home_lens or "cash",
+        home_chart_mode=home_chart_mode or "year",
+        home_chart_year=home_chart_year,
+        home_chart_compare=home_chart_compare,
+    )
     payload_snapshot = parse_analysis_payload(analysis_run.payload) if analysis_run else None
     if payload_snapshot and "conciliation_signals" not in payload_snapshot:
         payload_snapshot["conciliation_signals"] = live_snapshot["conciliation_signals"]
@@ -65,6 +96,7 @@ def _analysis_page_context(
         payload_snapshot["home_cards"] = live_snapshot["home_cards"]
         payload_snapshot["home_yearly_chart"] = live_snapshot["home_yearly_chart"]
         payload_snapshot["home_category_comparison"] = live_snapshot["home_category_comparison"]
+        payload_snapshot["home_dashboard"] = live_snapshot["home_dashboard"]
         payload_snapshot["category_breakdown"] = live_snapshot["category_breakdown"]
         payload_snapshot["category_history"] = live_snapshot["category_history"]
         payload_snapshot["categories"] = live_snapshot["categories"]
@@ -74,6 +106,48 @@ def _analysis_page_context(
         payload_snapshot.setdefault("charts", {})
         payload_snapshot["charts"]["categories"] = live_snapshot["charts"]["categories"]
     analysis_data = payload_snapshot or live_snapshot
+    home_dashboard = analysis_data.get("home_dashboard", {})
+    active_chart = home_dashboard.get("chart", {})
+    active_lens = home_dashboard.get("active_lens", home_lens or "cash")
+
+    if base_path == "/admin" and home_dashboard:
+        for lens_item in home_dashboard.get("lenses", []):
+            lens_item["is_active"] = lens_item["key"] == active_lens
+            lens_item["href"] = _url_with_query(
+                "/admin",
+                {
+                    **summary_query_params,
+                    "home_lens": lens_item["key"],
+                },
+            )
+
+        for mode_item in active_chart.get("mode_tabs", []):
+            mode_item["is_active"] = mode_item["key"] == active_chart.get("mode")
+            mode_item["href"] = _url_with_query(
+                "/admin",
+                {
+                    **summary_query_params,
+                    "home_lens": active_lens,
+                    "home_chart_mode": mode_item["key"],
+                    "home_chart_year": active_chart.get("selected_year") if mode_item["key"] == "year" else None,
+                },
+            )
+
+        for compare_item in active_chart.get("compare_tabs", []):
+            compare_item["is_active"] = compare_item["key"] == active_chart.get("compare_metric")
+            compare_item["href"] = _url_with_query(
+                "/admin",
+                {
+                    **summary_query_params,
+                    "home_lens": active_lens,
+                    "home_chart_mode": active_chart.get("mode"),
+                    "home_chart_year": active_chart.get("selected_year") if active_chart.get("mode") == "year" else None,
+                    "home_chart_compare": compare_item["key"],
+                },
+            )
+
+    priority_alerts_source = home_dashboard.get("alerts") if base_path == "/admin" else None
+    priority_actions_source = home_dashboard.get("actions") if base_path == "/admin" else None
     return {
         "selection_mode": selected_mode,
         "period_start": resolved_start,
@@ -88,14 +162,23 @@ def _analysis_page_context(
         "analysis_data": analysis_data,
         "analysis_html_fragment": renderable_analysis_html(analysis_run.html_output) if analysis_run else None,
         "llm_html_available": False,
-        "priority_alerts": analysis_data.get("alerts", [])[:3],
-        "priority_actions": analysis_data.get("actions", [])[:2],
+        "priority_alerts": (priority_alerts_source or analysis_data.get("alerts", []))[:3],
+        "priority_actions": (priority_actions_source or analysis_data.get("actions", []))[:2],
+        "analysis_extra_hidden_fields": [
+            {"name": "home_lens", "value": active_lens},
+            {"name": "home_chart_mode", "value": active_chart.get("mode")},
+            {"name": "home_chart_year", "value": active_chart.get("selected_year") if active_chart.get("mode") == "year" else None},
+            {"name": "home_chart_compare", "value": active_chart.get("compare_metric")},
+        ],
         "analysis_urls": {
-            "summary": f"/admin?period_start={resolved_start.isoformat()}&period_end={resolved_end.isoformat()}",
+            "summary": _url_with_query("/admin", summary_query_params),
             "detail": f"/admin/analysis?period_start={resolved_start.isoformat()}&period_end={resolved_end.isoformat()}",
             "conference": f"/admin/conference?period_start={resolved_start.isoformat()}&period_end={resolved_end.isoformat()}",
             "operations": "/admin/operations",
-            "return_to": f"{base_path}?period_start={resolved_start.isoformat()}&period_end={resolved_end.isoformat()}",
+            "return_to": _url_with_query(base_path, summary_query_params if base_path == "/admin" else {
+                "period_start": resolved_start.isoformat(),
+                "period_end": resolved_end.isoformat(),
+            }),
         },
     }
 
@@ -106,6 +189,10 @@ def admin_summary_page(
     month: str | None = None,
     period_start: date | None = None,
     period_end: date | None = None,
+    home_lens: str | None = None,
+    home_chart_mode: str | None = None,
+    home_chart_year: int | None = None,
+    home_chart_compare: str | None = None,
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
@@ -119,6 +206,10 @@ def admin_summary_page(
             month=month,
             period_start=period_start,
             period_end=period_end,
+            home_lens=home_lens,
+            home_chart_mode=home_chart_mode,
+            home_chart_year=home_chart_year,
+            home_chart_compare=home_chart_compare,
         ),
     )
 
@@ -130,6 +221,10 @@ def admin_summary_alias_page(
     month: str | None = None,
     period_start: date | None = None,
     period_end: date | None = None,
+    home_lens: str | None = None,
+    home_chart_mode: str | None = None,
+    home_chart_year: int | None = None,
+    home_chart_compare: str | None = None,
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
@@ -139,6 +234,10 @@ def admin_summary_alias_page(
         month=month,
         period_start=period_start,
         period_end=period_end,
+        home_lens=home_lens,
+        home_chart_mode=home_chart_mode,
+        home_chart_year=home_chart_year,
+        home_chart_compare=home_chart_compare,
         db=db,
         _=_,
     )
