@@ -2,18 +2,18 @@
 {% block title %}Resumo{% endblock %}
 {% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
 {% block content %}
-{% set analysis_page_title = "Resumo financeiro" %}
-{% set analysis_page_intro = "Entrada principal do admin, agora alternando entre Visão de Caixa e Visão de Competência para leitura rápida do período." %}
+{% set analysis_page_title = "Visão Geral" %}
+{% set analysis_page_intro = "Resumo financeiro do período, alternando entre Visão de Caixa e Visão de Competência sem perder o contexto operacional." %}
 {% set analysis_form_action = "/admin" %}
 {% set analysis_submit_label = "Ver resumo" %}
 {% set analysis_show_generate = True %}
 {% set home_dashboard = analysis_data.home_dashboard %}
 {% include "admin/partials/analysis_period_form.html" %}
 
-<section class="card stack" style="margin-top:12px; margin-bottom:12px;">
+<section class="toolbar-card">
   <div>
     <strong>Lente principal da home</strong>
-    <div class="subtle">A troca de lente reorganiza os cards, o gráfico principal, o resumo executivo e os alertas prioritários da tela.</div>
+    <div class="subtle">A troca de lente reorganiza os cards, o gráfico principal, o resumo executivo e os alertas prioritários da tela sem obrigar o usuário a sair da home.</div>
   </div>
   <div class="home-view-tabs" role="tablist" aria-label="Alternar lente principal da home">
     {% for lens in home_dashboard.lenses %}
@@ -52,56 +52,81 @@
   {% endfor %}
 </section>
 
-<section class="card stack" style="margin-top:0; margin-bottom:12px;">
-  <div class="home-chart-header">
-    <div class="stack" style="gap:4px;">
-      <strong>{{ home_dashboard.chart.title }}</strong>
-      <div class="subtle">{{ home_dashboard.chart.note }}</div>
-    </div>
-    <div class="home-chart-controls">
-      <div class="home-inline-tabs" role="tablist" aria-label="Horizonte temporal do gráfico principal">
-        {% for mode in home_dashboard.chart.mode_tabs %}
-          <a class="home-inline-tab {% if mode.is_active %}home-inline-tab-active{% endif %}" href="{{ mode.href }}">{{ mode.label }}</a>
-        {% endfor %}
+<section class="home-dashboard-grid">
+  <div class="card stack">
+    <div class="home-chart-header">
+      <div class="stack" style="gap:4px;">
+        <strong>{{ home_dashboard.chart.title }}</strong>
+        <div class="subtle">{{ home_dashboard.chart.note }}</div>
       </div>
-      {% if home_dashboard.chart.mode == "year" %}
-        <form method="get" action="/admin" class="home-chart-year-form">
-          <input type="hidden" name="selection_mode" value="{{ selection_mode }}">
-          {% if selection_mode == "month" %}
-            <input type="hidden" name="month" value="{{ month_value }}">
-          {% else %}
-            <input type="hidden" name="period_start" value="{{ period_start }}">
-            <input type="hidden" name="period_end" value="{{ period_end }}">
-          {% endif %}
-          <input type="hidden" name="home_lens" value="{{ home_dashboard.active_lens }}">
-          <input type="hidden" name="home_chart_mode" value="year">
-          <input type="hidden" name="home_chart_compare" value="{{ home_dashboard.chart.compare_metric }}">
-          <label class="home-chart-year-label">
-            Ano
-            <select name="home_chart_year" onchange="this.form.submit()">
-              {% for year in home_dashboard.chart.available_years %}
-                <option value="{{ year }}" {% if year == home_dashboard.chart.selected_year %}selected{% endif %}>{{ year }}</option>
-              {% endfor %}
-            </select>
-          </label>
-        </form>
-      {% endif %}
+      <div class="home-chart-controls">
+        <div class="home-inline-tabs" role="tablist" aria-label="Horizonte temporal do gráfico principal">
+          {% for mode in home_dashboard.chart.mode_tabs %}
+            <a class="home-inline-tab {% if mode.is_active %}home-inline-tab-active{% endif %}" href="{{ mode.href }}">{{ mode.label }}</a>
+          {% endfor %}
+        </div>
+        {% if home_dashboard.chart.mode == "year" %}
+          <form method="get" action="/admin" class="home-chart-year-form">
+            <input type="hidden" name="selection_mode" value="{{ selection_mode }}">
+            {% if selection_mode == "month" %}
+              <input type="hidden" name="month" value="{{ month_value }}">
+            {% else %}
+              <input type="hidden" name="period_start" value="{{ period_start }}">
+              <input type="hidden" name="period_end" value="{{ period_end }}">
+            {% endif %}
+            <input type="hidden" name="home_lens" value="{{ home_dashboard.active_lens }}">
+            <input type="hidden" name="home_chart_mode" value="year">
+            <input type="hidden" name="home_chart_compare" value="{{ home_dashboard.chart.compare_metric }}">
+            <label class="home-chart-year-label">
+              Ano
+              <select name="home_chart_year" onchange="this.form.submit()">
+                {% for year in home_dashboard.chart.available_years %}
+                  <option value="{{ year }}" {% if year == home_dashboard.chart.selected_year %}selected{% endif %}>{{ year }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="home-inline-tabs" role="tablist" aria-label="Comparação visual do gráfico principal">
+      {% for compare in home_dashboard.chart.compare_tabs %}
+        <a class="home-inline-tab {% if compare.is_active %}home-inline-tab-active{% endif %}" href="{{ compare.href }}">{{ compare.label }}</a>
+      {% endfor %}
+    </div>
+
+    <div class="chart-shell chart-shell-tall">
+      <canvas id="home-primary-chart" aria-label="Gráfico principal da home"></canvas>
     </div>
   </div>
 
-  <div class="home-inline-tabs" role="tablist" aria-label="Comparação visual do gráfico principal">
-    {% for compare in home_dashboard.chart.compare_tabs %}
-      <a class="home-inline-tab {% if compare.is_active %}home-inline-tab-active{% endif %}" href="{{ compare.href }}">{{ compare.label }}</a>
-    {% endfor %}
-  </div>
-
-  <div class="chart-shell chart-shell-tall">
-    <canvas id="home-primary-chart" aria-label="Gráfico principal da home"></canvas>
-  </div>
+  <aside class="card stack">
+    <div>
+      <strong>Alertas prioritários</strong>
+      <div class="subtle">A coluna lateral ajuda a separar o que pede ação imediata do restante da leitura financeira da home.</div>
+    </div>
+    <div class="analysis-list">
+      {% for alert in priority_alerts %}
+        <div class="analysis-item">
+          <div class="analysis-item-title">
+            <strong>{{ alert.title }}</strong>
+            <span class="badge {% if alert.level == 'danger' %}danger{% elif alert.level == 'warn' %}warn{% endif %}">{{ alert.level }}</span>
+          </div>
+          <p>{{ alert.body }}</p>
+        </div>
+      {% else %}
+        <div class="analysis-item">
+          <strong>Nenhum alerta prioritário</strong>
+          <p>O período não trouxe um desvio crítico acima da linha de base da leitura atual.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </aside>
 </section>
 
-<section class="analysis-grid {% if home_dashboard.category_comparison.visible %}analysis-grid-2{% endif %}" style="margin-top:12px;">
-  <div class="card stack" style="margin-bottom:0;">
+<section class="home-summary-grid">
+  <div class="card stack">
     <div>
       <strong>{{ home_dashboard.summary.title }}</strong>
       <div class="subtle">O resumo executivo acompanha a lente ativa da home e mantém a distinção entre leitura de caixa e leitura por competência.</div>
@@ -119,14 +144,14 @@
   </div>
 
   {% if home_dashboard.category_comparison.visible %}
-    <div class="card stack" style="margin-bottom:0;">
+    <div class="card stack">
       <div>
         <strong>Comparativo rápido das categorias do mês</strong>
         <div class="subtle">{{ home_dashboard.category_comparison.note }}</div>
       </div>
       <div class="home-category-ranking" aria-label="Comparativo das Top 5 categorias do mês-base">
         {% for category in home_dashboard.category_comparison.rows %}
-          <div class="home-category-row">
+          <div class="home-category-row" data-category-row="{{ category.name }}">
             <div class="home-category-rank">#{{ loop.index }}</div>
             <div class="home-category-body">
               <div class="home-category-title">
@@ -156,31 +181,8 @@
   {% endif %}
 </section>
 
-<section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
-  <div class="card stack" style="margin-bottom:0;">
-    <div>
-      <strong>Alertas prioritários</strong>
-      <div class="subtle">Os sinais abaixo já acompanham a lente ativa da home e evitam misturar caixa com competência sem necessidade.</div>
-    </div>
-    <div class="analysis-list">
-      {% for alert in priority_alerts %}
-        <div class="analysis-item">
-          <div class="analysis-item-title">
-            <strong>{{ alert.title }}</strong>
-            <span class="badge {% if alert.level == 'danger' %}danger{% elif alert.level == 'warn' %}warn{% endif %}">{{ alert.level }}</span>
-          </div>
-          <p>{{ alert.body }}</p>
-        </div>
-      {% else %}
-        <div class="analysis-item">
-          <strong>Nenhum alerta prioritário</strong>
-          <p>O período não trouxe um desvio crítico acima da linha de base da leitura atual.</p>
-        </div>
-      {% endfor %}
-    </div>
-  </div>
-
-  <div class="card stack" style="margin-bottom:0;">
+<section class="analysis-grid analysis-grid-2">
+  <div class="card stack">
     <div>
       <strong>Aprofundar a leitura</strong>
       <div class="subtle">Atalhos para entrar na análise completa, na conferência/auditoria ou na central operacional.</div>
@@ -206,6 +208,23 @@
           <p>{{ action.body }}</p>
         </div>
       {% endfor %}
+    </div>
+  </div>
+
+  <div class="card stack">
+    <div>
+      <strong>Continuidade operacional</strong>
+      <div class="subtle">A nova shell da home preserva a função de resumo, mas mantém o caminho curto para agir no admin quando a leitura pedir intervenção.</div>
+    </div>
+    <div class="analysis-list">
+      <div class="analysis-item">
+        <strong>Cards e gráfico continuam ancorados no mês-base</strong>
+        <p>Somente o horizonte do gráfico muda localmente. Os demais blocos da home seguem resumindo o período principal selecionado.</p>
+      </div>
+      <div class="analysis-item">
+        <strong>Visão completa continua fora da home</strong>
+        <p>A home permanece enxuta: categorias completas, itens técnicos e conferência detalhada seguem nas telas apropriadas.</p>
+      </div>
     </div>
   </div>
 </section>

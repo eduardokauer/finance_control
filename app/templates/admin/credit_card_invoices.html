@@ -11,95 +11,114 @@
   }
 </style>
 
-<section class="card stack">
-  <div class="inline" style="justify-content: space-between; align-items: flex-start;">
-    <div>
-      <h1 style="margin: 0 0 6px 0;">Faturas importadas</h1>
-      <p class="subtle" style="margin: 0;">Visão operacional das faturas já importadas, com acesso rápido ao detalhe.</p>
-    </div>
-    <a class="button" href="/admin">Voltar para home</a>
+<section class="page-header">
+  <div class="page-header-copy">
+    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
+    <h1 class="page-title">Faturas importadas</h1>
+    <p class="page-intro">Área operacional das faturas já importadas, com gráfico histórico, formulário de upload e acesso rápido ao detalhe.</p>
   </div>
+  <div class="page-actions">
+    <a class="button button-ghost" href="/admin/operations">Voltar para central</a>
+  </div>
+</section>
 
-  <div class="card stack" style="margin-bottom: 0;">
-    <div>
-      <strong>Importar fatura</strong>
-      <div class="subtle">Upload manual do CSV oficial da fatura com os metadados necessários.</div>
-    </div>
-    {% if invoice_upload_error %}
-      <div class="flash" style="background: var(--danger-soft); color: var(--danger); border-color: #f7b4ae; margin-bottom: 0;">{{ invoice_upload_error }}</div>
-    {% endif %}
-    {% if credit_cards %}
-      <form method="post" action="/admin/credit-card-bills/upload" enctype="multipart/form-data" class="stack">
-        <label>Cartão
-          <select name="card_id" required>
-            <option value="">Selecione</option>
-            {% for card in credit_cards %}
-              <option value="{{ card.id }}">{{ card.card_label }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <label>Arquivo CSV<input type="file" name="file" accept=".csv,text/csv" required></label>
-        <div class="grid grid-2">
-          <label>Mês<input type="number" name="billing_month" min="1" max="12" required></label>
-          <label>Ano<input type="number" name="billing_year" min="2000" max="2100" required></label>
+<section class="split-layout-wide">
+  <div class="split-main">
+    {% if chart_data %}
+      <div class="card stack">
+        <div>
+          <strong>Valor total das faturas importadas por mês, separado por ano</strong>
+          <div class="subtle">Eixo fixo de 12 meses. Cada barra representa um ano com dados, mantendo a mesma cor ao longo do gráfico.</div>
         </div>
-        <label>Vencimento<input type="date" name="due_date" required></label>
-        <label>Fechamento opcional<input type="date" name="closing_date"></label>
-        <label>Valor total da fatura<input type="text" name="total_amount_brl" inputmode="decimal" placeholder="1234,56" required></label>
-        <label>Observação opcional<textarea name="notes" placeholder="Observações da importação"></textarea></label>
-        <button type="submit" class="button button-primary">Importar fatura</button>
-      </form>
+        <div class="invoice-chart-shell"><canvas id="invoice-imports-chart"></canvas></div>
+      </div>
+    {% endif %}
+
+    {% if entries %}
+      <div class="card stack">
+        <div>
+          <strong>Lista operacional das faturas</strong>
+          <div class="subtle">A tabela mantém a navegação completa no desktop e vira leitura empilhada no mobile.</div>
+        </div>
+        <div class="table-wrap">
+          <table class="responsive-stack">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Cartão</th>
+                <th>Competência</th>
+                <th>Vencimento</th>
+                <th>Valor total</th>
+                <th>Status</th>
+                <th>Itens</th>
+                <th>Importação</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in entries %}
+                <tr>
+                  <td data-label="ID">#{{ entry.invoice.id }}</td>
+                  <td data-label="Cartão">{{ entry.card.card_label }}</td>
+                  <td data-label="Competência">{{ "%02d/%04d"|format(entry.invoice.billing_month, entry.invoice.billing_year) }}</td>
+                  <td data-label="Vencimento">{{ entry.invoice.due_date }}</td>
+                  <td data-label="Valor total">R$ {{ "%.2f"|format(entry.invoice.total_amount_brl) }}</td>
+                  <td data-label="Status"><span class="badge {{ status_variant(entry.invoice.import_status) }}">{{ entry.invoice.import_status }}</span></td>
+                  <td data-label="Itens">{{ entry.item_count }} lançamento(s)</td>
+                  <td data-label="Importação">{{ entry.invoice.imported_at.strftime('%Y-%m-%d %H:%M') if entry.invoice.imported_at else '-' }}</td>
+                  <td data-label="Ação"><a class="text-link" href="/admin/credit-card-invoices/{{ entry.invoice.id }}">Ver detalhe</a></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
     {% else %}
-      <div class="subtle">Cadastre um cartão na home operacional antes de importar a primeira fatura.</div>
+      <div class="empty-state">
+        <strong>Nenhuma fatura importada ainda</strong>
+        <div class="subtle">Use o formulário ao lado para iniciar a base operacional das faturas do projeto.</div>
+      </div>
     {% endif %}
   </div>
 
-  {% if chart_data %}
-    <div class="card stack" style="margin-bottom: 0;">
+  <aside class="split-aside">
+    <div class="card stack">
       <div>
-        <strong>Valor total das faturas importadas por mês, separado por ano</strong>
-        <div class="subtle">Eixo fixo de 12 meses. Cada barra representa um ano com dados, mantendo a mesma cor ao longo do gráfico.</div>
+        <strong>Importar fatura</strong>
+        <div class="subtle">Upload manual do CSV oficial da fatura com os metadados necessários.</div>
       </div>
-      <div class="invoice-chart-shell"><canvas id="invoice-imports-chart"></canvas></div>
+      {% if invoice_upload_error %}
+        <div class="flash" style="background: var(--danger-soft); color: var(--danger); border-color: #f7b4ae; margin-bottom: 0;">{{ invoice_upload_error }}</div>
+      {% endif %}
+      {% if credit_cards %}
+        <form method="post" action="/admin/credit-card-bills/upload" enctype="multipart/form-data" class="stack">
+          <label>Cartão
+            <select name="card_id" required>
+              <option value="">Selecione</option>
+              {% for card in credit_cards %}
+                <option value="{{ card.id }}">{{ card.card_label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Arquivo CSV<input type="file" name="file" accept=".csv,text/csv" required></label>
+          <div class="toolbar-grid toolbar-grid-compact">
+            <label>Mês<input type="number" name="billing_month" min="1" max="12" required></label>
+            <label>Ano<input type="number" name="billing_year" min="2000" max="2100" required></label>
+          </div>
+          <label>Vencimento<input type="date" name="due_date" required></label>
+          <label>Fechamento opcional<input type="date" name="closing_date"></label>
+          <label>Valor total da fatura<input type="text" name="total_amount_brl" inputmode="decimal" placeholder="1234,56" required></label>
+          <label>Observação opcional<textarea name="notes" placeholder="Observações da importação"></textarea></label>
+          <button type="submit" class="button button-primary">Importar fatura</button>
+        </form>
+      {% else %}
+        <div class="empty-state">
+          <strong>Nenhum cartão ativo para importação</strong>
+          <div class="subtle">Cadastre um cartão na central operacional antes de importar a primeira fatura.</div>
+        </div>
+      {% endif %}
     </div>
-  {% endif %}
-
-  {% if entries %}
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Cartão</th>
-            <th>Competência</th>
-            <th>Vencimento</th>
-            <th>Valor total</th>
-            <th>Status</th>
-            <th>Itens</th>
-            <th>Importação</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for entry in entries %}
-            <tr>
-              <td>#{{ entry.invoice.id }}</td>
-              <td>{{ entry.card.card_label }}</td>
-              <td>{{ "%02d/%04d"|format(entry.invoice.billing_month, entry.invoice.billing_year) }}</td>
-              <td>{{ entry.invoice.due_date }}</td>
-              <td>R$ {{ "%.2f"|format(entry.invoice.total_amount_brl) }}</td>
-              <td><span class="badge {{ status_variant(entry.invoice.import_status) }}">{{ entry.invoice.import_status }}</span></td>
-              <td>{{ entry.item_count }} lançamento(s)</td>
-              <td>{{ entry.invoice.imported_at.strftime('%Y-%m-%d %H:%M') if entry.invoice.imported_at else '-' }}</td>
-              <td><a href="/admin/credit-card-invoices/{{ entry.invoice.id }}">Ver detalhe</a></td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% else %}
-    <div class="subtle">Nenhuma fatura importada ainda.</div>
-  {% endif %}
+  </aside>
 </section>
 
 {% if chart_data %}

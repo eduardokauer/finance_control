@@ -157,7 +157,7 @@
       <div class="subtle">Meses zerados incluídos para leitura de tendência e comparação.</div>
     </div>
     <div class="analysis-table-wrap">
-      <table class="analysis-table">
+      <table class="analysis-table responsive-stack">
         <thead>
           <tr>
             <th>Mês</th>
@@ -171,12 +171,12 @@
         <tbody>
           {% for month in analysis_data.monthly_series %}
             <tr>
-              <td>{{ month.label }}</td>
-              <td>{{ month.income_display }}</td>
-              <td>{{ month.expense_display }}</td>
-              <td>{{ month.balance_display }}</td>
-              <td>{{ month.uncategorized_display }}</td>
-              <td>{{ month.transaction_count }}</td>
+              <td data-label="Mês">{{ month.label }}</td>
+              <td data-label="Receitas">{{ month.income_display }}</td>
+              <td data-label="Despesas">{{ month.expense_display }}</td>
+              <td data-label="Saldo">{{ month.balance_display }}</td>
+              <td data-label="Não categorizado">{{ month.uncategorized_display }}</td>
+              <td data-label="Transações">{{ month.transaction_count }}</td>
             </tr>
           {% endfor %}
         </tbody>

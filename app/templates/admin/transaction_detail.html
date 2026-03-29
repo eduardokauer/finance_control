@@ -1,111 +1,130 @@
 {% extends "admin/base.html" %}
 {% block title %}Lançamento #{{ transaction.id }}{% endblock %}
 {% block content %}
-<div class="card stack">
-  <div class="inline">
-    <a class="button" href="{{ return_to }}">Voltar</a>
-    <span class="badge {% if transaction.category == 'Não Categorizado' or transaction.category == 'Nao Categorizado' %}warn{% endif %}">#{{ transaction.id }}</span>
+<section class="page-header">
+  <div class="page-header-copy">
+    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
+    <h1 class="page-title">Detalhe do lançamento</h1>
+    <p class="page-intro">Tela de manutenção pontual do lançamento, com edição manual, atalho para criar categoria e preview de reclassificação por descrição semelhante.</p>
   </div>
-  <h1>{{ transaction.description_raw }}</h1>
-  <div class="subtle">{{ transaction.transaction_date }} · {{ transaction.source_type }} · {{ transaction.amount }}</div>
-  <div class="subtle">Descrição normalizada: <code>{{ transaction.description_normalized }}</code></div>
+  <div class="page-actions">
+    <a class="button button-ghost" href="{{ return_to }}">Voltar</a>
+  </div>
+</section>
+
+<section class="card detail-hero">
+  <div class="detail-hero-meta">
+    <span class="badge {% if transaction.category == 'Não Categorizado' or transaction.category == 'Nao Categorizado' %}warn{% endif %}">#{{ transaction.id }}</span>
+    <span class="badge">{{ transaction.source_type }}</span>
+    <span class="badge {% if transaction.amount < 0 %}danger{% else %}ok{% endif %}">{{ transaction.amount }}</span>
+  </div>
+  <div>
+    <h2 class="section-title" style="font-size:1.45rem;">{{ transaction.description_raw }}</h2>
+    <p class="section-intro">{{ transaction.transaction_date }} · descrição normalizada: <code>{{ transaction.description_normalized }}</code></p>
+  </div>
   {% if current_rule %}
-    <div class="badge">Regra atual: {{ current_rule.pattern }} → {{ current_rule.category_name }}</div>
+    <div><span class="badge">Regra atual: {{ current_rule.pattern }} → {{ current_rule.category_name }}</span></div>
   {% endif %}
   {% if transaction.is_conciliated_bank_payment %}
-    <div class="card stack" style="margin-bottom:0; padding:12px 14px;">
+    <div class="list-row">
       <div><span class="badge warn">bank_payment conciliado</span></div>
       <div class="subtle">Este lançamento está vinculado à fatura #{{ transaction.conciliation_signal.invoice_id }} · {{ transaction.conciliation_signal.card_label }} · {{ "%02d/%04d"|format(transaction.conciliation_signal.billing_month, transaction.conciliation_signal.billing_year) }}</div>
       <div class="subtle">Status da conciliação: {{ transaction.conciliation_signal.conciliation_status }} · vencimento {{ transaction.conciliation_signal.due_date }}</div>
     </div>
   {% endif %}
-</div>
+</section>
 
-<section class="grid grid-2">
+<section class="detail-grid">
   <div class="card stack">
-    <h2>Editar lançamento</h2>
+    <h2 class="section-title">Editar lançamento</h2>
     <form method="post" action="/admin/transactions/{{ transaction.id }}/update" class="stack">
-      <label>Categoria
-        <select name="category" required>
-          {% for category in categories %}
-            <option value="{{ category.name }}" {% if category.name == transaction.category %}selected{% endif %}>{{ category.name }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Tipo
-        <select name="transaction_kind" required>
-          {% for kind in ['expense', 'income', 'transfer', 'credit_card_payment', 'adjustment', 'tax'] %}
-            <option value="{{ kind }}" {% if kind == transaction.transaction_kind %}selected{% endif %}>{{ kind }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Observação
-        <textarea name="notes" placeholder="Opcional"></textarea>
-      </label>
-      <label>Ação com regra
-        <select name="rule_action">
-          <option value="none">Não salvar regra</option>
-          <option value="create">Criar nova regra</option>
-          {% if current_rule %}<option value="update_current">Atualizar regra atual</option>{% endif %}
-        </select>
-      </label>
-      <label>Padrão da regra
-        <input type="text" name="rule_pattern" value="{{ transaction.description_normalized }}">
-      </label>
-      <label>Modo do match
-        <select name="rule_match_mode">
-          <option value="exact_normalized">exact_normalized</option>
-          <option value="contains">contains</option>
-        </select>
-      </label>
+      <div class="toolbar-grid">
+        <label>Categoria
+          <select name="category" required>
+            {% for category in categories %}
+              <option value="{{ category.name }}" {% if category.name == transaction.category %}selected{% endif %}>{{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Tipo
+          <select name="transaction_kind" required>
+            {% for kind in ['expense', 'income', 'transfer', 'credit_card_payment', 'adjustment', 'tax'] %}
+              <option value="{{ kind }}" {% if kind == transaction.transaction_kind %}selected{% endif %}>{{ kind }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Observação
+          <textarea name="notes" placeholder="Opcional"></textarea>
+        </label>
+        <label>Ação com regra
+          <select name="rule_action">
+            <option value="none">Não salvar regra</option>
+            <option value="create">Criar nova regra</option>
+            {% if current_rule %}<option value="update_current">Atualizar regra atual</option>{% endif %}
+          </select>
+        </label>
+        <label>Padrão da regra
+          <input type="text" name="rule_pattern" value="{{ transaction.description_normalized }}">
+        </label>
+        <label>Modo do match
+          <select name="rule_match_mode">
+            <option value="exact_normalized">exact_normalized</option>
+            <option value="contains">contains</option>
+          </select>
+        </label>
+      </div>
       <input type="hidden" name="return_to" value="{{ return_to }}">
-      <div class="actions">
+      <div class="toolbar-actions">
         <button type="submit" class="button button-primary">Salvar</button>
       </div>
     </form>
   </div>
 
-  <div class="card stack">
-    <h2>Criar categoria rapidamente</h2>
-    <form method="post" action="/admin/categories" class="stack">
-      <label>Nome da nova categoria
-        <input type="text" name="name" placeholder="Ex.: Saúde Pet" required>
-      </label>
-      <label>Tipo da categoria
-        <select name="transaction_kind">
-          <option value="expense">expense</option>
-          <option value="income">income</option>
-          <option value="transfer">transfer</option>
-        </select>
-      </label>
-      <input type="hidden" name="return_to" value="{{ request.url.path }}?return_to={{ encoded_return_to }}">
-      <button type="submit" class="button">Criar categoria</button>
-    </form>
+  <div class="split-aside">
+    <div class="card stack">
+      <h2 class="section-title">Criar categoria rapidamente</h2>
+      <form method="post" action="/admin/categories" class="stack">
+        <label>Nome da nova categoria
+          <input type="text" name="name" placeholder="Ex.: Saúde Pet" required>
+        </label>
+        <label>Tipo da categoria
+          <select name="transaction_kind">
+            <option value="expense">expense</option>
+            <option value="income">income</option>
+            <option value="transfer">transfer</option>
+          </select>
+        </label>
+        <input type="hidden" name="return_to" value="{{ request.url.path }}?return_to={{ encoded_return_to }}">
+        <button type="submit" class="button button-ghost">Criar categoria</button>
+      </form>
+    </div>
+
+    <div class="card stack">
+      <h2 class="section-title">Reclassificação em lote por descrição parecida</h2>
+      <form class="stack">
+        <div class="toolbar-grid toolbar-grid-compact">
+          <label>Padrão
+            <input type="text" name="pattern" value="{{ transaction.description_normalized }}">
+          </label>
+          <label>Modo do match
+            <select name="match_mode">
+              <option value="exact_normalized">exact_normalized</option>
+              <option value="contains">contains</option>
+            </select>
+          </label>
+        </div>
+        <div class="toolbar-actions">
+          <button
+            type="button"
+            class="button button-ghost"
+            hx-post="/admin/transactions/{{ transaction.id }}/preview-similar"
+            hx-include="closest form"
+            hx-target="#similar-preview"
+            hx-swap="innerHTML">Pré-visualizar afetados</button>
+        </div>
+      </form>
+      <div id="similar-preview"></div>
+    </div>
   </div>
 </section>
-
-<div class="card stack">
-  <h2>Reclassificação em lote por descrição parecida</h2>
-  <form class="grid grid-2">
-    <label>Padrão
-      <input type="text" name="pattern" value="{{ transaction.description_normalized }}">
-    </label>
-    <label>Modo do match
-      <select name="match_mode">
-        <option value="exact_normalized">exact_normalized</option>
-        <option value="contains">contains</option>
-      </select>
-    </label>
-    <div class="actions">
-      <button
-        type="button"
-        class="button"
-        hx-post="/admin/transactions/{{ transaction.id }}/preview-similar"
-        hx-include="closest form"
-        hx-target="#similar-preview"
-        hx-swap="innerHTML">Pré-visualizar afetados</button>
-    </div>
-  </form>
-  <div id="similar-preview"></div>
-</div>
 {% endblock %}

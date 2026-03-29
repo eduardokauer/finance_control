@@ -183,7 +183,13 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     home = client.get("/admin")
     assert home.status_code == 200
     assert "Finance Control Admin" in home.text
-    assert "Resumo financeiro" in home.text
+    assert 'class="admin-topbar"' in home.text
+    assert 'data-admin-nav' in home.text
+    assert "Principal" in home.text
+    assert "Operação" in home.text
+    assert "Configuração" in home.text
+    assert "Visão Geral" in home.text
+    assert "Resumo financeiro do período" in home.text
     assert "Visão de Caixa" in home.text
     assert "Visão de Competência" in home.text
     assert "Fluxo líquido do mês" in home.text
@@ -303,7 +309,11 @@ def test_admin_summary_page_shows_home_category_comparison_block(client, db_sess
     assert "Comparativo rápido das categorias do mês" in response.text
     assert "nova no mês" in response.text
     assert "fev/2026: R$ 0,00" in response.text
-    assert response.text.index("Moradia") < response.text.index("Supermercado") < response.text.index("Educação")
+    assert (
+        response.text.index('data-category-row="Moradia"')
+        < response.text.index('data-category-row="Supermercado"')
+        < response.text.index('data-category-row="Educação"')
+    )
     assert "Saúde" not in response.text
 
 

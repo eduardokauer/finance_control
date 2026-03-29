@@ -70,10 +70,12 @@ Ordem de leitura recomendada:
 - Comparações mês a mês / ano a ano por categoria usando a mesma visão de consumo já adotada no mês-base implementadas na análise do admin.
 - Alertas e ações recomendadas recalculados para priorizar sinais da visão de consumo quando falam de consumo, categorias e variação de gasto.
 - Arquitetura da informação do admin reorganizada para separar Resumo, Análise detalhada, Conferência, Operação e Configuração.
+- Shell global do admin redesenhada com sidebar persistente no desktop, drawer no tablet/mobile e topbar fixa nas telas autenticadas.
 - Home/resumo do admin simplificada para concentrar leitura financeira essencial, categorias prioritárias e atalhos de aprofundamento.
 - Home/resumo do admin evoluída para alternar entre `Visão de Caixa` e `Visão de Competência`, com cards, resumo executivo e alertas coerentes com a lente ativa.
 - Gráfico principal da home/resumo materializado com controle temporal local (`Ano` e `Últimos 12 meses`), dropdown de ano, abas curtas de comparação por métrica e convenção visual com barras para entradas/saídas ou receitas/despesas e linha para fluxo/resultado.
 - Bloco-resumo com comparativo visual das Top 5 categorias de consumo do mês-base materializado apenas na `Visão de Competência`, com referência padrão no mês anterior.
+- Páginas de `Visão Geral`, `Análise detalhada`, `Conferência`, `Central operacional`, listas operacionais, detalhes e login migradas para a nova linguagem visual do admin, mantendo as rotas públicas atuais.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
 - Deduplicação forte implementada em OFX e faturas.
 
@@ -219,7 +221,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 - O baixo valor analítico percebido da leitura principal ainda não foi resolvido; a base ficou mais confiável, mas o painel principal ainda precisa de refinamento de produto.
 - A leitura mensal e as comparações históricas por categoria já usam a visão de consumo, mas os gráficos dedicados dessa evolução ainda não foram promovidos.
-- O resumo principal conciliado e a visão de consumo já foram separados em páginas mais claras, mas o produto ainda depende de texto e hierarquia para não confundir consumo com fluxo de caixa.
+- O resumo principal conciliado e a visão de consumo já foram separados em páginas mais claras dentro da nova shell, mas a semântica da `Visão de Competência` ainda precisa amadurecer, especialmente do lado das receitas.
 - A visão bruta ainda é necessária para auditoria.
 - O MVP continua dependente do layout oficial de OFX Itaú e CSV Itaú já suportados.
 
@@ -230,10 +232,10 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Estado atual do ciclo:** `REFINAMENTO_EM_ANDAMENTO`
 - **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Visão de Caixa** como leitura padrão e **Visão de Competência** como leitura alternável.
 - **Épico ativo:** `Home visual de fluxo de caixa`
-- **Histórias em refino:** próximos blocos da home ainda não materializados; evolução futura dos atalhos/contexto entre `Resumo`, `Análise detalhada` e `Conferência`.
+- **Histórias em refino:** próximo recorte funcional da home ainda não materializado; evolução futura dos atalhos/contexto entre `Resumo`, `Análise detalhada` e `Conferência` dentro da shell já redesenhada.
 - **Fatia ativa ou candidata:** próximo recorte do épico ainda em refinamento, sem prioridade definitiva fechada entre as histórias remanescentes da home.
-- **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da alternância entre lentes, do gráfico com controle temporal local e do comparativo categorial compacto já materializados.
-- **Motivo resumido:** o quarto PR técnico da home já materializa a alternância entre `Visão de Caixa` e `Visão de Competência`, incluindo cards por lente, gráfico principal com controle temporal local e ajuste contextual do resumo executivo; com isso, o foco volta para fechar a próxima fatia do mesmo épico antes de um novo handoff técnico.
+- **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da shell global, da arquitetura de informação consolidada e das quatro fatias analíticas da home já materializadas.
+- **Motivo resumido:** o redesign global do admin foi materializado no mesmo eixo da evolução da home, consolidando nova shell, navegação, responsividade principal e a camada analítica atual; com isso, o foco volta para fechar a próxima fatia funcional do mesmo épico antes de um novo handoff técnico.
 - **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
 
 ### Como ler o roadmap
@@ -490,7 +492,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Próximo passo recomendado
 
-- Retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da faixa inicial, do gráfico anual e do comparativo categorial compacto materializados, sem cristalizar neste momento qual das histórias remanescentes será a próxima fatia candidata.
+- Retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da shell global, da arquitetura de informação consolidada e das quatro fatias já materializadas, sem cristalizar neste momento qual das histórias remanescentes será a próxima fatia candidata.
 
 ### Fora de escopo imediato desta frente
 
