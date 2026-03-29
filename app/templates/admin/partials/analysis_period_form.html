@@ -1,72 +1,129 @@
-<section class="page-header">
-  <div class="page-header-copy">
-    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
-    <h1 class="page-title">{{ analysis_page_title }}</h1>
-    <p class="page-intro">{{ analysis_page_intro }}</p>
-  </div>
-  <div class="page-actions">
-    {% if analysis_show_generate %}
-      <form method="post" action="/admin/analysis/run">
-        <input type="hidden" name="period_start" value="{{ period_start }}">
-        <input type="hidden" name="period_end" value="{{ period_end }}">
-        <input type="hidden" name="return_to" value="{{ analysis_urls.return_to }}">
-        <button type="submit" class="button button-ghost" data-loading-button data-loading-label="Gerando análise...">Gerar nova análise</button>
-      </form>
+<section class="analysis-context-stack">
+  <div class="analysis-breadcrumb-row">
+    <nav class="analysis-breadcrumbs" aria-label="Navegação contextual" data-analysis-breadcrumbs>
+      {% for item in analysis_breadcrumb_items %}
+        {% if item.href %}
+          <a href="{{ item.href }}">{{ item.label }}</a>
+        {% else %}
+          <span aria-current="page">{{ item.label }}</span>
+        {% endif %}
+        {% if not loop.last %}
+          <span class="analysis-breadcrumb-separator" aria-hidden="true">›</span>
+        {% endif %}
+      {% endfor %}
+    </nav>
+    {% if analysis_back_href %}
+      <a href="{{ analysis_back_href }}" class="button button-ghost" data-return-summary-link>Voltar ao resumo</a>
     {% endif %}
   </div>
-</section>
 
-<section class="toolbar-card">
-  <form method="get" action="{{ analysis_form_action }}" class="stack" id="analysis-period-form">
-    <input type="hidden" name="selection_mode" id="selection-mode-input" value="{{ selection_mode }}">
-    {% for field in analysis_extra_hidden_fields or [] %}
-      {% if field.value is not none %}
-        <input type="hidden" name="{{ field.name }}" value="{{ field.value }}">
+  <section class="page-header analysis-page-header">
+    <div class="page-header-copy">
+      <div class="page-eyebrow">{{ active_nav_section_label }}</div>
+      <h1 class="page-title">{{ analysis_page_title }}</h1>
+      <p class="page-intro">{{ analysis_page_intro }}</p>
+    </div>
+    <div class="page-actions">
+      {% if analysis_show_generate %}
+        <form method="post" action="/admin/analysis/run">
+          <input type="hidden" name="period_start" value="{{ period_start }}">
+          <input type="hidden" name="period_end" value="{{ period_end }}">
+          <input type="hidden" name="return_to" value="{{ analysis_urls.return_to }}">
+          <button type="submit" class="button button-ghost" data-loading-button data-loading-label="Gerando análise...">Gerar nova análise</button>
+        </form>
       {% endif %}
-    {% endfor %}
-
-    <div class="chip-row">
-      <button type="button" class="button period-tab {% if selection_mode == 'closed' %}button-primary{% endif %}" data-mode="closed">Último mês fechado</button>
-      <button type="button" class="button period-tab {% if selection_mode == 'month' %}button-primary{% endif %}" data-mode="month">Mês/ano</button>
-      <button type="button" class="button period-tab {% if selection_mode == 'custom' %}button-primary{% endif %}" data-mode="custom">Intervalo customizado</button>
     </div>
+  </section>
 
-    <div id="panel-closed" class="period-panel info-strip" {% if selection_mode != 'closed' %}style="display:none;"{% endif %}>
-      <div class="info-metric">
-        <div class="subtle">Período selecionado</div>
-        <strong>{{ latest_closed_start.strftime('%d/%m/%Y') }} a {{ latest_closed_end.strftime('%d/%m/%Y') }}</strong>
+  <section class="toolbar-card analysis-global-toolbar">
+    <div class="analysis-toolbar-header">
+      <div class="stack" style="gap:4px;">
+        <strong>Controles globais da página</strong>
+        <div class="subtle">{{ analysis_controls_intro }}</div>
       </div>
-      <div class="info-metric">
-        <div class="subtle">Modo</div>
-        <strong>Último mês fechado</strong>
-      </div>
+      {% if analysis_global_tabs %}
+        <div class="home-view-tabs" role="tablist" aria-label="Controle global da página">
+          {% for tab in analysis_global_tabs %}
+            <a class="home-view-tab {% if tab.is_active %}home-view-tab-active{% endif %}" href="{{ tab.href }}">{{ tab.label }}</a>
+          {% endfor %}
+        </div>
+      {% endif %}
     </div>
 
-    <div id="panel-month" class="period-panel toolbar-grid toolbar-grid-compact" {% if selection_mode != 'month' %}style="display:none;"{% endif %}>
-      <label>Mês/ano
-        <input type="month" name="month" id="analysis-month-input" value="{{ month_value }}" {% if selection_mode != 'month' %}disabled{% endif %}>
-      </label>
-      <div class="info-metric">
-        <div class="subtle">Data inicial</div>
-        <strong id="month-start-text">{{ month_preview_start.strftime('%d/%m/%Y') }}</strong>
-      </div>
-      <div class="info-metric">
-        <div class="subtle">Data final</div>
-        <strong id="month-end-text">{{ month_preview_end.strftime('%d/%m/%Y') }}</strong>
-      </div>
-    </div>
+    <form method="get" action="{{ analysis_form_action }}" class="stack" id="analysis-period-form">
+      <input type="hidden" name="selection_mode" id="selection-mode-input" value="{{ selection_mode }}">
+      {% for field in analysis_extra_hidden_fields or [] %}
+        {% if field.value is not none %}
+          <input type="hidden" name="{{ field.name }}" value="{{ field.value }}">
+        {% endif %}
+      {% endfor %}
 
-    <div id="panel-custom" class="period-panel toolbar-grid toolbar-grid-compact" {% if selection_mode != 'custom' %}style="display:none;"{% endif %}>
-      <label>Data inicial
-        <input type="date" name="period_start" value="{{ period_start }}" {% if selection_mode != 'custom' %}disabled{% endif %}>
-      </label>
-      <label>Data final
-        <input type="date" name="period_end" value="{{ period_end }}" {% if selection_mode != 'custom' %}disabled{% endif %}>
-      </label>
-    </div>
+      <div class="chip-row">
+        <button type="button" class="button period-tab {% if selection_mode == 'closed' %}button-primary{% endif %}" data-mode="closed">Último mês fechado</button>
+        <button type="button" class="button period-tab {% if selection_mode == 'month' %}button-primary{% endif %}" data-mode="month">Mês</button>
+        <button type="button" class="button period-tab {% if selection_mode == 'custom' %}button-primary{% endif %}" data-mode="custom">Intervalo</button>
+      </div>
 
-    <div class="toolbar-actions">
-      <button type="submit" class="button button-primary" data-loading-button data-loading-label="Carregando análise...">{{ analysis_submit_label }}</button>
+      <div id="panel-closed" class="period-panel info-strip" {% if selection_mode != 'closed' %}style="display:none;"{% endif %}>
+        <div class="info-metric">
+          <div class="subtle">Período selecionado</div>
+          <strong>{{ latest_closed_start.strftime('%d/%m/%Y') }} a {{ latest_closed_end.strftime('%d/%m/%Y') }}</strong>
+        </div>
+        <div class="info-metric">
+          <div class="subtle">Modo</div>
+          <strong>Último mês fechado</strong>
+        </div>
+      </div>
+
+      <div id="panel-month" class="period-panel toolbar-grid toolbar-grid-compact" {% if selection_mode != 'month' %}style="display:none;"{% endif %}>
+        <label>Mês
+          <input type="month" name="month" id="analysis-month-input" value="{{ month_value }}" {% if selection_mode != 'month' %}disabled{% endif %}>
+        </label>
+        <div class="info-metric">
+          <div class="subtle">Data inicial</div>
+          <strong id="month-start-text">{{ month_preview_start.strftime('%d/%m/%Y') }}</strong>
+        </div>
+        <div class="info-metric">
+          <div class="subtle">Data final</div>
+          <strong id="month-end-text">{{ month_preview_end.strftime('%d/%m/%Y') }}</strong>
+        </div>
+      </div>
+
+      <div id="panel-custom" class="period-panel toolbar-grid toolbar-grid-compact" {% if selection_mode != 'custom' %}style="display:none;"{% endif %}>
+        <label>Data inicial
+          <input type="date" name="period_start" value="{{ period_start }}" {% if selection_mode != 'custom' %}disabled{% endif %}>
+        </label>
+        <label>Data final
+          <input type="date" name="period_end" value="{{ period_end }}" {% if selection_mode != 'custom' %}disabled{% endif %}>
+        </label>
+      </div>
+
+      <div class="toolbar-actions">
+        <button type="submit" class="button button-primary" data-loading-button data-loading-label="Carregando análise...">{{ analysis_submit_label }}</button>
+      </div>
+    </form>
+  </section>
+
+  {% if analysis_context_chips %}
+    <div class="analysis-context-chips" aria-label="Contexto atual da leitura">
+      {% for chip in analysis_context_chips %}
+        <span class="analysis-context-chip" data-context-chip="{{ chip.key }}">
+          <strong>{{ chip.label }}</strong>
+          <span>{{ chip.value }}</span>
+        </span>
+      {% endfor %}
     </div>
-  </form>
+  {% endif %}
+
+  {% if analysis_focus_banner %}
+    <section class="card analysis-focus-banner" data-origin-banner="{{ analysis_focus_banner.key }}">
+      <div class="stack" style="gap:6px;">
+        <strong>{{ analysis_focus_banner.title }}</strong>
+        <div class="subtle">{{ analysis_focus_banner.body }}</div>
+      </div>
+      {% if analysis_focus_banner.href %}
+        <a href="{{ analysis_focus_banner.href }}" class="text-link">{{ analysis_focus_banner.link_label }}</a>
+      {% endif %}
+    </section>
+  {% endif %}
 </section>

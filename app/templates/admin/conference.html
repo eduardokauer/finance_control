@@ -9,7 +9,11 @@
 {% set analysis_show_generate = True %}
 {% include "admin/partials/analysis_period_form.html" %}
 
-<section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
+<section
+  id="conference-coverage-section"
+  class="analysis-grid analysis-grid-2 analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'conference' %}analysis-focus-target-active{% endif %}"
+  style="margin-top:12px;"
+>
   <div class="card stack" style="margin-bottom:0;">
     <div>
       <strong>Cobertura da leitura principal</strong>

@@ -75,6 +75,8 @@ Ordem de leitura recomendada:
 - Home/resumo do admin evoluída para alternar entre `Visão de Caixa` e `Visão de Competência`, com cards, resumo executivo e alertas coerentes com a lente ativa.
 - Gráfico principal da home/resumo materializado com controle temporal local (`Ano` e `Últimos 12 meses`), dropdown de ano, abas curtas de comparação por métrica e convenção visual com barras para entradas/saídas ou receitas/despesas e linha para fluxo/resultado.
 - Bloco-resumo com comparativo visual das Top 5 categorias de consumo do mês-base materializado apenas na `Visão de Competência`, com referência padrão no mês anterior.
+- Barra de contexto padronizada no topo de `Resumo`, `Análise detalhada` e `Conferência`, separando breadcrumb, controles globais da página, chips de contexto e foco contextual por origem.
+- Navegação contextual entre `Resumo`, `Análise detalhada` e `Conferência` materializada com preservação de período, lente, origem e contexto relevante do gráfico ao sair da home.
 - Páginas de `Visão Geral`, `Análise detalhada`, `Conferência`, `Central operacional`, listas operacionais, detalhes e login migradas para a nova linguagem visual do admin, mantendo as rotas públicas atuais.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
 - Deduplicação forte implementada em OFX e faturas.
@@ -162,14 +164,21 @@ Esta lista cobre capacidades que ainda não existem no produto ou que ainda não
 ### Leitura analítica atual
 
 - O admin separa a leitura em três entradas analíticas complementares:
-  - **Resumo:** entrada principal, com alternância entre `Visão de Caixa` e `Visão de Competência`, faixa inicial de cards por lente, gráfico principal com controle temporal local, comparativo compacto de categorias apenas na lente de competência, resumo executivo e alertas mais urgentes.
-  - **Análise detalhada:** aprofundamento da visão de consumo, com breakdown categorial completo, comparações históricas, gráficos analíticos atuais, alertas e ações.
-  - **Conferência:** visão bruta, cobertura da leitura principal, sinais auxiliares de conciliação, itens técnicos e HTML renderizado para auditoria.
+  - **Resumo:** entrada principal, com alternância entre `Visão de Caixa` e `Visão de Competência`, barra de contexto própria, faixa inicial de cards por lente, gráfico principal com controle temporal local, comparativo compacto de categorias apenas na lente de competência, resumo executivo, alertas mais urgentes e CTAs contextuais por bloco.
+  - **Análise detalhada:** aprofundamento da visão de consumo, com breadcrumb `Resumo > Análise detalhada`, retorno ao resumo com contexto restaurado, breakdown categorial completo, comparações históricas, gráficos analíticos atuais, alertas e ações.
+  - **Conferência:** visão bruta, cobertura da leitura principal, sinais auxiliares de conciliação, itens técnicos e HTML renderizado para auditoria, também com breadcrumb próprio e retorno ao resumo com contexto restaurado.
 - Essa reorganização é uma decisão explícita de arquitetura da informação do produto, feita antes da próxima etapa de gráficos dedicados por categoria.
 - A `Visão de Caixa` da home usa a leitura de caixa do mês-base para fluxo líquido, entradas, saídas e maior saída individual do período.
 - A `Visão de Competência` da home usa a leitura gerencial já suportada pelo produto para resultado do mês, receitas por competência, despesas por competência e margem do mês.
 - O gráfico principal da home acompanha a lente ativa, usa barras para entradas/saídas ou receitas/despesas e linha para fluxo/resultado, e mantém o controle temporal local ao próprio bloco.
+- A barra de contexto do topo das telas analíticas separa explicitamente:
+  - breadcrumb e orientação de navegação;
+  - controles globais da página;
+  - chips de contexto ativo ou de origem;
+  - foco contextual leve quando a navegação veio da home.
+- Os controles globais do `Resumo` passam a explicitar que `Visão de Caixa` e `Visão de Competência` são controles da página inteira, enquanto `Ano`, `Últimos 12 meses`, dropdown de ano e abas de comparação continuam locais ao bloco do gráfico principal.
 - O resumo executivo principal e os alertas prioritários acompanham a lente ativa sem misturar caixa com competência de forma artificial.
+- A home passa a funcionar como hub de aprofundamento: cards, gráfico, alertas, categorias e conferência oferecem CTAs explícitos com preservação de estado por querystring.
 - O breakdown mensal por categoria do mês-base usa a visão de consumo:
   - transações válidas da conta por `transaction_date`;
   - itens `charge` de faturas `conciliated` por `purchase_date`;
@@ -232,10 +241,10 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Estado atual do ciclo:** `REFINAMENTO_EM_ANDAMENTO`
 - **Tema ativo:** evolução da home para painel principal orientado à decisão, com **Visão de Caixa** como leitura padrão e **Visão de Competência** como leitura alternável.
 - **Épico ativo:** `Home visual de fluxo de caixa`
-- **Histórias em refino:** próximo recorte funcional da home ainda não materializado; evolução futura dos atalhos/contexto entre `Resumo`, `Análise detalhada` e `Conferência` dentro da shell já redesenhada.
-- **Fatia ativa ou candidata:** próximo recorte do épico ainda em refinamento, sem prioridade definitiva fechada entre as histórias remanescentes da home.
-- **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da shell global, da arquitetura de informação consolidada e das quatro fatias analíticas da home já materializadas.
-- **Motivo resumido:** o redesign global do admin foi materializado no mesmo eixo da evolução da home, consolidando nova shell, navegação, responsividade principal e a camada analítica atual; com isso, o foco volta para fechar a próxima fatia funcional do mesmo épico antes de um novo handoff técnico.
+- **Histórias em refino:** próximo recorte funcional da home e da camada analítica ainda não materializado, já partindo da barra contextual e da navegação contextual entregues entre `Resumo`, `Análise detalhada` e `Conferência`.
+- **Fatia ativa ou candidata:** próximo recorte do épico ainda em refinamento, agora já partindo da barra de contexto padronizada e da navegação contextual materializadas entre `Resumo`, `Análise detalhada` e `Conferência`.
+- **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já apoiado na home como hub de aprofundamento e sem fechar antecipadamente qual será a próxima fatia candidata.
+- **Motivo resumido:** a camada analítica agora já preserva melhor período, lente e contexto ao navegar entre `Resumo`, `Análise detalhada` e `Conferência`; com isso, o foco volta para definir com mais precisão qual incremento funcional analítico vem na sequência.
 - **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
 
 ### Como ler o roadmap
@@ -388,6 +397,24 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **O que continua fora desta fatia:** tela completa de categorias, drill-down novo a partir da home, comparação por fonte (`Extrato`, `Fatura`, `Conciliado`), dashboard separado de fluxo de caixa, novo motor contábil e refatoração ampla do sistema de alertas.
 - **Estado após implementação:** a home passa a ter `Visão de Caixa` como padrão inicial, `Visão de Competência` como leitura alternável, cards coerentes por lente, gráfico principal com controle temporal local e comparação enxuta por abas, mantendo a home como **resumo** e não como análise completa.
 
+##### Quinta fatia implementada: barra de contexto e navegação contextual entre Resumo, Análise detalhada e Conferência
+
+- **Objetivo da fatia:** deixar mais claro onde o usuário está, o que está controlando e como aprofundar a leitura sem perder período, lente nem contexto de origem.
+- **Escopo materializado:**
+  - barra de contexto padronizada no topo de `Resumo`, `Análise detalhada` e `Conferência`;
+  - separação explícita entre breadcrumb/navegação, controles globais da página e chips de contexto atual;
+  - `Visão de Caixa` e `Visão de Competência` promovidas visualmente como controles globais do `Resumo`;
+  - preservação de `selection_mode`, período, lente ativa, origem e contexto relevante do gráfico via querystring ao navegar entre as telas analíticas;
+  - botão `Voltar ao resumo` restaurando o estado relevante na `Análise detalhada` e na `Conferência`;
+  - CTAs contextuais por bloco da home para cards, gráfico, categorias, alertas e conferência;
+  - foco contextual leve na tela de destino por banner superior e âncoras simples, sem drill-down pesado.
+- **Regra de semântica:** esta fatia não reescreve a semântica da análise; ela melhora arquitetura de navegação, clareza contextual e continuidade de leitura entre telas já existentes.
+- **Separação consolidada de controles:**
+  - `Visão de Caixa` / `Visão de Competência` passam a ficar claramente posicionadas como controle global do `Resumo`;
+  - `Ano`, `Últimos 12 meses`, dropdown de ano e abas de comparação continuam locais ao bloco do gráfico principal.
+- **O que continua fora desta fatia:** clique direto nas séries do gráfico para drill-down, nova página dedicada de categorias, redesign amplo da análise detalhada, novo dashboard de fluxo de caixa, comparação por fonte e nova engine analítica.
+- **Estado após implementação:** a home deixa de depender de atalhos genéricos e passa a funcionar como hub de aprofundamento contextual, enquanto `Análise detalhada` e `Conferência` passam a preservar melhor o contexto de origem sem perder seus papéis atuais.
+
 ### Backlog estratégico ordenado
 
 #### Ordem 1 - Home orientada à decisão com Visão de Caixa como leitura padrão
@@ -492,7 +519,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 
 ### Próximo passo recomendado
 
-- Retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já partindo da shell global, da arquitetura de informação consolidada e das quatro fatias já materializadas, sem cristalizar neste momento qual das histórias remanescentes será a próxima fatia candidata.
+- Retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, agora já com barra de contexto padronizada e navegação contextual materializadas, sem cristalizar neste momento qual das histórias remanescentes será a próxima fatia candidata.
 
 ### Fora de escopo imediato desta frente
 
