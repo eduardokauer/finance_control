@@ -16,7 +16,7 @@
       <div class="admin-sidebar-section">
         <div class="admin-sidebar-section-label">{{ section.label }}</div>
         <div class="admin-sidebar-links">
-          {% for item in section.items %}
+          {% for item in section["items"] %}
             <a
               href="{{ item.href }}"
               class="admin-sidebar-link {% if item.is_active %}admin-sidebar-link-active{% endif %}"

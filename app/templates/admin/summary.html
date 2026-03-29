@@ -3,7 +3,7 @@
 {% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
 {% block content %}
 {% set analysis_page_title = "Visão Geral" %}
-{% set analysis_page_intro = "Visão Geral do resumo financeiro do período, alternando entre Visão de Caixa e Visão de Competência sem perder o contexto operacional." %}
+{% set analysis_page_intro = "Resumo financeiro do período, alternando entre Visão de Caixa e Visão de Competência sem perder o contexto operacional." %}
 {% set analysis_form_action = "/admin" %}
 {% set analysis_submit_label = "Ver resumo" %}
 {% set analysis_show_generate = True %}
@@ -151,7 +151,7 @@
       </div>
       <div class="home-category-ranking" aria-label="Comparativo das Top 5 categorias do mês-base">
         {% for category in home_dashboard.category_comparison.rows %}
-          <div class="home-category-row">
+          <div class="home-category-row" data-category-row="{{ category.name }}">
             <div class="home-category-rank">#{{ loop.index }}</div>
             <div class="home-category-body">
               <div class="home-category-title">
