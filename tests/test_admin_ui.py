@@ -183,6 +183,12 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     home = client.get("/admin")
     assert home.status_code == 200
     assert "Finance Control Admin" in home.text
+    assert 'class="admin-topbar"' in home.text
+    assert 'data-admin-nav' in home.text
+    assert "Principal" in home.text
+    assert "Operação" in home.text
+    assert "Configuração" in home.text
+    assert "Visão Geral" in home.text
     assert "Resumo financeiro" in home.text
     assert "Visão de Caixa" in home.text
     assert "Visão de Competência" in home.text

@@ -1,0 +1,43 @@
+<div class="admin-sidebar-backdrop" data-nav-backdrop></div>
+<aside class="admin-sidebar" id="admin-sidebar" data-admin-nav>
+  <div class="admin-sidebar-brand">
+    <a href="/admin" class="admin-brand-link">
+      <span class="admin-brand-mark" aria-hidden="true">FC</span>
+      <span class="admin-brand-copy">
+        <strong>{{ admin_brand_name }}</strong>
+        <span>{{ admin_brand_subtitle }}</span>
+      </span>
+    </a>
+    <button type="button" class="admin-sidebar-close" data-nav-close aria-label="Fechar menu">&times;</button>
+  </div>
+
+  <div class="admin-sidebar-scroll">
+    {% for section in nav_sections %}
+      <div class="admin-sidebar-section">
+        <div class="admin-sidebar-section-label">{{ section.label }}</div>
+        <div class="admin-sidebar-links">
+          {% for item in section.items %}
+            <a
+              href="{{ item.href }}"
+              class="admin-sidebar-link {% if item.is_active %}admin-sidebar-link-active{% endif %}"
+              {% if item.is_active %}aria-current="page"{% endif %}
+            >
+              <span class="admin-sidebar-link-dot" aria-hidden="true"></span>
+              <span>{{ item.label }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="admin-sidebar-footer">
+    <div class="admin-sidebar-session">
+      <div class="admin-sidebar-session-label">Sessão administrativa</div>
+      <div class="admin-sidebar-session-value">{{ active_nav_section_label }}</div>
+    </div>
+    <form method="post" action="/admin/logout">
+      <button type="submit" class="button button-ghost admin-sidebar-logout">Sair</button>
+    </form>
+  </div>
+</aside>

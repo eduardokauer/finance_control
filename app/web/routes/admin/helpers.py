@@ -13,12 +13,87 @@ from app.core.config import settings
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parents[3] / "templates"))
 
 
+ADMIN_NAV_SECTIONS = [
+    {
+        "label": "Principal",
+        "items": [
+            {"key": "overview", "label": "Visão Geral", "href": "/admin"},
+            {"key": "analysis", "label": "Análise detalhada", "href": "/admin/analysis"},
+            {"key": "conference", "label": "Conferência", "href": "/admin/conference"},
+        ],
+    },
+    {
+        "label": "Operação",
+        "items": [
+            {"key": "operations", "label": "Central operacional", "href": "/admin/operations"},
+            {"key": "transactions", "label": "Lançamentos", "href": "/admin/transactions"},
+            {"key": "invoices", "label": "Faturas", "href": "/admin/credit-card-invoices"},
+            {"key": "reapply", "label": "Reaplicar regras", "href": "/admin/reapply"},
+        ],
+    },
+    {
+        "label": "Configuração",
+        "items": [
+            {"key": "rules", "label": "Regras", "href": "/admin/rules"},
+            {"key": "categories", "label": "Categorias", "href": "/admin/categories"},
+        ],
+    },
+]
+
+
+def _active_nav_key(path: str) -> str:
+    if path.startswith("/admin/analysis"):
+        return "analysis"
+    if path.startswith("/admin/conference"):
+        return "conference"
+    if path.startswith("/admin/operations"):
+        return "operations"
+    if path.startswith("/admin/transactions"):
+        return "transactions"
+    if path.startswith("/admin/credit-card-invoices"):
+        return "invoices"
+    if path.startswith("/admin/reapply"):
+        return "reapply"
+    if path.startswith("/admin/rules"):
+        return "rules"
+    if path.startswith("/admin/categories"):
+        return "categories"
+    return "overview"
+
+
+def _build_shell_context(request: Request) -> dict:
+    active_key = _active_nav_key(request.url.path)
+    nav_sections = []
+    active_item = None
+    active_section = None
+
+    for section in ADMIN_NAV_SECTIONS:
+        items = []
+        for item in section["items"]:
+            enriched_item = {**item, "is_active": item["key"] == active_key}
+            if enriched_item["is_active"]:
+                active_item = enriched_item
+                active_section = section["label"]
+            items.append(enriched_item)
+        nav_sections.append({**section, "items": items})
+
+    return {
+        "nav_sections": nav_sections,
+        "active_nav_key": active_key,
+        "active_nav_label": active_item["label"] if active_item else "Admin",
+        "active_nav_section_label": active_section or "Principal",
+        "admin_brand_name": "Finance Control Admin",
+        "admin_brand_subtitle": "Gestão Financeira",
+    }
+
+
 def render_admin(request: Request, template_name: str, context: dict, status_code: int = 200) -> HTMLResponse:
     flash = request.session.pop("flash", None)
     return templates.TemplateResponse(
         request,
         template_name,
         {
+            **_build_shell_context(request),
             **context,
             "flash": flash,
             "admin_enabled": admin_ui_enabled(),

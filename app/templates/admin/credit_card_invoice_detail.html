@@ -2,10 +2,6 @@
 {% block title %}Detalhe da Fatura{% endblock %}
 {% block content %}
 <style>
-  .invoice-detail-header {
-    justify-content: space-between;
-    align-items: flex-start;
-  }
   .invoice-detail-page-actions {
     justify-content: flex-end;
   }
@@ -70,16 +66,25 @@
   }
 </style>
 
-<section class="card stack">
-  <div class="inline invoice-detail-header">
-    <div>
-      <h1 style="margin: 0 0 6px 0;">Fatura #{{ detail.invoice.id }}</h1>
-      <div class="subtle">{{ detail.card.card_label }} · {{ "%02d/%04d"|format(detail.invoice.billing_month, detail.invoice.billing_year) }}</div>
-    </div>
-    <div class="inline invoice-detail-page-actions">
-      <a class="button" href="/admin/credit-card-invoices">Voltar para listagem</a>
-      <a class="button" href="/admin">Home</a>
-    </div>
+<section class="page-header">
+  <div class="page-header-copy">
+    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
+    <h1 class="page-title">Detalhe da fatura</h1>
+    <p class="page-intro">{{ detail.card.card_label }} · {{ "%02d/%04d"|format(detail.invoice.billing_month, detail.invoice.billing_year) }} · visão completa de importação, conciliação, pagamentos candidatos e itens da fatura.</p>
+  </div>
+  <div class="page-actions invoice-detail-page-actions">
+    <a class="button button-ghost" href="/admin/credit-card-invoices">Voltar para listagem</a>
+    <a class="button button-ghost" href="/admin">Home</a>
+  </div>
+</section>
+
+<section class="card detail-hero">
+  <div class="detail-hero-meta">
+    <span class="badge">#{{ detail.invoice.id }}</span>
+    <span class="badge {{ status_variant(detail.invoice.import_status) }}">{{ detail.invoice.import_status }}</span>
+  </div>
+  <div>
+    <strong>Fatura #{{ detail.invoice.id }}</strong>
   </div>
 </section>
 
@@ -143,7 +148,7 @@
     <h2>Pagamentos conciliados</h2>
     {% if detail.conciliation_items %}
       <div class="table-wrap">
-        <table>
+        <table class="responsive-stack">
           <thead>
             <tr>
               <th>item_type</th>
@@ -156,8 +161,8 @@
           <tbody>
             {% for item_detail in detail.conciliation_items %}
               <tr>
-                <td><span class="badge">{{ item_detail.conciliation_item.item_type }}</span></td>
-                <td>
+                <td data-label="item_type"><span class="badge">{{ item_detail.conciliation_item.item_type }}</span></td>
+                <td data-label="origem">
                   {% if item_detail.bank_transaction %}
                     {{ item_detail.bank_transaction.transaction_date }} · {{ item_detail.bank_transaction.description_raw }}
                   {% elif item_detail.invoice_item %}
@@ -166,9 +171,9 @@
                     -
                   {% endif %}
                 </td>
-                <td>R$ {{ "%.2f"|format(item_detail.conciliation_item.amount_brl) }}</td>
-                <td>{{ item_detail.conciliation_item.notes or '-' }}</td>
-                <td class="invoice-detail-table-actions">
+                <td data-label="valor">R$ {{ "%.2f"|format(item_detail.conciliation_item.amount_brl) }}</td>
+                <td data-label="notes">{{ item_detail.conciliation_item.notes or '-' }}</td>
+                <td data-label="ação" class="invoice-detail-table-actions">
                   {% if item_detail.conciliation_item.item_type == 'bank_payment' %}
                     <form method="post" action="/admin/credit-card-invoices/{{ detail.invoice.id }}/conciliation/items/{{ item_detail.conciliation_item.id }}/unlink">
                       <button type="submit" class="button button-danger">Desfazer vínculo</button>
@@ -202,7 +207,7 @@
   {% if detail.payment_candidates %}
     <form method="post" action="/admin/credit-card-invoices/{{ detail.invoice.id }}/conciliation" class="stack">
       <div class="table-wrap">
-        <table>
+        <table class="responsive-stack">
           <thead>
             <tr>
               <th></th>
@@ -217,7 +222,7 @@
           <tbody>
             {% for candidate in detail.payment_candidates %}
               <tr>
-                <td>
+                <td data-label="Selecionar">
                   <input
                     type="checkbox"
                     name="selected_transaction_ids"
@@ -226,14 +231,14 @@
                     {% if candidate.linked_invoice_id %}disabled{% endif %}
                   >
                 </td>
-                <td>{{ candidate.transaction.transaction_date }}</td>
-                <td>
+                <td data-label="data">{{ candidate.transaction.transaction_date }}</td>
+                <td data-label="descrição">
                   {{ candidate.transaction.description_raw }}
                   <div class="subtle">gap para saldo: R$ {{ "%.2f"|format(candidate.amount_gap_brl) }} · {{ candidate.days_from_due_date }} dia(s) do vencimento</div>
                   <div class="subtle">descrição: {{ candidate.description_signal }} · data: {{ candidate.date_signal }}</div>
                 </td>
-                <td>R$ {{ "%.2f"|format(candidate.transaction.amount) }}</td>
-                <td>
+                <td data-label="valor">R$ {{ "%.2f"|format(candidate.transaction.amount) }}</td>
+                <td data-label="sinais">
                   <span class="badge">{{ candidate.fit_label }}</span>
                   {% if candidate.fit_label == 'match_saldo' %}
                     <div class="subtle">bate exatamente com o saldo restante</div>
@@ -245,14 +250,14 @@
                     <div class="subtle">sinal mais fraco, revisão manual recomendada</div>
                   {% endif %}
                 </td>
-                <td>
+                <td data-label="força">
                   {% if candidate.strength_label in ['muito_forte', 'forte', 'boa'] %}
                     <span class="badge ok">{{ candidate.strength_label }}</span>
                   {% else %}
                     <span class="badge warn">{{ candidate.strength_label }}</span>
                   {% endif %}
                 </td>
-                <td>
+                <td data-label="vínculo atual">
                   {% if candidate.linked_invoice_id %}
                     <span class="badge danger">já vinculada à fatura #{{ candidate.linked_invoice_id }}</span>
                   {% else %}
@@ -277,11 +282,11 @@
 <section class="card stack">
   <h2>Lançamentos da fatura</h2>
   {% if detail.items %}
-    <div class="table-wrap">
-      <table class="invoice-items-table">
-        <thead>
-          <tr>
-            <th class="invoice-item-date">data</th>
+      <div class="table-wrap">
+        <table class="invoice-items-table responsive-stack">
+          <thead>
+            <tr>
+              <th class="invoice-item-date">data</th>
             <th>descrição</th>
             <th>tipo</th>
             <th class="invoice-item-category-cell">categoria</th>
@@ -292,16 +297,16 @@
             <th>observação derivada</th>
           </tr>
         </thead>
-        <tbody>
-          {% for item_detail in detail.items %}
-            <tr>
-              <td class="invoice-item-date">{{ item_detail.item.purchase_date }}</td>
-              <td>{{ item_detail.item.description_raw }}</td>
-              <td><span class="badge">{{ item_detail.item_type }}</span></td>
-              <td class="invoice-item-category-cell">
-                <div class="invoice-item-category">
-                  <div class="invoice-item-category-line">
-                    {% if item_detail.item.category %}
+          <tbody>
+            {% for item_detail in detail.items %}
+              <tr>
+                <td data-label="data" class="invoice-item-date">{{ item_detail.item.purchase_date }}</td>
+                <td data-label="descrição">{{ item_detail.item.description_raw }}</td>
+                <td data-label="tipo"><span class="badge">{{ item_detail.item_type }}</span></td>
+                <td data-label="categoria" class="invoice-item-category-cell">
+                  <div class="invoice-item-category">
+                    <div class="invoice-item-category-line">
+                      {% if item_detail.item.category %}
                       <span>{{ item_detail.item.category }}</span>
                     {% elif item_detail.item_type == 'charge' %}
                       <span class="subtle">Não Categorizado</span>
@@ -326,11 +331,11 @@
                   {% endif %}
                 </div>
               </td>
-              <td>R$ {{ "%.2f"|format(item_detail.item.amount_brl) }}</td>
-              <td>{{ 'sim' if item_detail.item.is_installment else 'não' }}</td>
-              <td>{{ item_detail.item.installment_current or '-' }}</td>
-              <td>{{ item_detail.item.installment_total or '-' }}</td>
-              <td>{{ item_detail.item.derived_note or '-' }}</td>
+              <td data-label="valor">R$ {{ "%.2f"|format(item_detail.item.amount_brl) }}</td>
+              <td data-label="parcelado">{{ 'sim' if item_detail.item.is_installment else 'não' }}</td>
+              <td data-label="parcela atual">{{ item_detail.item.installment_current or '-' }}</td>
+              <td data-label="total de parcelas">{{ item_detail.item.installment_total or '-' }}</td>
+              <td data-label="observação derivada">{{ item_detail.item.derived_note or '-' }}</td>
             </tr>
           {% endfor %}
         </tbody>

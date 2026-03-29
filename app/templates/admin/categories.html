@@ -1,9 +1,20 @@
 {% extends "admin/base.html" %}
 {% block title %}Categorias{% endblock %}
 {% block content %}
-<div class="card stack">
-  <h1>Categorias</h1>
-  <form method="post" action="/admin/categories" class="grid grid-2">
+<section class="page-header">
+  <div class="page-header-copy">
+    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
+    <h1 class="page-title">Categorias</h1>
+    <p class="page-intro">Mantenha a taxonomia financeira organizada para sustentar regras, leitura de consumo e operação diária.</p>
+  </div>
+</section>
+
+<section class="toolbar-card">
+  <div>
+    <strong>Criar categoria</strong>
+    <div class="subtle">Novas categorias entram já tipadas para evitar ambiguidade entre despesa, receita e transferência.</div>
+  </div>
+  <form method="post" action="/admin/categories" class="toolbar-grid">
     <label>Nome
       <input type="text" name="name" required>
     </label>
@@ -18,17 +29,20 @@
       <input type="checkbox" name="is_active" value="true" checked style="width:auto;">
       Ativa
     </label>
-    <div class="actions">
+    <div class="toolbar-actions">
       <button type="submit" class="button button-primary">Criar categoria</button>
     </div>
   </form>
-</div>
+</section>
 
-<div class="card tableish">
-  <h2>Lista de categorias</h2>
+<section class="card tableish">
+  <div>
+    <h2 class="section-title">Lista de categorias</h2>
+    <p class="section-intro">As categorias permanecem editáveis em linha, mas a página agora privilegia leitura e manutenção rápida.</p>
+  </div>
   {% for category in categories %}
     <div class="category-row">
-      <form method="post" action="/admin/categories/{{ category.id }}/update" class="grid grid-2">
+      <form method="post" action="/admin/categories/{{ category.id }}/update" class="toolbar-grid">
         <label>Nome
           <input type="text" name="name" value="{{ category.name }}" required>
         </label>
@@ -43,12 +57,17 @@
           <input type="checkbox" name="is_active" value="true" {% if category.is_active %}checked{% endif %} style="width:auto;">
           Ativa
         </label>
-        <div class="actions">
-          <button type="submit" class="button">Salvar</button>
+        <div class="toolbar-actions">
+          <button type="submit" class="button button-ghost">Salvar</button>
         </div>
       </form>
     </div>
+  {% else %}
+    <div class="empty-state">
+      <strong>Nenhuma categoria cadastrada</strong>
+      <div class="subtle">A primeira categoria oficial criada passa a aparecer aqui para manutenção contínua.</div>
+    </div>
   {% endfor %}
-</div>
+</section>
 {% endblock %}
 

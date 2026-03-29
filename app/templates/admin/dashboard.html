@@ -1,145 +1,188 @@
 {% extends "admin/base.html" %}
 {% block title %}Admin Home{% endblock %}
 {% block content %}
-<section class="card stack">
-  <div>
-    <h1 class="section-title">Central operacional</h1>
-    <p class="section-intro">Concentre aqui os fluxos operacionais, as configurações mais usadas e a conferência rápida do que mudou no dia a dia.</p>
+<section class="page-header">
+  <div class="page-header-copy">
+    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
+    <h1 class="page-title">Central operacional</h1>
+    <p class="page-intro">Hub do trabalho diário: revisão de lançamentos, faturas, regras e ajustes rápidos sem misturar a operação com a leitura analítica principal.</p>
   </div>
-  <div class="grid grid-3">
-    <div>
-      <div class="subtle">Período padrão</div>
-      <div class="metric-value">{{ metrics.period_start.strftime('%m/%Y') }}</div>
-      <div class="subtle">Último mês fechado</div>
-    </div>
-    <div>
-      <div class="subtle">Não categorizados</div>
-      <div class="metric-value">{{ metrics.uncategorized_count }}</div>
-      <div class="subtle">Total {{ '%.2f'|format(metrics.uncategorized_total) }}</div>
-    </div>
-    <div>
-      <div class="subtle">Faturas importadas</div>
-      <div class="metric-value">{{ recent_credit_card_invoices|length }}</div>
-      <div class="subtle">Últimas entradas visíveis na home</div>
-    </div>
+  <div class="page-actions">
+    <a class="button button-primary" href="/admin/transactions">Revisar lançamentos</a>
+    <a class="button button-ghost" href="/admin/credit-card-invoices">Faturas</a>
   </div>
 </section>
 
-<section class="grid grid-2">
-  <div class="card stack">
-    <div>
-      <h2 class="section-title">Fluxos operacionais</h2>
-      <p class="section-intro">Entradas principais para revisão do dia a dia.</p>
-    </div>
-    <div class="actions">
-      <a class="button button-primary" href="/admin/transactions">Revisar lançamentos</a>
-      <a class="button" href="/admin/transactions?uncategorized_only=true">Não categorizados</a>
-      <a class="button" href="/admin/credit-card-invoices">Faturas</a>
-      <a class="button" href="/admin/reapply">Reaplicar regras</a>
-    </div>
+<section class="info-strip">
+  <div class="info-metric">
+    <div class="subtle">Período padrão</div>
+    <div class="metric-value">{{ metrics.period_start.strftime('%m/%Y') }}</div>
+    <div class="subtle">Último mês fechado</div>
   </div>
-  <div class="card stack">
-    <div>
-      <h2 class="section-title">Configuração</h2>
-      <p class="section-intro">Mantenha a base de regras e categorias organizada conforme o projeto cresce.</p>
-    </div>
-    <div class="actions">
-      <a class="button" href="/admin/rules">Gerenciar regras</a>
-      <a class="button" href="/admin/categories">Gerenciar categorias</a>
-    </div>
+  <div class="info-metric">
+    <div class="subtle">Não categorizados</div>
+    <div class="metric-value">{{ metrics.uncategorized_count }}</div>
+    <div class="subtle">Total {{ '%.2f'|format(metrics.uncategorized_total) }}</div>
+  </div>
+  <div class="info-metric">
+    <div class="subtle">Faturas recentes</div>
+    <div class="metric-value">{{ recent_credit_card_invoices|length }}</div>
+    <div class="subtle">Entradas visíveis no hub</div>
   </div>
 </section>
 
-<section>
-  <div class="card stack">
-    <div>
-      <h2 class="section-title">Últimas faturas</h2>
-      <p class="section-intro">Acesso rápido às importações mais recentes sem misturar a operação com a leitura analítica principal.</p>
+<section class="split-layout-wide">
+  <div class="split-main">
+    <div class="card stack">
+      <div>
+        <h2 class="section-title">Fluxos operacionais</h2>
+        <p class="section-intro">Entradas principais para revisão, correção e conferência do dia a dia.</p>
+      </div>
+      <div class="summary-shortcuts">
+        <a class="summary-shortcut" href="/admin/transactions">
+          <strong>Lançamentos</strong>
+          <span class="subtle">Revisar a base, editar transações e acompanhar sinais operacionais.</span>
+        </a>
+        <a class="summary-shortcut" href="/admin/transactions?uncategorized_only=true">
+          <strong>Não categorizados</strong>
+          <span class="subtle">Ir direto para os itens que ainda exigem classificação manual ou regra nova.</span>
+        </a>
+        <a class="summary-shortcut" href="/admin/credit-card-invoices">
+          <strong>Faturas</strong>
+          <span class="subtle">Importação, conciliação e auditoria das faturas de cartão já processadas.</span>
+        </a>
+        <a class="summary-shortcut" href="/admin/reapply">
+          <strong>Reaplicar regras</strong>
+          <span class="subtle">Rodar novamente a base já importada com as regras oficiais ativas.</span>
+        </a>
+      </div>
     </div>
-    {% if recent_credit_card_invoices %}
-      {% for invoice in recent_credit_card_invoices %}
-        <div class="rule-row" style="margin-top:0; padding-top:0; border-top:none;">
-          <div><strong>{{ invoice.card_label }}</strong> · {{ "%02d/%04d"|format(invoice.billing_month, invoice.billing_year) }}</div>
-          <div class="subtle">ID {{ invoice.invoice_id }} · {{ invoice.item_count }} lançamento(s) · vencimento {{ invoice.due_date }} · status {{ invoice.import_status }}</div>
-          <div><a href="/admin/credit-card-invoices/{{ invoice.invoice_id }}">Abrir detalhe</a></div>
+
+    <div class="card stack">
+      <div>
+        <h2 class="section-title">Últimas faturas</h2>
+        <p class="section-intro">Acesso rápido às importações mais recentes sem precisar navegar pela lista completa.</p>
+      </div>
+      {% if recent_credit_card_invoices %}
+        <div class="list-stack">
+          {% for invoice in recent_credit_card_invoices %}
+            <div class="list-row">
+              <div class="list-row-head">
+                <div class="list-row-copy">
+                  <strong>{{ invoice.card_label }} · {{ "%02d/%04d"|format(invoice.billing_month, invoice.billing_year) }}</strong>
+                  <span class="subtle">ID {{ invoice.invoice_id }} · {{ invoice.item_count }} lançamento(s) · vencimento {{ invoice.due_date }}</span>
+                </div>
+                <span class="badge {% if invoice.import_status == 'conciliated' %}ok{% elif invoice.import_status == 'conflict' %}danger{% else %}warn{% endif %}">{{ invoice.import_status }}</span>
+              </div>
+              <div><a class="text-link" href="/admin/credit-card-invoices/{{ invoice.invoice_id }}">Abrir detalhe</a></div>
+            </div>
+          {% endfor %}
         </div>
-      {% endfor %}
-    {% else %}
-      <div class="subtle">Nenhuma fatura importada ainda.</div>
-    {% endif %}
-  </div>
-</section>
-
-<section class="grid grid-2">
-  <div class="card stack">
-    <div>
-      <h2 class="section-title">Cartões</h2>
-      <p class="section-intro">Cadastre novos cartões e acompanhe os já existentes.</p>
-    </div>
-    {% if credit_card_error %}
-      <div class="flash" style="background: var(--danger-soft); color: var(--danger); border-color: #f7b4ae; margin-bottom: 0;">{{ credit_card_error }}</div>
-    {% endif %}
-    <form method="post" action="/admin/credit-cards" class="stack">
-      <label>Emissor
-        <select name="issuer" required>
-          <option value="itau">Itaú</option>
-        </select>
-      </label>
-      <label>Nome do cartão<input type="text" name="card_label" placeholder="Itaú Visa final 1234" required></label>
-      <label>Final do cartão<input type="text" name="card_final" inputmode="numeric" maxlength="4" placeholder="1234" required></label>
-      <label>Bandeira opcional<input type="text" name="brand" placeholder="Visa"></label>
-      <label class="inline"><input type="checkbox" name="is_active" value="true" checked style="width:auto;"> Ativo</label>
-      <button type="submit" class="button">Salvar cartão</button>
-    </form>
-
-    <div class="stack">
-      <div class="subtle">Cartões cadastrados</div>
-      {% if credit_cards %}
-        {% for card in credit_cards %}
-          <div>
-            <strong>{{ card.card_label }}</strong>
-            <div class="subtle">{{ card.issuer }} · final {{ card.card_final }}{% if card.brand %} · {{ card.brand }}{% endif %} · {{ 'ativo' if card.is_active else 'inativo' }}</div>
-          </div>
-        {% endfor %}
       {% else %}
-        <div class="subtle">Nenhum cartão cadastrado ainda.</div>
+        <div class="empty-state">
+          <strong>Nenhuma fatura importada ainda</strong>
+          <div class="subtle">A área de faturas continua disponível para começar a operação quando o primeiro CSV for enviado.</div>
+        </div>
       {% endif %}
     </div>
-  </div>
-</section>
 
-<section class="grid grid-2">
-  <div class="card stack">
-    <div>
-      <h2 class="section-title">Últimas alterações manuais</h2>
-      <p class="section-intro">Mudanças recentes para auditoria rápida.</p>
-    </div>
-    {% if metrics.latest_changes %}
-      {% for item in metrics.latest_changes %}
+    <div class="analysis-grid analysis-grid-2">
+      <div class="card stack">
         <div>
-          <div><strong>#{{ item.transaction_id }}</strong> · {{ item.origin }}</div>
-          <div class="subtle">{{ item.previous_category }} → {{ item.new_category }} | {{ item.previous_transaction_kind }} → {{ item.new_transaction_kind }}</div>
+          <h2 class="section-title">Últimas alterações manuais</h2>
+          <p class="section-intro">Mudanças recentes para auditoria rápida do que foi ajustado manualmente.</p>
         </div>
-      {% endfor %}
-    {% else %}
-      <div class="subtle">Ainda não há alterações auditadas.</div>
-    {% endif %}
-  </div>
-  <div class="card stack">
-    <div>
-      <h2 class="section-title">Regras recentes</h2>
-      <p class="section-intro">Últimas regras ativas atualizadas.</p>
-    </div>
-    {% if metrics.latest_rules %}
-      {% for rule in metrics.latest_rules %}
+        {% if metrics.latest_changes %}
+          <div class="list-stack">
+            {% for item in metrics.latest_changes %}
+              <div class="list-row">
+                <strong>#{{ item.transaction_id }} · {{ item.origin }}</strong>
+                <div class="subtle">{{ item.previous_category }} → {{ item.new_category }} | {{ item.previous_transaction_kind }} → {{ item.new_transaction_kind }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <strong>Ainda não há alterações auditadas</strong>
+            <div class="subtle">Quando surgirem edições manuais, elas aparecem aqui para revisão rápida.</div>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="card stack">
         <div>
-          <div><strong>{{ rule.pattern }}</strong> → {{ rule.category_name }}</div>
-          <div class="subtle">{{ rule.rule_type }} · {{ "Fluxo da transação" if rule.kind_mode == "flow" else "Transferência" }} · prioridade {{ rule.priority }}</div>
+          <h2 class="section-title">Regras recentes</h2>
+          <p class="section-intro">Últimas regras ativas atualizadas na base oficial de categorização.</p>
         </div>
-      {% endfor %}
-    {% else %}
-      <div class="subtle">Nenhuma regra ativa encontrada.</div>
-    {% endif %}
+        {% if metrics.latest_rules %}
+          <div class="list-stack">
+            {% for rule in metrics.latest_rules %}
+              <div class="list-row">
+                <strong>{{ rule.pattern }} → {{ rule.category_name }}</strong>
+                <div class="subtle">{{ rule.rule_type }} · {{ "Fluxo da transação" if rule.kind_mode == "flow" else "Transferência" }} · prioridade {{ rule.priority }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <strong>Nenhuma regra ativa encontrada</strong>
+            <div class="subtle">As regras oficiais aparecerão aqui conforme forem criadas e mantidas.</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
   </div>
+
+  <aside class="split-aside">
+    <div class="card stack">
+      <div>
+        <h2 class="section-title">Configuração</h2>
+        <p class="section-intro">Ajustes estruturais mais usados para manter a base organizada.</p>
+      </div>
+      <div class="actions">
+        <a class="button button-ghost" href="/admin/rules">Gerenciar regras</a>
+        <a class="button button-ghost" href="/admin/categories">Gerenciar categorias</a>
+      </div>
+    </div>
+
+    <div class="card stack">
+      <div>
+        <h2 class="section-title">Cartões</h2>
+        <p class="section-intro">Cadastre novos cartões e acompanhe os já existentes sem sair do hub operacional.</p>
+      </div>
+      {% if credit_card_error %}
+        <div class="flash" style="background: var(--danger-soft); color: var(--danger); border-color: #f7b4ae; margin-bottom: 0;">{{ credit_card_error }}</div>
+      {% endif %}
+      <form method="post" action="/admin/credit-cards" class="stack">
+        <label>Emissor
+          <select name="issuer" required>
+            <option value="itau">Itaú</option>
+          </select>
+        </label>
+        <label>Nome do cartão<input type="text" name="card_label" placeholder="Itaú Visa final 1234" required></label>
+        <label>Final do cartão<input type="text" name="card_final" inputmode="numeric" maxlength="4" placeholder="1234" required></label>
+        <label>Bandeira opcional<input type="text" name="brand" placeholder="Visa"></label>
+        <label class="inline"><input type="checkbox" name="is_active" value="true" checked style="width:auto;"> Ativo</label>
+        <button type="submit" class="button button-primary">Salvar cartão</button>
+      </form>
+
+      <div class="list-stack">
+        <div class="subtle">Cartões cadastrados</div>
+        {% if credit_cards %}
+          {% for card in credit_cards %}
+            <div class="list-row">
+              <strong>{{ card.card_label }}</strong>
+              <div class="subtle">{{ card.issuer }} · final {{ card.card_final }}{% if card.brand %} · {{ card.brand }}{% endif %} · {{ 'ativo' if card.is_active else 'inativo' }}</div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state">
+            <strong>Nenhum cartão cadastrado ainda</strong>
+            <div class="subtle">Cadastre o primeiro cartão para destravar a importação operacional das faturas.</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </aside>
 </section>
 {% endblock %}

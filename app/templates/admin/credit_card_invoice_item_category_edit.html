@@ -25,16 +25,15 @@
   }
 </style>
 
-<section class="card stack">
-  <div class="inline" style="justify-content: space-between; align-items: flex-start;">
-    <div>
-      <h1 style="margin: 0 0 6px 0;">Editar categoria do item da fatura</h1>
-      <div class="subtle">{{ editor.card.card_label }} · {{ "%02d/%04d"|format(editor.invoice.billing_month, editor.invoice.billing_year) }}</div>
-    </div>
-    <div class="inline">
-      <a class="button" href="/admin/credit-card-invoices/{{ editor.invoice.id }}">Voltar para a fatura</a>
-      <a class="button" href="/admin/credit-card-invoices">Listagem</a>
-    </div>
+<section class="page-header">
+  <div class="page-header-copy">
+    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
+    <h1 class="page-title">Editar categoria do item da fatura</h1>
+    <p class="page-intro">{{ editor.card.card_label }} · {{ "%02d/%04d"|format(editor.invoice.billing_month, editor.invoice.billing_year) }} · ajuste pontual ou aplicação na base com preview explícito antes de persistir.</p>
+  </div>
+  <div class="page-actions">
+    <a class="button button-ghost" href="/admin/credit-card-invoices/{{ editor.invoice.id }}">Voltar para a fatura</a>
+    <a class="button button-ghost" href="/admin/credit-card-invoices">Listagem</a>
   </div>
 </section>
 
@@ -210,7 +209,7 @@
       <h3 style="margin: 0;">Itens impactados</h3>
       {% if base_preview.impacted_items %}
         <div class="table-wrap">
-          <table class="preview-table">
+          <table class="preview-table responsive-stack">
             <thead>
               <tr>
                 <th>data</th>
@@ -225,13 +224,13 @@
             <tbody>
               {% for item in base_preview.impacted_items %}
                 <tr>
-                  <td>{{ item.purchase_date }}</td>
-                  <td>{{ item.description_raw }}</td>
-                  <td>R$ {{ "%.2f"|format(item.amount_brl) }}</td>
-                  <td>#{{ item.invoice_id }} · {{ "%02d/%04d"|format(item.billing_month, item.billing_year) }} · {{ item.card_label }}</td>
-                  <td>{{ item.current_category or 'Não Categorizado' }}</td>
-                  <td><span class="badge {{ status_variant(item.conciliation_status) }}">{{ item.conciliation_status }}</span></td>
-                  <td>{{ 'sim' if item.is_visible_in_analysis else 'não' }}</td>
+                  <td data-label="data">{{ item.purchase_date }}</td>
+                  <td data-label="descrição">{{ item.description_raw }}</td>
+                  <td data-label="valor">R$ {{ "%.2f"|format(item.amount_brl) }}</td>
+                  <td data-label="fatura">#{{ item.invoice_id }} · {{ "%02d/%04d"|format(item.billing_month, item.billing_year) }} · {{ item.card_label }}</td>
+                  <td data-label="categoria atual">{{ item.current_category or 'Não Categorizado' }}</td>
+                  <td data-label="status"><span class="badge {{ status_variant(item.conciliation_status) }}">{{ item.conciliation_status }}</span></td>
+                  <td data-label="entra na leitura principal?">{{ 'sim' if item.is_visible_in_analysis else 'não' }}</td>
                 </tr>
               {% endfor %}
             </tbody>
