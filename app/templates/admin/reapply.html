@@ -1,11 +1,18 @@
 {% extends "admin/base.html" %}
 {% block title %}Reaplicar Regras{% endblock %}
 {% block content %}
-<div class="card stack">
-  <h1>Reaplicar regras na base já importada</h1>
-  <p class="subtle">O padrão agora é aplicar na base toda. Se quiser limitar por período, preencha uma ou ambas as datas abaixo.</p>
+<section class="page-header">
+  <div class="page-header-copy">
+    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
+    <h1 class="page-title">Reaplicar regras na base já importada</h1>
+    <p class="page-intro">Ferramenta operacional para revisar o impacto das regras oficiais sobre a base histórica, com escopo opcional por período.</p>
+  </div>
+</section>
+
+<section class="toolbar-card">
+  <div class="subtle">O padrão é aplicar na base toda. Se quiser limitar por período, preencha uma ou ambas as datas abaixo.</div>
   <form class="stack">
-    <div class="grid grid-2">
+    <div class="toolbar-grid toolbar-grid-compact">
       <label>Data inicial opcional
         <input type="date" name="period_start">
       </label>
@@ -22,7 +29,7 @@
       Permitir degradação explícita para Não Categorizado quando não houver classificação melhor
     </label>
 
-    <details class="accordion card">
+    <details class="accordion">
       <summary>Selecionar regras para aplicar</summary>
       <div class="accordion-body stack">
         {% for rule in rules %}
@@ -39,10 +46,10 @@
       </div>
     </details>
 
-    <div class="actions">
+    <div class="toolbar-actions">
       <button
         type="button"
-        class="button"
+        class="button button-primary"
         hx-post="/admin/reapply/preview"
         hx-include="closest form"
         hx-target="#reapply-preview"
@@ -51,6 +58,6 @@
         data-loading-label="Pré-visualizando...">Pré-visualizar impacto</button>
     </div>
   </form>
-</div>
+</section>
 <div id="reapply-preview"></div>
 {% endblock %}

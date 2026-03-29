@@ -223,7 +223,13 @@ def test_admin_main_routes_smoke(client, db_session, monkeypatch):
     ]
 
     for route in routes:
-        _assert_route_ok(client.get(route), route)
+        response = client.get(route)
+        _assert_route_ok(response, route)
+        assert 'class="admin-topbar"' in response.text, route
+        assert 'data-admin-nav' in response.text, route
+        assert "Principal" in response.text, route
+        assert "Operação" in response.text, route
+        assert "Configuração" in response.text, route
 
 
 def test_admin_analysis_and_conference_routes_support_legacy_saved_payload(client, db_session, monkeypatch):

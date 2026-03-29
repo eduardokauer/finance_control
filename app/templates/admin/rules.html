@@ -1,57 +1,65 @@
 {% extends "admin/base.html" %}
 {% block title %}Regras{% endblock %}
 {% block content %}
-<div class="card tableish">
-  <div class="inline" style="justify-content:space-between; align-items:center;">
-    <h1 style="margin:0;">Regras manuais de categorização</h1>
+<section class="page-header">
+  <div class="page-header-copy">
+    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
+    <h1 class="page-title">Regras manuais de categorização</h1>
+    <p class="page-intro">Base oficial das regras de match e categorização que sustentam a operação e a leitura analítica do produto.</p>
   </div>
+</section>
 
-  <details class="accordion">
-    <summary>Adicionar regra</summary>
-    <div class="accordion-body stack">
-      <form method="post" action="/admin/rules" class="grid grid-2">
-        <label>Padrão ou termo
-          <input type="text" name="pattern" placeholder="Ex.: guarida" required>
-        </label>
-        <label>Modo do match
-          <select name="rule_type">
-            <option value="contains">contains</option>
-            <option value="exact_normalized">exact_normalized</option>
-          </select>
-        </label>
-        <label>Categoria destino
-          <select name="category_name">
-            {% for category in categories if category.is_active %}
-              <option value="{{ category.name }}">{{ category.name }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <label>Tipo da regra
-          <select name="kind_mode">
-            <option value="flow">Fluxo da transação</option>
-            <option value="transfer">Transferência</option>
-          </select>
-          <div class="subtle">Fluxo da transação: entrada vira receita, saída vira despesa.</div>
-        </label>
-        <label>Escopo da regra
-          <select name="source_scope">
-            <option value="both">Extrato + fatura</option>
-            <option value="bank_statement">Somente extrato</option>
-            <option value="credit_card_invoice_item">Somente item de fatura</option>
-          </select>
-          <div class="subtle">Use escopo específico quando a descrição fizer sentido apenas no extrato ou apenas na fatura.</div>
-        </label>
-        <label>Prioridade
-          <input type="number" name="priority" value="0">
-        </label>
-        <div class="actions">
-          <button type="submit" class="button button-primary">Criar regra</button>
-        </div>
-      </form>
+<section class="toolbar-card">
+  <div>
+    <strong>Adicionar regra</strong>
+    <div class="subtle">Crie novas regras mantendo escopo, prioridade e semântica de fluxo bem definidos.</div>
+  </div>
+  <form method="post" action="/admin/rules" class="toolbar-grid">
+    <label>Padrão ou termo
+      <input type="text" name="pattern" placeholder="Ex.: guarida" required>
+    </label>
+    <label>Modo do match
+      <select name="rule_type">
+        <option value="contains">contains</option>
+        <option value="exact_normalized">exact_normalized</option>
+      </select>
+    </label>
+    <label>Categoria destino
+      <select name="category_name">
+        {% for category in categories if category.is_active %}
+          <option value="{{ category.name }}">{{ category.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Tipo da regra
+      <select name="kind_mode">
+        <option value="flow">Fluxo da transação</option>
+        <option value="transfer">Transferência</option>
+      </select>
+      <div class="subtle">Fluxo da transação: entrada vira receita, saída vira despesa.</div>
+    </label>
+    <label>Escopo da regra
+      <select name="source_scope">
+        <option value="both">Extrato + fatura</option>
+        <option value="bank_statement">Somente extrato</option>
+        <option value="credit_card_invoice_item">Somente item de fatura</option>
+      </select>
+      <div class="subtle">Use escopo específico quando a descrição fizer sentido apenas no extrato ou apenas na fatura.</div>
+    </label>
+    <label>Prioridade
+      <input type="number" name="priority" value="0">
+    </label>
+    <div class="toolbar-actions">
+      <button type="submit" class="button button-primary">Criar regra</button>
     </div>
-  </details>
+  </form>
+</section>
 
-  <h2>Regras cadastradas</h2>
+<section class="card tableish">
+  <div>
+    <h2 class="section-title">Regras cadastradas</h2>
+    <p class="section-intro">Cada regra segue editável em detalhe, mas agora a listagem já destaca melhor categoria, escopo e prioridade.</p>
+  </div>
   {% for rule in rules %}
     <details id="rule-{{ rule.id }}" class="rule-row accordion" {% if open_rule_id == rule.id %}open{% endif %}>
       <summary>
@@ -59,7 +67,7 @@
         <span class="subtle">{{ rule.category_name }} · {{ 'Fluxo da transação' if rule.kind_mode == 'flow' else 'Transferência' }} · {{ 'Extrato + fatura' if rule.source_scope == 'both' else 'Somente extrato' if rule.source_scope == 'bank_statement' else 'Somente item de fatura' }} · prioridade {{ rule.priority }} · {{ 'ativa' if rule.is_active else 'inativa' }}</span>
       </summary>
       <div class="accordion-body stack">
-        <form method="post" action="/admin/rules/{{ rule.id }}/update" class="grid grid-2">
+        <form method="post" action="/admin/rules/{{ rule.id }}/update" class="toolbar-grid">
           <label>Padrão
             <input type="text" name="pattern" value="{{ rule.pattern }}" required>
           </label>
@@ -98,13 +106,13 @@
             <input type="checkbox" name="is_active" value="true" {% if rule.is_active %}checked{% endif %} style="width:auto;">
             Ativa
           </label>
-          <div class="actions">
+          <div class="toolbar-actions">
             <button type="submit" class="button button-primary">Salvar</button>
           </div>
         </form>
         <div class="actions">
           <form method="post" action="/admin/rules/{{ rule.id }}/toggle">
-            <button type="submit" class="button">{{ 'Desativar' if rule.is_active else 'Ativar' }}</button>
+            <button type="submit" class="button button-ghost">{{ 'Desativar' if rule.is_active else 'Ativar' }}</button>
           </form>
           <form method="post" action="/admin/rules/{{ rule.id }}/delete" onsubmit="return confirm('Excluir esta regra?');">
             <button type="submit" class="button button-danger">Excluir</button>
@@ -113,7 +121,10 @@
       </div>
     </details>
   {% else %}
-    <div class="subtle">Nenhuma regra cadastrada.</div>
+    <div class="empty-state">
+      <strong>Nenhuma regra cadastrada</strong>
+      <div class="subtle">Crie a primeira regra manual para começar a consolidar a categorização automática da base.</div>
+    </div>
   {% endfor %}
-</div>
+</section>
 {% endblock %}
