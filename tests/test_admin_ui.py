@@ -1,4 +1,6 @@
+import html as html_lib
 import json
+import re
 from datetime import date
 
 from sqlalchemy import select
@@ -22,6 +24,18 @@ from app.services.analysis import run_analysis
 
 def _login(client):
     return client.post("/admin/login", data={"password": settings.admin_ui_password, "next": "/admin"})
+
+
+def _extract_href_by_data_attr(page_html: str, attr_name: str, attr_value: str) -> str:
+    match = re.search(rf'href="([^"]+)"[^>]*{attr_name}="{attr_value}"', page_html)
+    assert match is not None
+    return html_lib.unescape(match.group(1))
+
+
+def _extract_return_summary_href(page_html: str) -> str:
+    match = re.search(r'href="([^"]+)"[^>]*data-return-summary-link', page_html)
+    assert match is not None
+    return html_lib.unescape(match.group(1))
 
 
 def _seed_categories(db_session):
@@ -190,6 +204,10 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert "Configuração" in home.text
     assert "Visão Geral" in home.text
     assert "Resumo financeiro do período" in home.text
+    assert 'data-analysis-breadcrumbs' in home.text
+    assert 'data-context-chip="period"' in home.text
+    assert 'data-context-chip="lens"' in home.text
+    assert "Controles globais da página" in home.text
     assert "Visão de Caixa" in home.text
     assert "Visão de Competência" in home.text
     assert "Fluxo líquido do mês" in home.text
@@ -206,6 +224,63 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert "Visão bruta de apoio" not in home.text
     assert "Sinais analíticos de conciliação" not in home.text
     assert "Análise determinística renderizada" not in home.text
+
+
+def test_admin_summary_page_exposes_contextual_ctas_with_preserved_state(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR",
+        normalized="salario mar context links",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Salário",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR",
+        normalized="aluguel mar context links",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_transaction(
+        db_session,
+        description="MERCADO MAR",
+        normalized="mercado mar context links",
+        transaction_date=date(2026, 3, 12),
+        amount=-900.0,
+        transaction_kind="expense",
+        category="Supermercado",
+    )
+    _login(client)
+
+    response = client.get("/admin?selection_mode=month&month=2026-03&home_lens=competence&home_chart_mode=rolling_12&home_chart_compare=expense")
+
+    assert response.status_code == 200
+    assert 'data-context-cta="cards"' in response.text
+    assert 'data-context-cta="chart"' in response.text
+    assert 'data-context-cta="alerts"' in response.text
+    assert 'data-context-cta="categories"' in response.text
+    assert 'data-context-cta="conference"' in response.text
+
+    chart_href = _extract_href_by_data_attr(response.text, "data-context-cta", "chart")
+    assert "selection_mode=month" in chart_href
+    assert "month=2026-03" in chart_href
+    assert "home_lens=competence" in chart_href
+    assert "origin=summary" in chart_href
+    assert "origin_block=chart" in chart_href
+    assert "home_chart_mode=rolling_12" in chart_href
+    assert "home_chart_compare=expense" in chart_href
+
+    conference_href = _extract_href_by_data_attr(response.text, "data-context-cta", "conference")
+    assert conference_href.startswith("/admin/conference?")
+    assert "origin=summary" in conference_href
+    assert "origin_block=conference" in conference_href
+    assert "home_lens=competence" in conference_href
 
 
 def test_admin_summary_page_shows_home_category_comparison_block(client, db_session, monkeypatch):
@@ -356,12 +431,14 @@ def test_admin_summary_page_switches_home_lenses_and_hides_top_categories_in_cas
     assert "Resumo executivo da Visão de Caixa" in cash_response.text
     assert "Maior saída do mês" in cash_response.text
     assert "Comparativo rápido das categorias do mês" not in cash_response.text
+    assert 'data-context-cta="categories"' not in cash_response.text
 
     assert competence_response.status_code == 200
     assert "Resumo executivo da Visão de Competência" in competence_response.text
     assert "Resultado do mês" in competence_response.text
     assert "Margem do mês" in competence_response.text
     assert "Comparativo rápido das categorias do mês" in competence_response.text
+    assert 'data-context-cta="categories"' in competence_response.text
 
 
 def test_admin_summary_page_shows_local_chart_controls_for_both_lenses(client, db_session, monkeypatch):
@@ -406,6 +483,82 @@ def test_admin_summary_page_shows_local_chart_controls_for_both_lenses(client, d
     assert "Receitas" in competence_response.text
     assert "Despesas" in competence_response.text
     assert "Visão de Competência: evolução principal" in competence_response.text
+
+
+def test_admin_analysis_page_restores_summary_context_from_chart_navigation(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR",
+        normalized="salario mar context analysis",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Salário",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR",
+        normalized="aluguel mar context analysis",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _login(client)
+
+    response = client.get(
+        "/admin/analysis?selection_mode=month&month=2026-03&period_start=2026-03-01&period_end=2026-03-31"
+        "&home_lens=competence&home_chart_mode=rolling_12&home_chart_compare=expense&origin=summary&origin_block=chart"
+    )
+
+    assert response.status_code == 200
+    assert 'data-analysis-breadcrumbs' in response.text
+    assert "Análise detalhada" in response.text
+    assert 'data-origin-banner="chart"' in response.text
+    assert 'data-context-chip="origin_block"' in response.text
+    assert "#analysis-historical-section" in response.text
+
+    return_href = _extract_return_summary_href(response.text)
+    assert return_href.startswith("/admin?")
+    assert "selection_mode=month" in return_href
+    assert "month=2026-03" in return_href
+    assert "home_lens=competence" in return_href
+    assert "home_chart_mode=rolling_12" in return_href
+    assert "home_chart_compare=expense" in return_href
+
+
+def test_admin_conference_page_restores_summary_context(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR",
+        normalized="salario mar conference context",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Salário",
+    )
+    _login(client)
+
+    response = client.get(
+        "/admin/conference?selection_mode=month&month=2026-03&period_start=2026-03-01&period_end=2026-03-31"
+        "&home_lens=cash&origin=summary&origin_block=conference"
+    )
+
+    assert response.status_code == 200
+    assert 'data-analysis-breadcrumbs' in response.text
+    assert "Conferência e auditoria" in response.text
+    assert 'data-origin-banner="conference"' in response.text
+    assert 'data-context-chip="origin_block"' in response.text
+
+    return_href = _extract_return_summary_href(response.text)
+    assert return_href.startswith("/admin?")
+    assert "selection_mode=month" in return_href
+    assert "month=2026-03" in return_href
+    assert "home_lens=cash" in return_href
 
 
 def test_admin_can_create_credit_card_and_upload_invoice(client, db_session, monkeypatch, sample_credit_card_csv_file):

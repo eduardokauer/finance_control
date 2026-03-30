@@ -1,4 +1,92 @@
 <style>
+  .analysis-context-stack {
+    display: grid;
+    gap: 14px;
+  }
+  .analysis-breadcrumb-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .analysis-breadcrumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .analysis-breadcrumbs a {
+    text-decoration: none;
+    color: inherit;
+  }
+  .analysis-breadcrumbs a:hover {
+    color: var(--ink);
+  }
+  .analysis-breadcrumbs [aria-current="page"] {
+    color: var(--ink);
+    font-weight: 700;
+  }
+  .analysis-breadcrumb-separator {
+    color: var(--muted);
+  }
+  .analysis-page-header {
+    padding-top: 0;
+  }
+  .analysis-global-toolbar {
+    gap: 18px;
+  }
+  .analysis-toolbar-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .analysis-context-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .analysis-context-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(217, 226, 236, 0.92);
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: var(--shadow-soft);
+    font-size: 0.86rem;
+    color: var(--muted);
+  }
+  .analysis-context-chip strong {
+    color: var(--ink);
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .analysis-focus-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-color: rgba(37, 99, 235, 0.18);
+    background: linear-gradient(180deg, #ffffff 0%, #f3f8ff 100%);
+  }
+  .analysis-focus-target {
+    scroll-margin-top: 92px;
+  }
+  .analysis-focus-target-active > .card,
+  .card.analysis-focus-target-active,
+  .analysis-focus-target-active {
+    border-color: rgba(37, 99, 235, 0.22);
+    box-shadow: 0 14px 32px rgba(37, 99, 235, 0.1);
+  }
   .analysis-grid {
     display: grid;
     gap: 18px;
@@ -257,6 +345,11 @@
     }
   }
   @media (max-width: 760px) {
+    .analysis-breadcrumb-row,
+    .analysis-focus-banner,
+    .analysis-toolbar-header {
+      align-items: stretch;
+    }
     .home-chart-controls {
       align-items: flex-start;
       justify-content: flex-start;

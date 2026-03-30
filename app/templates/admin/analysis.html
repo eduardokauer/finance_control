@@ -10,7 +10,11 @@
 {% include "admin/partials/analysis_period_form.html" %}
 
 <section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
-  <div class="card stack" style="margin-bottom:0;">
+  <div
+    id="analysis-overview-section"
+    class="card stack analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'cards' %}analysis-focus-target-active{% endif %}"
+    style="margin-bottom:0;"
+  >
     <div>
       <strong>Visão de consumo do mês-base</strong>
       <div class="subtle">{{ analysis_data.category_breakdown.note }}</div>
@@ -48,7 +52,11 @@
     </div>
   </div>
 
-  <div class="card stack" style="margin-bottom:0;">
+  <div
+    id="analysis-category-history-section"
+    class="card stack analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'categories' %}analysis-focus-target-active{% endif %}"
+    style="margin-bottom:0;"
+  >
     <div>
       <strong>Comparações históricas por categoria na visão de consumo</strong>
       <div class="subtle">{{ analysis_data.category_history.note }}</div>
@@ -94,6 +102,7 @@
   </div>
 </section>
 
+<div id="analysis-historical-section" class="analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'chart' %}analysis-focus-target-active{% endif %}">
 {% if analysis_run %}
   <section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
     <div class="card stack" style="margin-bottom:0;">
@@ -117,8 +126,9 @@
     <div class="subtle">As leituras de consumo acima já refletem o período selecionado. Gere uma nova análise determinística para liberar os gráficos desta visão detalhada.</div>
   </div>
 {% endif %}
+</div>
 
-<section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
+<section id="analysis-alerts-section" class="analysis-grid analysis-grid-2 analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'alerts' %}analysis-focus-target-active{% endif %}" style="margin-top:12px;">
   <div class="card stack" style="margin-bottom:0;">
     <div>
       <strong>Alertas determinísticos</strong>
@@ -169,8 +179,7 @@
     <div class="subtle">A visão bruta, os sinais auxiliares de conciliação, os itens técnicos e o HTML renderizado foram movidos para a área de conferência.</div>
   </div>
   <div class="actions">
-    <a class="button" href="{{ analysis_urls.summary }}">Voltar ao resumo</a>
-    <a class="button" href="{{ analysis_urls.conference }}">Abrir conferência</a>
+    <a class="button" href="{{ analysis_urls.conference }}">Abrir conferência do período</a>
   </div>
 </div>
 

@@ -3,24 +3,12 @@
 {% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
 {% block content %}
 {% set analysis_page_title = "Visão Geral" %}
-{% set analysis_page_intro = "Resumo financeiro do período, alternando entre Visão de Caixa e Visão de Competência sem perder o contexto operacional." %}
+{% set analysis_page_intro = "Resumo financeiro do período com navegação contextual para aprofundar a leitura sem perder lente, período nem contexto de origem." %}
 {% set analysis_form_action = "/admin" %}
 {% set analysis_submit_label = "Ver resumo" %}
 {% set analysis_show_generate = True %}
 {% set home_dashboard = analysis_data.home_dashboard %}
 {% include "admin/partials/analysis_period_form.html" %}
-
-<section class="toolbar-card">
-  <div>
-    <strong>Lente principal da home</strong>
-    <div class="subtle">A troca de lente reorganiza os cards, o gráfico principal, o resumo executivo e os alertas prioritários da tela sem obrigar o usuário a sair da home.</div>
-  </div>
-  <div class="home-view-tabs" role="tablist" aria-label="Alternar lente principal da home">
-    {% for lens in home_dashboard.lenses %}
-      <a class="home-view-tab {% if lens.is_active %}home-view-tab-active{% endif %}" href="{{ lens.href }}">{{ lens.label }}</a>
-    {% endfor %}
-  </div>
-</section>
 
 <section class="home-kpi-strip" aria-label="Faixa inicial da home financeira">
   {% for card in home_dashboard.cards %}
@@ -90,14 +78,17 @@
       </div>
     </div>
 
-    <div class="home-inline-tabs" role="tablist" aria-label="Comparação visual do gráfico principal">
-      {% for compare in home_dashboard.chart.compare_tabs %}
-        <a class="home-inline-tab {% if compare.is_active %}home-inline-tab-active{% endif %}" href="{{ compare.href }}">{{ compare.label }}</a>
-      {% endfor %}
-    </div>
+      <div class="home-inline-tabs" role="tablist" aria-label="Comparação visual do gráfico principal">
+        {% for compare in home_dashboard.chart.compare_tabs %}
+          <a class="home-inline-tab {% if compare.is_active %}home-inline-tab-active{% endif %}" href="{{ compare.href }}">{{ compare.label }}</a>
+        {% endfor %}
+      </div>
 
     <div class="chart-shell chart-shell-tall">
       <canvas id="home-primary-chart" aria-label="Gráfico principal da home"></canvas>
+    </div>
+    <div class="actions">
+      <a class="button button-ghost" href="{{ analysis_urls.contextual.chart_detail }}" data-context-cta="chart">Ver leitura histórica completa</a>
     </div>
   </div>
 
@@ -122,6 +113,9 @@
         </div>
       {% endfor %}
     </div>
+    <div class="actions">
+      <a class="button button-ghost" href="{{ analysis_urls.contextual.alerts_detail }}" data-context-cta="alerts">Ver alertas e ações completas</a>
+    </div>
   </aside>
 </section>
 
@@ -140,6 +134,9 @@
         <strong>Cobertura da leitura atual</strong>
         <p>{{ home_dashboard.summary.coverage_note }}</p>
       </div>
+    </div>
+    <div class="actions">
+      <a class="button button-ghost" href="{{ analysis_urls.contextual.cards_detail }}" data-context-cta="cards">Abrir análise detalhada desta leitura</a>
     </div>
   </div>
 
@@ -177,6 +174,9 @@
           </div>
         {% endfor %}
       </div>
+      <div class="actions">
+        <a class="button button-ghost" href="{{ analysis_urls.contextual.categories_detail }}" data-context-cta="categories">Ver categorias completas</a>
+      </div>
     </div>
   {% endif %}
 </section>
@@ -184,22 +184,8 @@
 <section class="analysis-grid analysis-grid-2">
   <div class="card stack">
     <div>
-      <strong>Aprofundar a leitura</strong>
-      <div class="subtle">Atalhos para entrar na análise completa, na conferência/auditoria ou na central operacional.</div>
-    </div>
-    <div class="summary-shortcuts">
-      <a class="summary-shortcut" href="{{ analysis_urls.detail }}">
-        <strong>Análise detalhada</strong>
-        <span class="subtle">Comparações históricas, categorias completas, alertas e ações recomendadas.</span>
-      </a>
-      <a class="summary-shortcut" href="{{ analysis_urls.conference }}">
-        <strong>Conferência</strong>
-        <span class="subtle">Visão bruta, cobertura, sinais auxiliares, itens técnicos e HTML renderizado.</span>
-      </a>
-      <a class="summary-shortcut" href="{{ analysis_urls.operations }}">
-        <strong>Central operacional</strong>
-        <span class="subtle">Lançamentos, faturas, reaplicação e configurações mais usadas no dia a dia.</span>
-      </a>
+      <strong>Ações recomendadas e continuidade</strong>
+      <div class="subtle">A home funciona como hub de aprofundamento: cada bloco já leva à próxima leitura com o contexto preservado.</div>
     </div>
     <div class="analysis-list">
       {% for action in priority_actions %}
@@ -208,6 +194,10 @@
           <p>{{ action.body }}</p>
         </div>
       {% endfor %}
+    </div>
+    <div class="actions">
+      <a class="button" href="{{ analysis_urls.contextual.conference }}" data-context-cta="conference">Abrir conferência do período</a>
+      <a class="button button-ghost" href="{{ analysis_urls.operations }}">Central operacional</a>
     </div>
   </div>
 
