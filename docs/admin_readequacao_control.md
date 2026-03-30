@@ -167,7 +167,7 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 
 ### Fase 3 - Camada analitica
 
-- **Status:** pendente
+- **Status:** concluida
 - **Objetivo:** alinhar `Analise detalhada` e `Conferencia` ao mesmo sistema visual e de hierarquia
 - **Escopo:**
   - reorganizar topo, contexto, blocos principais e areas secundarias
@@ -260,4 +260,7 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 - a home passou a aproximar mais fortemente a hierarquia do template original: cards mais fortes, grafico principal com maior dominancia visual, coluna lateral de alertas mais clara, resumo executivo em grid, categorias com barra visual e bloco inferior de movimentacoes recentes
 - o fechamento operacional da home agora usa dados reais do mes-base, sem criar tela nova nem semantica paralela
 - checkpoint da Fase 2 validado com `test-docs`, suite focada da home e suite completa verde
-- proxima etapa operacional da branch: Fase 3, focada em `Analise detalhada` e `Conferencia`
+- Fase 3 iniciada com reorganizacao estrutural de `Analise detalhada` e `Conferencia`
+- a camada analitica passou a adotar cards de contexto mais fortes, navegacao rapida por secoes, hero cards de leitura e paines mais proximos do ritmo visual do template original
+- checkpoint da Fase 3 validado com `test-docs`, smoke/UI do admin e suite completa verde
+- proxima etapa operacional da branch: Fase 4, focada nas telas de operacao e configuracao

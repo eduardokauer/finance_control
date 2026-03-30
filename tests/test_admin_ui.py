@@ -547,6 +547,8 @@ def test_admin_analysis_page_restores_summary_context_from_chart_navigation(clie
     assert response.status_code == 200
     assert 'data-analysis-breadcrumbs' in response.text
     assert "Análise detalhada" in response.text
+    assert "Leitura principal do período" in response.text
+    assert "Aprofundamentos desta tela" in response.text
     assert 'data-origin-banner="chart"' in response.text
     assert 'data-context-chip="origin_block"' in response.text
     assert "#analysis-historical-section" in response.text
@@ -582,6 +584,8 @@ def test_admin_conference_page_restores_summary_context(client, db_session, monk
     assert response.status_code == 200
     assert 'data-analysis-breadcrumbs' in response.text
     assert "Conferência e auditoria" in response.text
+    assert "Painel de cobertura e auditoria" in response.text
+    assert "O que esta tela valida" in response.text
     assert 'data-origin-banner="conference"' in response.text
     assert 'data-context-chip="origin_block"' in response.text
 

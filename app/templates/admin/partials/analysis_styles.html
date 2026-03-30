@@ -87,6 +87,80 @@
     border-color: rgba(37, 99, 235, 0.22);
     box-shadow: 0 14px 32px rgba(37, 99, 235, 0.1);
   }
+  .analysis-shell-grid {
+    display: grid;
+    gap: 18px;
+    align-items: start;
+  }
+  .analysis-main-column,
+  .analysis-side-column {
+    display: grid;
+    gap: 18px;
+    align-content: start;
+  }
+  .analysis-section-header {
+    display: grid;
+    gap: 4px;
+  }
+  .analysis-hero-card {
+    background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  }
+  .analysis-panel-card {
+    overflow: hidden;
+  }
+  .analysis-side-guide {
+    align-content: start;
+  }
+  .analysis-stat-strip {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+  .analysis-stat {
+    min-height: 88px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(217, 226, 236, 0.92);
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
+    box-shadow: var(--shadow-soft);
+    display: grid;
+    gap: 6px;
+    align-content: start;
+  }
+  .analysis-stat strong {
+    font-size: 1.12rem;
+    color: var(--ink);
+  }
+  .analysis-anchor-list {
+    display: grid;
+    gap: 10px;
+  }
+  .analysis-anchor-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 60px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(217, 226, 236, 0.92);
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
+    box-shadow: var(--shadow-soft);
+    text-decoration: none;
+    color: inherit;
+  }
+  .analysis-anchor-link span {
+    color: var(--muted);
+  }
+  .analysis-anchor-link strong {
+    color: var(--ink);
+    font-size: 0.95rem;
+  }
+  .analysis-chart-grid {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
   .analysis-grid {
     display: grid;
     gap: 18px;
@@ -432,6 +506,12 @@
     min-width: 92px;
   }
   @media (min-width: 1200px) {
+    .analysis-shell-grid-hero {
+      grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.82fr);
+    }
+    .analysis-shell-grid-main {
+      grid-template-columns: minmax(0, 1.32fr) minmax(340px, 0.94fr);
+    }
     .home-dashboard-grid {
       grid-template-columns: minmax(0, 1.65fr) minmax(310px, 0.9fr);
       align-items: start;
@@ -446,6 +526,10 @@
     .analysis-focus-banner,
     .analysis-toolbar-header {
       align-items: stretch;
+    }
+    .analysis-anchor-link {
+      align-items: flex-start;
+      flex-direction: column;
     }
     .home-chart-controls {
       align-items: flex-start;
