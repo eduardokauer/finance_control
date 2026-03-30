@@ -7,28 +7,66 @@
   <a class="button button-ghost" href="/admin/credit-card-invoices">Faturas</a>
 {% endcall %}
 
-<section class="info-strip">
-  <div class="info-metric">
-    <div class="subtle">Período padrão</div>
-    <div class="metric-value">{{ metrics.period_start.strftime('%m/%Y') }}</div>
-    <div class="subtle">Último mês fechado</div>
+<section class="ops-shell-grid">
+  <div class="card ops-hero-card">
+    <div class="ops-panel-header">
+      <strong>Painel operacional do admin</strong>
+      <div class="subtle">Esta área concentra o trabalho do dia a dia em cards mais claros, mantendo a operação separada da leitura analítica principal e mais próxima da visão do template.</div>
+    </div>
+    <div class="ops-stat-grid">
+      <div class="ops-stat-card">
+        <div class="subtle">Período padrão</div>
+        <strong>{{ metrics.period_start.strftime('%m/%Y') }}</strong>
+        <div class="subtle">Último mês fechado</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Não categorizados</div>
+        <strong>{{ metrics.uncategorized_count }}</strong>
+        <div class="subtle">Total {{ '%.2f'|format(metrics.uncategorized_total) }}</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Faturas recentes</div>
+        <strong>{{ recent_credit_card_invoices|length }}</strong>
+        <div class="subtle">Entradas visíveis no hub</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Cartões cadastrados</div>
+        <strong>{{ credit_cards|length }}</strong>
+        <div class="subtle">Base operacional disponível</div>
+      </div>
+    </div>
   </div>
-  <div class="info-metric">
-    <div class="subtle">Não categorizados</div>
-    <div class="metric-value">{{ metrics.uncategorized_count }}</div>
-    <div class="subtle">Total {{ '%.2f'|format(metrics.uncategorized_total) }}</div>
-  </div>
-  <div class="info-metric">
-    <div class="subtle">Faturas recentes</div>
-    <div class="metric-value">{{ recent_credit_card_invoices|length }}</div>
-    <div class="subtle">Entradas visíveis no hub</div>
-  </div>
+
+  <aside class="card stack">
+    <div class="ops-panel-header">
+      <strong>Entradas rápidas do hub</strong>
+      <div class="subtle">Use estes atalhos para ir direto ao fluxo operacional principal sem perder a hierarquia da nova shell.</div>
+    </div>
+    <div class="ops-guide-list">
+      <a class="ops-guide-link" href="/admin/transactions">
+        <span>Base transacional</span>
+        <strong>Revisar lançamentos</strong>
+      </a>
+      <a class="ops-guide-link" href="/admin/credit-card-invoices">
+        <span>Cartão e conciliação</span>
+        <strong>Abrir faturas</strong>
+      </a>
+      <a class="ops-guide-link" href="/admin/reapply">
+        <span>Reclassificação</span>
+        <strong>Reaplicar regras</strong>
+      </a>
+      <a class="ops-guide-link" href="/admin/rules">
+        <span>Base oficial</span>
+        <strong>Gerenciar regras</strong>
+      </a>
+    </div>
+  </aside>
 </section>
 
-<section class="split-layout-wide">
+<section class="split-layout-wide" style="margin-top:18px;">
   <div class="split-main">
     <div class="card stack">
-      <div>
+      <div class="ops-panel-header">
         <h2 class="section-title">Fluxos operacionais</h2>
         <p class="section-intro">Entradas principais para revisão, correção e conferência do dia a dia.</p>
       </div>
@@ -53,7 +91,7 @@
     </div>
 
     <div class="card stack">
-      <div>
+      <div class="ops-panel-header">
         <h2 class="section-title">Últimas faturas</h2>
         <p class="section-intro">Acesso rápido às importações mais recentes sem precisar navegar pela lista completa.</p>
       </div>
@@ -82,7 +120,7 @@
 
     <div class="analysis-grid analysis-grid-2">
       <div class="card stack">
-        <div>
+        <div class="ops-panel-header">
           <h2 class="section-title">Últimas alterações manuais</h2>
           <p class="section-intro">Mudanças recentes para auditoria rápida do que foi ajustado manualmente.</p>
         </div>
@@ -104,7 +142,7 @@
       </div>
 
       <div class="card stack">
-        <div>
+        <div class="ops-panel-header">
           <h2 class="section-title">Regras recentes</h2>
           <p class="section-intro">Últimas regras ativas atualizadas na base oficial de categorização.</p>
         </div>
@@ -129,7 +167,7 @@
 
   <aside class="split-aside">
     <div class="card stack">
-      <div>
+      <div class="ops-panel-header">
         <h2 class="section-title">Configuração</h2>
         <p class="section-intro">Ajustes estruturais mais usados para manter a base organizada.</p>
       </div>
@@ -140,7 +178,7 @@
     </div>
 
     <div class="card stack">
-      <div>
+      <div class="ops-panel-header">
         <h2 class="section-title">Cartões</h2>
         <p class="section-intro">Cadastre novos cartões e acompanhe os já existentes sem sair do hub operacional.</p>
       </div>

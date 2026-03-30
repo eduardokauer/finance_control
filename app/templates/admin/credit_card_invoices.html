@@ -16,11 +16,58 @@
   <a class="button button-ghost" href="/admin/operations">Voltar para central</a>
 {% endcall %}
 
-<section class="split-layout-wide">
+<section class="ops-shell-grid">
+  <div class="card ops-hero-card">
+    <div class="ops-panel-header">
+      <strong>Painel operacional das faturas</strong>
+      <div class="subtle">A tela de faturas passa a deixar mais claro o que é histórico importado, o que é operação corrente e onde entram upload, revisão e detalhe.</div>
+    </div>
+    <div class="ops-stat-grid">
+      <div class="ops-stat-card">
+        <div class="subtle">Faturas listadas</div>
+        <strong>{{ entries|length }}</strong>
+        <div class="subtle">Base operacional disponível</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Cartões ativos</div>
+        <strong>{{ credit_cards|length }}</strong>
+        <div class="subtle">Prontos para novo upload</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Histórico visual</div>
+        <strong>{% if chart_data %}12 meses{% else %}—{% endif %}</strong>
+        <div class="subtle">{% if chart_data %}Gráfico disponível{% else %}Sem base suficiente{% endif %}</div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="card stack">
+    <div class="ops-panel-header">
+      <strong>Atalhos de trabalho</strong>
+      <div class="subtle">Esses atalhos mantêm a lógica operacional da tela sem abrir navegação paralela fora da shell nova.</div>
+    </div>
+    <div class="ops-guide-list">
+      <a class="ops-guide-link" href="/admin/operations">
+        <span>Hub operacional</span>
+        <strong>Voltar para central</strong>
+      </a>
+      <a class="ops-guide-link" href="/admin/credit-card-invoices">
+        <span>Lista principal</span>
+        <strong>Revisar faturas</strong>
+      </a>
+      <a class="ops-guide-link" href="/admin/transactions">
+        <span>Base transacional</span>
+        <strong>Ver lançamentos</strong>
+      </a>
+    </div>
+  </aside>
+</section>
+
+<section class="split-layout-wide" style="margin-top:18px;">
   <div class="split-main">
     {% if chart_data %}
       <div class="card stack">
-        <div>
+        <div class="ops-panel-header">
           <strong>Valor total das faturas importadas por mês, separado por ano</strong>
           <div class="subtle">Eixo fixo de 12 meses. Cada barra representa um ano com dados, mantendo a mesma cor ao longo do gráfico.</div>
         </div>
@@ -30,7 +77,7 @@
 
     {% if entries %}
       <div class="card stack">
-        <div>
+        <div class="ops-panel-header">
           <strong>Lista operacional das faturas</strong>
           <div class="subtle">A tabela mantém a navegação completa no desktop e vira leitura empilhada no mobile.</div>
         </div>
@@ -77,7 +124,7 @@
 
   <aside class="split-aside">
     <div class="card stack">
-      <div>
+      <div class="ops-panel-header">
         <strong>Importar fatura</strong>
         <div class="subtle">Upload manual do CSV oficial da fatura com os metadados necessários.</div>
       </div>
@@ -111,6 +158,23 @@
           <div class="subtle">Cadastre um cartão na central operacional antes de importar a primeira fatura.</div>
         </div>
       {% endif %}
+    </div>
+
+    <div class="card stack">
+      <div class="ops-panel-header">
+        <strong>Como ler esta tela</strong>
+        <div class="subtle">O gráfico mostra o histórico importado. A tabela e o formulário lateral sustentam a operação do dia a dia sem sair da mesma área.</div>
+      </div>
+      <div class="list-stack">
+        <div class="list-row">
+          <strong>Histórico</strong>
+          <div class="subtle">O gráfico superior resume o valor total das faturas por mês e por ano.</div>
+        </div>
+        <div class="list-row">
+          <strong>Operação</strong>
+          <div class="subtle">A lista e o detalhe da fatura continuam sendo o caminho principal para revisão e conciliação.</div>
+        </div>
+      </div>
     </div>
   </aside>
 </section>

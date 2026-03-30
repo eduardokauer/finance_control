@@ -178,7 +178,7 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 
 ### Fase 4 - Operacao e configuracao
 
-- **Status:** pendente
+- **Status:** concluida
 - **Objetivo:** migrar listas operacionais e telas de configuracao para archetypes coerentes
 - **Escopo:**
   - `Central operacional`
@@ -263,4 +263,7 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 - Fase 3 iniciada com reorganizacao estrutural de `Analise detalhada` e `Conferencia`
 - a camada analitica passou a adotar cards de contexto mais fortes, navegacao rapida por secoes, hero cards de leitura e paines mais proximos do ritmo visual do template original
 - checkpoint da Fase 3 validado com `test-docs`, smoke/UI do admin e suite completa verde
-- proxima etapa operacional da branch: Fase 4, focada nas telas de operacao e configuracao
+- Fase 4 concluida com migracao das telas de operacao e configuracao para um archetype mais estavel, com hero cards, metricas rapidas, formularios laterais, listas principais mais claras e continuidade mais proxima do template original
+- `Central operacional`, `Lancamentos`, `Faturas`, `Reaplicar regras`, `Regras` e `Categorias` agora compartilham hierarquia mais consistente entre contexto, metricas, listas e acoes
+- checkpoint da Fase 4 validado com `test-docs`, smoke/UI do admin e suite completa verde
+- proxima etapa operacional da branch: Fase 5, focada em detalhes e fluxos contextuais

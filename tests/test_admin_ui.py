@@ -1939,6 +1939,54 @@ def test_admin_credit_card_invoice_list_shows_imported_invoices(client, db_sessi
     assert "conflict" in response.text
 
 
+def test_admin_operation_and_configuration_pages_show_shared_archetype(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="OPERACIONAL BASE",
+        normalized="operacional base",
+        transaction_date=date(2026, 3, 9),
+        amount=-45.0,
+        transaction_kind="expense",
+        category="Transporte",
+    )
+    _seed_credit_card_invoice(db_session, card_label="Itaú Visa final 1111", card_final="1111", status="imported")
+    _login(client)
+
+    operations = client.get("/admin/operations")
+    transactions = client.get("/admin/transactions")
+    invoices = client.get("/admin/credit-card-invoices")
+    rules = client.get("/admin/rules")
+    categories = client.get("/admin/categories")
+    reapply = client.get("/admin/reapply")
+
+    assert operations.status_code == 200
+    assert "Painel operacional do admin" in operations.text
+    assert "Entradas rápidas do hub" in operations.text
+
+    assert transactions.status_code == 200
+    assert "Base operacional de lançamentos" in transactions.text
+    assert "Atalhos da operação" in transactions.text
+    assert "Ações em lote" in transactions.text
+
+    assert invoices.status_code == 200
+    assert "Painel operacional das faturas" in invoices.text
+    assert "Atalhos de trabalho" in invoices.text
+
+    assert rules.status_code == 200
+    assert "Painel de configuração das regras" in rules.text
+    assert "Adicionar regra" in rules.text
+
+    assert categories.status_code == 200
+    assert "Painel de configuração das categorias" in categories.text
+    assert "Criar categoria" in categories.text
+
+    assert reapply.status_code == 200
+    assert "Painel de reaplicação" in reapply.text
+    assert "Escopo de reaplicação" in reapply.text
+
+
 def test_admin_credit_card_invoice_detail_shows_items_and_summary(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)

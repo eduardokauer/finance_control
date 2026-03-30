@@ -4,65 +4,95 @@
 {% from "admin/partials/page_parts.html" import page_header %}
 {{ page_header(active_nav_section_label, "Categorias", "Mantenha a taxonomia financeira organizada para sustentar regras, leitura de consumo e operação diária.") }}
 
-<section class="toolbar-card">
-  <div>
-    <strong>Criar categoria</strong>
-    <div class="subtle">Novas categorias entram já tipadas para evitar ambiguidade entre despesa, receita e transferência.</div>
+<section class="ops-shell-grid">
+  <div class="ops-main-column">
+    <section class="card tableish">
+      <div class="ops-panel-header">
+        <h2 class="section-title">Lista de categorias</h2>
+        <p class="section-intro">As categorias permanecem editáveis em linha, mas a página agora privilegia leitura, manutenção rápida e consistência com o archetype de configuração.</p>
+      </div>
+      {% for category in categories %}
+        <div class="category-row">
+          <form method="post" action="/admin/categories/{{ category.id }}/update" class="toolbar-grid">
+            <label>Nome
+              <input type="text" name="name" value="{{ category.name }}" required>
+            </label>
+            <label>Tipo
+              <select name="transaction_kind">
+                {% for kind in ['expense', 'income', 'transfer'] %}
+                  <option value="{{ kind }}" {% if kind == category.transaction_kind %}selected{% endif %}>{{ kind }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="inline" style="margin-top:28px;">
+              <input type="checkbox" name="is_active" value="true" {% if category.is_active %}checked{% endif %} style="width:auto;">
+              Ativa
+            </label>
+            <div class="toolbar-actions">
+              <button type="submit" class="button button-ghost">Salvar</button>
+            </div>
+          </form>
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <strong>Nenhuma categoria cadastrada</strong>
+          <div class="subtle">A primeira categoria oficial criada passa a aparecer aqui para manutenção contínua.</div>
+        </div>
+      {% endfor %}
+    </section>
   </div>
-  <form method="post" action="/admin/categories" class="toolbar-grid">
-    <label>Nome
-      <input type="text" name="name" required>
-    </label>
-    <label>Tipo obrigatório
-      <select name="transaction_kind">
-        <option value="expense">expense</option>
-        <option value="income">income</option>
-        <option value="transfer">transfer</option>
-      </select>
-    </label>
-    <label class="inline" style="margin-top:28px;">
-      <input type="checkbox" name="is_active" value="true" checked style="width:auto;">
-      Ativa
-    </label>
-    <div class="toolbar-actions">
-      <button type="submit" class="button button-primary">Criar categoria</button>
-    </div>
-  </form>
-</section>
 
-<section class="card tableish">
-  <div>
-    <h2 class="section-title">Lista de categorias</h2>
-    <p class="section-intro">As categorias permanecem editáveis em linha, mas a página agora privilegia leitura e manutenção rápida.</p>
-  </div>
-  {% for category in categories %}
-    <div class="category-row">
-      <form method="post" action="/admin/categories/{{ category.id }}/update" class="toolbar-grid">
+  <aside class="ops-side-column">
+    <section class="card ops-hero-card">
+      <div class="ops-panel-header">
+        <strong>Painel de configuração das categorias</strong>
+        <div class="subtle">A taxonomia financeira fica tratada como base oficial do produto, com métricas rápidas e criação lateral no mesmo ritmo da nova shell.</div>
+      </div>
+      <div class="ops-stat-grid">
+        <div class="ops-stat-card">
+          <div class="subtle">Total de categorias</div>
+          <strong>{{ categories|length }}</strong>
+          <div class="subtle">Itens cadastrados</div>
+        </div>
+        <div class="ops-stat-card">
+          <div class="subtle">Ativas</div>
+          <strong>{{ categories | selectattr('is_active') | list | length }}</strong>
+          <div class="subtle">Disponíveis para operação</div>
+        </div>
+        <div class="ops-stat-card">
+          <div class="subtle">Taxonomia</div>
+          <strong>{% if categories %}3 lentes{% else %}0{% endif %}</strong>
+          <div class="subtle">Despesa, receita e transferência</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="toolbar-card">
+      <div class="ops-panel-header">
+        <strong>Criar categoria</strong>
+        <div class="subtle">Novas categorias entram já tipadas para evitar ambiguidade entre despesa, receita e transferência.</div>
+      </div>
+      <form method="post" action="/admin/categories" class="toolbar-grid">
         <label>Nome
-          <input type="text" name="name" value="{{ category.name }}" required>
+          <input type="text" name="name" required>
         </label>
-        <label>Tipo
+        <label>Tipo obrigatório
           <select name="transaction_kind">
-            {% for kind in ['expense', 'income', 'transfer'] %}
-              <option value="{{ kind }}" {% if kind == category.transaction_kind %}selected{% endif %}>{{ kind }}</option>
-            {% endfor %}
+            <option value="expense">expense</option>
+            <option value="income">income</option>
+            <option value="transfer">transfer</option>
           </select>
         </label>
         <label class="inline" style="margin-top:28px;">
-          <input type="checkbox" name="is_active" value="true" {% if category.is_active %}checked{% endif %} style="width:auto;">
+          <input type="checkbox" name="is_active" value="true" checked style="width:auto;">
           Ativa
         </label>
         <div class="toolbar-actions">
-          <button type="submit" class="button button-ghost">Salvar</button>
+          <button type="submit" class="button button-primary">Criar categoria</button>
         </div>
       </form>
-    </div>
-  {% else %}
-    <div class="empty-state">
-      <strong>Nenhuma categoria cadastrada</strong>
-      <div class="subtle">A primeira categoria oficial criada passa a aparecer aqui para manutenção contínua.</div>
-    </div>
-  {% endfor %}
+    </section>
+  </aside>
 </section>
 {% endblock %}
 
