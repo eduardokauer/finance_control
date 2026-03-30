@@ -485,6 +485,37 @@ def test_admin_summary_page_shows_local_chart_controls_for_both_lenses(client, d
     assert "Visão de Competência: evolução principal" in competence_response.text
 
 
+def test_admin_summary_page_shows_recent_movements_block(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR RECENT",
+        normalized="salario mar recent home",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Salário",
+    )
+    _seed_transaction(
+        db_session,
+        description="MERCADO MAR RECENT",
+        normalized="mercado mar recent home",
+        transaction_date=date(2026, 3, 12),
+        amount=-900.0,
+        transaction_kind="expense",
+        category="Supermercado",
+    )
+    _login(client)
+
+    response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31")
+
+    assert response.status_code == 200
+    assert "Movimentações recentes" in response.text
+    assert 'data-home-recent-row="MERCADO MAR RECENT"' in response.text
+    assert 'data-home-recent-row="SALARIO MAR RECENT"' in response.text
+
+
 def test_admin_analysis_page_restores_summary_context_from_chart_navigation(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)

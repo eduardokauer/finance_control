@@ -628,6 +628,30 @@ def test_analysis_snapshot_builds_home_dashboard_for_cash_and_competence_lenses(
     assert competence_dashboard["category_comparison"]["visible"] is True
 
 
+def test_analysis_snapshot_builds_recent_movements_for_home_from_current_month(db_session):
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 12), description="MERCADO MAR", amount=-900.0, category="Supermercado", transaction_kind="expense")
+    _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 18),
+        description="PIX AVULSO",
+        amount=-120.0,
+        category="Não Categorizado",
+        transaction_kind="expense",
+    )
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    recent = snapshot["home_dashboard"]["recent_movements"]
+
+    assert recent["title"] == "Movimentações recentes"
+    assert [row["description"] for row in recent["rows"]][:3] == ["PIX AVULSO", "MERCADO MAR", "SALARIO MAR"]
+    assert recent["rows"][0]["status_label"] == "Não categorizado"
+    assert recent["rows"][1]["status_label"] == "Classificado"
+    assert recent["rows"][0]["amount_display"] == "-R$ 120,00"
+    assert recent["rows"][2]["amount_display"] == "+R$ 5.000,00"
+
+
 def test_analysis_snapshot_home_dashboard_competence_margin_shows_dash_when_revenue_is_zero(db_session):
     _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-900.0, category="Moradia", transaction_kind="expense")
 

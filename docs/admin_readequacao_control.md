@@ -155,7 +155,7 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 
 ### Fase 2 - Readequacao da home
 
-- **Status:** proxima fase
+- **Status:** concluida
 - **Objetivo:** fazer a `Visao Geral` parecer de fato a tela principal do produto
 - **Escopo:**
   - reorganizar hierarquia da home
@@ -256,4 +256,8 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 - Fase 1 concluida com revisao e readequacao da shell global, da sidebar, da topbar e dos contracts base de page header
 - a base compartilhada do admin agora oferece fundacao mais forte para encaixar as proximas fases sem repetir estrutura em cada template
 - checkpoint validado com `test-docs`, smoke/UI do admin e suite completa verde
-- proxima etapa operacional da branch: Fase 2, focada na reorganizacao da `Visao Geral`
+- Fase 2 iniciada com reorganizacao concreta da `Visao Geral`
+- a home passou a aproximar mais fortemente a hierarquia do template original: cards mais fortes, grafico principal com maior dominancia visual, coluna lateral de alertas mais clara, resumo executivo em grid, categorias com barra visual e bloco inferior de movimentacoes recentes
+- o fechamento operacional da home agora usa dados reais do mes-base, sem criar tela nova nem semantica paralela
+- checkpoint da Fase 2 validado com `test-docs`, suite focada da home e suite completa verde
+- proxima etapa operacional da branch: Fase 3, focada em `Analise detalhada` e `Conferencia`

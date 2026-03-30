@@ -916,6 +916,58 @@ def _build_home_competence_actions(*, competence_cards: dict, consumption_contex
     return actions[:5]
 
 
+def _build_home_recent_movements(
+    db: Session,
+    *,
+    month_txs: list[Transaction],
+    limit: int = 6,
+) -> dict:
+    ordered_txs = sorted(
+        month_txs,
+        key=lambda tx: (tx.transaction_date, tx.id or 0),
+        reverse=True,
+    )
+    signal_map = map_conciliated_bank_payment_signals(
+        db,
+        transaction_ids=[tx.id for tx in ordered_txs if tx.id is not None],
+    )
+    rows: list[dict] = []
+    for tx in ordered_txs[:limit]:
+        signal = signal_map.get(tx.id)
+        if signal and signal.conciliation_status == "conciliated":
+            status_label = "Conciliado"
+            status_variant = "ok"
+        elif is_uncategorized(tx.category):
+            status_label = "Não categorizado"
+            status_variant = "warn"
+        elif tx.manual_override:
+            status_label = "Ajustado"
+            status_variant = ""
+        else:
+            status_label = "Classificado"
+            status_variant = ""
+
+        rows.append(
+            {
+                "description": tx.description_raw,
+                "category": tx.category or "Não Categorizado",
+                "date_display": format_date_br(tx.transaction_date),
+                "amount": float(tx.amount),
+                "amount_display": format_signed_currency_br(float(tx.amount)),
+                "amount_class": "amount-positive" if float(tx.amount) > 0 else "amount-negative" if float(tx.amount) < 0 else "",
+                "status_label": status_label,
+                "status_variant": status_variant,
+                "source_label": "Extrato" if tx.source_type == "bank_statement" else "Fatura",
+            }
+        )
+
+    return {
+        "title": "Movimentações recentes",
+        "note": "Últimos lançamentos do mês-base, sem criar uma nova tela operacional dentro da home.",
+        "rows": rows,
+    }
+
+
 def _build_home_dashboard(
     db: Session,
     *,
@@ -953,6 +1005,10 @@ def _build_home_dashboard(
         db,
         anchor_month=anchor_month,
         visible=active_lens == "competence",
+    )
+    recent_movements = _build_home_recent_movements(
+        db,
+        month_txs=current_month_txs,
     )
     consumption_context = _build_consumption_signal_context(
         category_breakdown=category_breakdown,
@@ -1015,6 +1071,7 @@ def _build_home_dashboard(
         "alerts": lens_config[active_lens]["alerts"],
         "actions": lens_config[active_lens]["actions"],
         "category_comparison": category_comparison,
+        "recent_movements": recent_movements,
         "chart": {
             **chart,
             "mode_tabs": [

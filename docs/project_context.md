@@ -248,7 +248,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Motivo resumido:** a camada analítica agora já preserva melhor período, lente e contexto ao navegar entre `Resumo`, `Análise detalhada` e `Conferência`; com isso, o foco volta para definir com mais precisão qual incremento funcional analítico vem na sequência.
 - **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
 - **Documento operacional da frente de readequação:** usar `docs/admin_readequacao_control.md` para acompanhar a readequacao global do admin em fases, sem perder a coesao entre shell, IA, responsividade e checkpoints de execucao.
-- **Checkpoint atual da frente de readequação:** a Fase 1 da branch dedicada já consolidou shell global, sidebar, topbar e contracts base de page header; a próxima etapa operacional registrada no documento de controle é a readequação da `Visão Geral`.
+- **Checkpoint atual da frente de readequação:** a Fase 1 da branch dedicada já consolidou shell global, sidebar, topbar e contracts base de page header; a Fase 2 já readequou a `Visão Geral`, reforçando a hierarquia da home e o bloco inferior de continuidade com dados reais do mês-base; a próxima etapa operacional registrada no documento de controle é a Fase 3, focada em `Análise detalhada` e `Conferência`.
 
 ### Como ler o roadmap
 

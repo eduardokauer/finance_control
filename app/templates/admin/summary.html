@@ -13,14 +13,27 @@
 <section class="home-kpi-strip" aria-label="Faixa inicial da home financeira">
   {% for card in home_dashboard.cards %}
     <div class="card home-kpi-card {% if card.is_primary %}home-kpi-card-primary{% endif %}">
-      <div class="home-kpi-eyebrow">
-        {% if card.is_primary %}
-          {{ home_dashboard.chart.lens_label }} | {{ home_dashboard.current_month_label }}
-        {% else %}
-          {{ home_dashboard.current_month_label }}
-        {% endif %}
+      <div class="home-kpi-topline">
+        <div class="home-kpi-eyebrow">
+          {% if card.is_primary %}
+            {{ home_dashboard.chart.lens_label }} | {{ home_dashboard.current_month_label }}
+          {% else %}
+            {{ home_dashboard.current_month_label }}
+          {% endif %}
+        </div>
+        <span class="home-kpi-icon home-kpi-icon-{{ card.key }}" aria-hidden="true">
+          {% if card.key in ["income", "competence_income"] %}
+            ↗
+          {% elif card.key in ["expense", "competence_expense", "largest_expense"] %}
+            ↘
+          {% elif card.key == "margin" %}
+            %
+          {% else %}
+            ●
+          {% endif %}
+        </span>
       </div>
-      <div class="subtle">{{ card.title }}</div>
+      <div class="home-kpi-title">{{ card.title }}</div>
       <div class="home-kpi-subtitle">{{ card.subtitle }}</div>
       {% if card.detail %}
         <div class="home-kpi-detail">{{ card.detail }}</div>
@@ -28,7 +41,7 @@
       <div class="metric-value {{ card.value_class }}">{{ card.current_display }}</div>
       <div class="home-kpi-comparison">
         {% if card.comparison_available %}
-          <span><strong>{{ card.comparison_primary_display }}</strong></span>
+          <span class="home-kpi-delta"><strong>{{ card.comparison_primary_display }}</strong></span>
           {% if card.comparison_secondary_display %}
             <span>{{ card.comparison_secondary_display }}</span>
           {% endif %}
@@ -41,7 +54,7 @@
 </section>
 
 <section class="home-dashboard-grid">
-  <div class="card stack">
+  <div class="card stack home-chart-panel">
     <div class="home-chart-header">
       <div class="stack" style="gap:4px;">
         <strong>{{ home_dashboard.chart.title }}</strong>
@@ -78,28 +91,28 @@
       </div>
     </div>
 
-      <div class="home-inline-tabs" role="tablist" aria-label="Comparação visual do gráfico principal">
-        {% for compare in home_dashboard.chart.compare_tabs %}
-          <a class="home-inline-tab {% if compare.is_active %}home-inline-tab-active{% endif %}" href="{{ compare.href }}">{{ compare.label }}</a>
-        {% endfor %}
-      </div>
+    <div class="home-inline-tabs" role="tablist" aria-label="Comparação visual do gráfico principal">
+      {% for compare in home_dashboard.chart.compare_tabs %}
+        <a class="home-inline-tab {% if compare.is_active %}home-inline-tab-active{% endif %}" href="{{ compare.href }}">{{ compare.label }}</a>
+      {% endfor %}
+    </div>
 
     <div class="chart-shell chart-shell-tall">
       <canvas id="home-primary-chart" aria-label="Gráfico principal da home"></canvas>
     </div>
-    <div class="actions">
+    <div class="actions home-panel-actions">
       <a class="button button-ghost" href="{{ analysis_urls.contextual.chart_detail }}" data-context-cta="chart">Ver leitura histórica completa</a>
     </div>
   </div>
 
-  <aside class="card stack">
-    <div>
+  <aside class="card stack home-side-panel">
+    <div class="home-panel-header">
       <strong>Alertas prioritários</strong>
       <div class="subtle">A coluna lateral ajuda a separar o que pede ação imediata do restante da leitura financeira da home.</div>
     </div>
     <div class="analysis-list">
       {% for alert in priority_alerts %}
-        <div class="analysis-item">
+        <div class="analysis-item home-alert-item">
           <div class="analysis-item-title">
             <strong>{{ alert.title }}</strong>
             <span class="badge {% if alert.level == 'danger' %}danger{% elif alert.level == 'warn' %}warn{% endif %}">{{ alert.level }}</span>
@@ -107,46 +120,53 @@
           <p>{{ alert.body }}</p>
         </div>
       {% else %}
-        <div class="analysis-item">
+        <div class="analysis-item home-alert-item">
           <strong>Nenhum alerta prioritário</strong>
           <p>O período não trouxe um desvio crítico acima da linha de base da leitura atual.</p>
         </div>
       {% endfor %}
     </div>
-    <div class="actions">
+    <div class="actions home-panel-actions">
       <a class="button button-ghost" href="{{ analysis_urls.contextual.alerts_detail }}" data-context-cta="alerts">Ver alertas e ações completas</a>
     </div>
   </aside>
 </section>
 
 <section class="home-summary-grid">
-  <div class="card stack">
-    <div>
+  <div class="card stack home-executive-panel">
+    <div class="home-panel-header">
       <strong>{{ home_dashboard.summary.title }}</strong>
       <div class="subtle">O resumo executivo acompanha a lente ativa da home e mantém a distinção entre leitura de caixa e leitura por competência.</div>
     </div>
-    <div class="analysis-list">
-      <div class="analysis-item">
+    <div class="home-executive-grid">
+      <div class="analysis-item home-executive-card">
         <strong>Resumo executivo</strong>
         <p>{{ home_dashboard.summary.executive_summary }}</p>
       </div>
-      <div class="analysis-item">
+      <div class="analysis-item home-executive-card">
         <strong>Cobertura da leitura atual</strong>
         <p>{{ home_dashboard.summary.coverage_note }}</p>
       </div>
+      {% for action in priority_actions %}
+        <div class="analysis-item home-executive-card">
+          <strong>{{ action.title }}</strong>
+          <p>{{ action.body }}</p>
+        </div>
+      {% endfor %}
     </div>
-    <div class="actions">
+    <div class="actions home-panel-actions">
       <a class="button button-ghost" href="{{ analysis_urls.contextual.cards_detail }}" data-context-cta="cards">Abrir análise detalhada desta leitura</a>
     </div>
   </div>
 
   {% if home_dashboard.category_comparison.visible %}
-    <div class="card stack">
-      <div>
+    <div class="card stack home-categories-panel">
+      <div class="home-panel-header">
         <strong>Comparativo rápido das categorias do mês</strong>
         <div class="subtle">{{ home_dashboard.category_comparison.note }}</div>
       </div>
       <div class="home-category-ranking" aria-label="Comparativo das Top 5 categorias do mês-base">
+        {% set top_current_total = home_dashboard.category_comparison.rows[0].current_total if home_dashboard.category_comparison.rows else 0 %}
         {% for category in home_dashboard.category_comparison.rows %}
           <div class="home-category-row" data-category-row="{{ category.name }}">
             <div class="home-category-rank">#{{ loop.index }}</div>
@@ -156,6 +176,9 @@
                 {% if category.is_new_in_month %}
                   <span class="badge warn">nova no mês</span>
                 {% endif %}
+              </div>
+              <div class="home-category-meters" aria-hidden="true">
+                <span class="home-category-meter-current" style="width: {{ ((category.current_total / top_current_total) * 100) if top_current_total else 6 }}%;"></span>
               </div>
               <div class="subtle">
                 {{ home_dashboard.category_comparison.current_month_label }}: {{ category.current_display }}
@@ -168,13 +191,13 @@
             </div>
           </div>
         {% else %}
-          <div class="analysis-item">
+          <div class="analysis-item home-executive-card">
             <strong>Sem categorias de consumo no mês-base</strong>
             <p>A home segue enxuta neste período. A visão completa de categorias continua disponível na análise detalhada.</p>
           </div>
         {% endfor %}
       </div>
-      <div class="actions">
+      <div class="actions home-panel-actions">
         <a class="button button-ghost" href="{{ analysis_urls.contextual.categories_detail }}" data-context-cta="categories">Ver categorias completas</a>
       </div>
     </div>
@@ -182,8 +205,8 @@
 </section>
 
 <section class="analysis-grid analysis-grid-2">
-  <div class="card stack">
-    <div>
+  <div class="card stack home-continuity-panel">
+    <div class="home-panel-header">
       <strong>Ações recomendadas e continuidade</strong>
       <div class="subtle">A home funciona como hub de aprofundamento: cada bloco já leva à próxima leitura com o contexto preservado.</div>
     </div>
@@ -195,14 +218,14 @@
         </div>
       {% endfor %}
     </div>
-    <div class="actions">
+    <div class="actions home-panel-actions">
       <a class="button" href="{{ analysis_urls.contextual.conference }}" data-context-cta="conference">Abrir conferência do período</a>
       <a class="button button-ghost" href="{{ analysis_urls.operations }}">Central operacional</a>
     </div>
   </div>
 
-  <div class="card stack">
-    <div>
+  <div class="card stack home-continuity-panel">
+    <div class="home-panel-header">
       <strong>Continuidade operacional</strong>
       <div class="subtle">A nova shell da home preserva a função de resumo, mas mantém o caminho curto para agir no admin quando a leitura pedir intervenção.</div>
     </div>
@@ -217,6 +240,46 @@
       </div>
     </div>
   </div>
+</section>
+
+<section class="card stack home-recent-panel">
+  <div class="home-panel-header">
+    <strong>{{ home_dashboard.recent_movements.title }}</strong>
+    <div class="subtle">{{ home_dashboard.recent_movements.note }}</div>
+  </div>
+  {% if home_dashboard.recent_movements.rows %}
+    <div class="table-wrap">
+      <table class="responsive-stack home-recent-table">
+        <thead>
+          <tr>
+            <th>Descrição</th>
+            <th>Categoria</th>
+            <th>Data</th>
+            <th>Origem</th>
+            <th>Valor</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in home_dashboard.recent_movements.rows %}
+            <tr data-home-recent-row="{{ row.description }}">
+              <td data-label="Descrição"><strong>{{ row.description }}</strong></td>
+              <td data-label="Categoria">{{ row.category }}</td>
+              <td data-label="Data">{{ row.date_display }}</td>
+              <td data-label="Origem">{{ row.source_label }}</td>
+              <td data-label="Valor" class="{{ row.amount_class }}">{{ row.amount_display }}</td>
+              <td data-label="Status"><span class="badge {% if row.status_variant %}{{ row.status_variant }}{% endif %}">{{ row.status_label }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <strong>Sem movimentações recentes no mês-base</strong>
+      <div class="subtle">Quando houver lançamentos no período, a home mostra aqui um recorte curto para continuidade sem virar lista operacional completa.</div>
+    </div>
+  {% endif %}
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
