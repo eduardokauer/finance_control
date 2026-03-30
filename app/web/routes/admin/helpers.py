@@ -82,8 +82,14 @@ def _build_shell_context(request: Request) -> dict:
         "active_nav_key": active_key,
         "active_nav_label": active_item["label"] if active_item else "Admin",
         "active_nav_section_label": active_section or "Principal",
-        "admin_brand_name": "Finance Control Admin",
+        "admin_brand_name": "Finance Control",
         "admin_brand_subtitle": "Gestão Financeira",
+        "admin_shell_profile_name": "Finance Control",
+        "admin_shell_profile_subtitle": "Ambiente administrativo",
+        "admin_shell_quick_links": [
+            {"label": "Central operacional", "href": "/admin/operations"},
+            {"label": "Regras", "href": "/admin/rules"},
+        ],
     }
 
 

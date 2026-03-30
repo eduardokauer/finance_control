@@ -8,6 +8,7 @@ Arquivos complementares:
 - `docs/pm_workflow.md`: regras da LLM que atua como PM/guia.
 - `docs/pm_cycle_start_prompt.md`: prompt canônico para iniciar um novo ciclo PM/LLM.
 - `docs/codex_workflow.md`: regras do Codex como executor técnico.
+- `docs/admin_readequacao_control.md`: controle operacional da readequacao global do admin a partir do template original.
 
 Ordem de leitura recomendada:
 - PM: ler `docs/project_context.md` e depois `docs/pm_workflow.md`.
@@ -246,6 +247,8 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Próxima ação esperada:** retomar o refinamento do próximo recorte do épico `Home visual de fluxo de caixa`, já apoiado na home como hub de aprofundamento e sem fechar antecipadamente qual será a próxima fatia candidata.
 - **Motivo resumido:** a camada analítica agora já preserva melhor período, lente e contexto ao navegar entre `Resumo`, `Análise detalhada` e `Conferência`; com isso, o foco volta para definir com mais precisão qual incremento funcional analítico vem na sequência.
 - **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
+- **Documento operacional da frente de readequação:** usar `docs/admin_readequacao_control.md` para acompanhar a readequacao global do admin em fases, sem perder a coesao entre shell, IA, responsividade e checkpoints de execucao.
+- **Checkpoint atual da frente de readequação:** a Fase 1 da branch dedicada já consolidou shell global, sidebar, topbar e contracts base de page header; a próxima etapa operacional registrada no documento de controle é a readequação da `Visão Geral`.
 
 ### Como ler o roadmap
 

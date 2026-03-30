@@ -1,17 +1,11 @@
 {% extends "admin/base.html" %}
 {% block title %}Admin Home{% endblock %}
 {% block content %}
-<section class="page-header">
-  <div class="page-header-copy">
-    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
-    <h1 class="page-title">Central operacional</h1>
-    <p class="page-intro">Hub do trabalho diário: revisão de lançamentos, faturas, regras e ajustes rápidos sem misturar a operação com a leitura analítica principal.</p>
-  </div>
-  <div class="page-actions">
-    <a class="button button-primary" href="/admin/transactions">Revisar lançamentos</a>
-    <a class="button button-ghost" href="/admin/credit-card-invoices">Faturas</a>
-  </div>
-</section>
+{% from "admin/partials/page_parts.html" import page_header %}
+{% call page_header(active_nav_section_label, "Central operacional", "Hub do trabalho diário: revisão de lançamentos, faturas, regras e ajustes rápidos sem misturar a operação com a leitura analítica principal.") %}
+  <a class="button button-primary" href="/admin/transactions">Revisar lançamentos</a>
+  <a class="button button-ghost" href="/admin/credit-card-invoices">Faturas</a>
+{% endcall %}
 
 <section class="info-strip">
   <div class="info-metric">

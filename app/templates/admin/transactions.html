@@ -1,16 +1,10 @@
 {% extends "admin/base.html" %}
 {% block title %}Lançamentos{% endblock %}
 {% block content %}
-<section class="page-header">
-  <div class="page-header-copy">
-    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
-    <h1 class="page-title">Lançamentos</h1>
-    <p class="page-intro">Tabela operacional da base importada, com filtros densos, edição em massa e acesso rápido ao detalhe de cada lançamento.</p>
-  </div>
-  <div class="page-actions">
-    <a class="button button-ghost" href="/admin/operations">Voltar para central</a>
-  </div>
-</section>
+{% from "admin/partials/page_parts.html" import page_header %}
+{% call page_header(active_nav_section_label, "Lançamentos", "Tabela operacional da base importada, com filtros densos, edição em massa e acesso rápido ao detalhe de cada lançamento.") %}
+  <a class="button button-ghost" href="/admin/operations">Voltar para central</a>
+{% endcall %}
 
 <section class="toolbar-card">
   <div>

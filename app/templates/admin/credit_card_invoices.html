@@ -1,6 +1,7 @@
 {% extends "admin/base.html" %}
 {% block title %}Faturas de Cartão{% endblock %}
 {% block content %}
+{% from "admin/partials/page_parts.html" import page_header %}
 <style>
   .invoice-chart-shell {
     min-height: 320px;
@@ -11,16 +12,9 @@
   }
 </style>
 
-<section class="page-header">
-  <div class="page-header-copy">
-    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
-    <h1 class="page-title">Faturas importadas</h1>
-    <p class="page-intro">Área operacional das faturas já importadas, com gráfico histórico, formulário de upload e acesso rápido ao detalhe.</p>
-  </div>
-  <div class="page-actions">
-    <a class="button button-ghost" href="/admin/operations">Voltar para central</a>
-  </div>
-</section>
+{% call page_header(active_nav_section_label, "Faturas importadas", "Área operacional das faturas já importadas, com gráfico histórico, formulário de upload e acesso rápido ao detalhe.") %}
+  <a class="button button-ghost" href="/admin/operations">Voltar para central</a>
+{% endcall %}
 
 <section class="split-layout-wide">
   <div class="split-main">

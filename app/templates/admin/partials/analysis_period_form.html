@@ -1,3 +1,4 @@
+{% from "admin/partials/page_parts.html" import page_header %}
 <section class="analysis-context-stack">
   <div class="analysis-breadcrumb-row">
     <nav class="analysis-breadcrumbs" aria-label="Navegação contextual" data-analysis-breadcrumbs>
@@ -17,23 +18,16 @@
     {% endif %}
   </div>
 
-  <section class="page-header analysis-page-header">
-    <div class="page-header-copy">
-      <div class="page-eyebrow">{{ active_nav_section_label }}</div>
-      <h1 class="page-title">{{ analysis_page_title }}</h1>
-      <p class="page-intro">{{ analysis_page_intro }}</p>
-    </div>
-    <div class="page-actions">
-      {% if analysis_show_generate %}
-        <form method="post" action="/admin/analysis/run">
-          <input type="hidden" name="period_start" value="{{ period_start }}">
-          <input type="hidden" name="period_end" value="{{ period_end }}">
-          <input type="hidden" name="return_to" value="{{ analysis_urls.return_to }}">
-          <button type="submit" class="button button-ghost" data-loading-button data-loading-label="Gerando análise...">Gerar nova análise</button>
-        </form>
-      {% endif %}
-    </div>
-  </section>
+  {% call page_header(active_nav_section_label, analysis_page_title, analysis_page_intro, "analysis-page-header") %}
+    {% if analysis_show_generate %}
+      <form method="post" action="/admin/analysis/run">
+        <input type="hidden" name="period_start" value="{{ period_start }}">
+        <input type="hidden" name="period_end" value="{{ period_end }}">
+        <input type="hidden" name="return_to" value="{{ analysis_urls.return_to }}">
+        <button type="submit" class="button button-ghost" data-loading-button data-loading-label="Gerando análise...">Gerar nova análise</button>
+      </form>
+    {% endif %}
+  {% endcall %}
 
   <section class="toolbar-card analysis-global-toolbar">
     <div class="analysis-toolbar-header">

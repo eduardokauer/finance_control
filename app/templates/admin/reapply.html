@@ -1,13 +1,8 @@
 {% extends "admin/base.html" %}
 {% block title %}Reaplicar Regras{% endblock %}
 {% block content %}
-<section class="page-header">
-  <div class="page-header-copy">
-    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
-    <h1 class="page-title">Reaplicar regras na base já importada</h1>
-    <p class="page-intro">Ferramenta operacional para revisar o impacto das regras oficiais sobre a base histórica, com escopo opcional por período.</p>
-  </div>
-</section>
+{% from "admin/partials/page_parts.html" import page_header %}
+{{ page_header(active_nav_section_label, "Reaplicar regras na base já importada", "Ferramenta operacional para revisar o impacto das regras oficiais sobre a base histórica, com escopo opcional por período.") }}
 
 <section class="toolbar-card">
   <div class="subtle">O padrão é aplicar na base toda. Se quiser limitar por período, preencha uma ou ambas as datas abaixo.</div>

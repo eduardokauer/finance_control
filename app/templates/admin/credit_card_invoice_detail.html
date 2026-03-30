@@ -1,6 +1,7 @@
 {% extends "admin/base.html" %}
 {% block title %}Detalhe da Fatura{% endblock %}
 {% block content %}
+{% from "admin/partials/page_parts.html" import page_header %}
 <style>
   .invoice-detail-page-actions {
     justify-content: flex-end;
@@ -66,17 +67,10 @@
   }
 </style>
 
-<section class="page-header">
-  <div class="page-header-copy">
-    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
-    <h1 class="page-title">Detalhe da fatura</h1>
-    <p class="page-intro">{{ detail.card.card_label }} · {{ "%02d/%04d"|format(detail.invoice.billing_month, detail.invoice.billing_year) }} · visão completa de importação, conciliação, pagamentos candidatos e itens da fatura.</p>
-  </div>
-  <div class="page-actions invoice-detail-page-actions">
-    <a class="button button-ghost" href="/admin/credit-card-invoices">Voltar para listagem</a>
-    <a class="button button-ghost" href="/admin">Home</a>
-  </div>
-</section>
+{% call page_header(active_nav_section_label, "Detalhe da fatura", detail.card.card_label ~ " · " ~ "%02d/%04d"|format(detail.invoice.billing_month, detail.invoice.billing_year) ~ " · visão completa de importação, conciliação, pagamentos candidatos e itens da fatura.", "invoice-detail-page-actions") %}
+  <a class="button button-ghost" href="/admin/credit-card-invoices">Voltar para listagem</a>
+  <a class="button button-ghost" href="/admin">Home</a>
+{% endcall %}
 
 <section class="card detail-hero">
   <div class="detail-hero-meta">

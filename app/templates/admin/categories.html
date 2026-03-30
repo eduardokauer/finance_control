@@ -1,13 +1,8 @@
 {% extends "admin/base.html" %}
 {% block title %}Categorias{% endblock %}
 {% block content %}
-<section class="page-header">
-  <div class="page-header-copy">
-    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
-    <h1 class="page-title">Categorias</h1>
-    <p class="page-intro">Mantenha a taxonomia financeira organizada para sustentar regras, leitura de consumo e operação diária.</p>
-  </div>
-</section>
+{% from "admin/partials/page_parts.html" import page_header %}
+{{ page_header(active_nav_section_label, "Categorias", "Mantenha a taxonomia financeira organizada para sustentar regras, leitura de consumo e operação diária.") }}
 
 <section class="toolbar-card">
   <div>

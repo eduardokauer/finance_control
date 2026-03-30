@@ -1,6 +1,7 @@
 {% extends "admin/base.html" %}
 {% block title %}Editar categoria do item da fatura{% endblock %}
 {% block content %}
+{% from "admin/partials/page_parts.html" import page_header %}
 <style>
   .preview-list {
     display: grid;
@@ -25,17 +26,10 @@
   }
 </style>
 
-<section class="page-header">
-  <div class="page-header-copy">
-    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
-    <h1 class="page-title">Editar categoria do item da fatura</h1>
-    <p class="page-intro">{{ editor.card.card_label }} · {{ "%02d/%04d"|format(editor.invoice.billing_month, editor.invoice.billing_year) }} · ajuste pontual ou aplicação na base com preview explícito antes de persistir.</p>
-  </div>
-  <div class="page-actions">
-    <a class="button button-ghost" href="/admin/credit-card-invoices/{{ editor.invoice.id }}">Voltar para a fatura</a>
-    <a class="button button-ghost" href="/admin/credit-card-invoices">Listagem</a>
-  </div>
-</section>
+{% call page_header(active_nav_section_label, "Editar categoria do item da fatura", editor.card.card_label ~ " · " ~ "%02d/%04d"|format(editor.invoice.billing_month, editor.invoice.billing_year) ~ " · ajuste pontual ou aplicação na base com preview explícito antes de persistir.") %}
+  <a class="button button-ghost" href="/admin/credit-card-invoices/{{ editor.invoice.id }}">Voltar para a fatura</a>
+  <a class="button button-ghost" href="/admin/credit-card-invoices">Listagem</a>
+{% endcall %}
 
 {% if form_error %}
   <section class="flash" style="background: var(--danger-soft); color: var(--danger); border-color: #f7b4ae;">

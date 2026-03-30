@@ -1,16 +1,10 @@
 {% extends "admin/base.html" %}
 {% block title %}Lançamento #{{ transaction.id }}{% endblock %}
 {% block content %}
-<section class="page-header">
-  <div class="page-header-copy">
-    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
-    <h1 class="page-title">Detalhe do lançamento</h1>
-    <p class="page-intro">Tela de manutenção pontual do lançamento, com edição manual, atalho para criar categoria e preview de reclassificação por descrição semelhante.</p>
-  </div>
-  <div class="page-actions">
-    <a class="button button-ghost" href="{{ return_to }}">Voltar</a>
-  </div>
-</section>
+{% from "admin/partials/page_parts.html" import page_header %}
+{% call page_header(active_nav_section_label, "Detalhe do lançamento", "Tela de manutenção pontual do lançamento, com edição manual, atalho para criar categoria e preview de reclassificação por descrição semelhante.") %}
+  <a class="button button-ghost" href="{{ return_to }}">Voltar</a>
+{% endcall %}
 
 <section class="card detail-hero">
   <div class="detail-hero-meta">

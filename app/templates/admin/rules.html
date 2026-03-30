@@ -1,13 +1,8 @@
 {% extends "admin/base.html" %}
 {% block title %}Regras{% endblock %}
 {% block content %}
-<section class="page-header">
-  <div class="page-header-copy">
-    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
-    <h1 class="page-title">Regras manuais de categorização</h1>
-    <p class="page-intro">Base oficial das regras de match e categorização que sustentam a operação e a leitura analítica do produto.</p>
-  </div>
-</section>
+{% from "admin/partials/page_parts.html" import page_header %}
+{{ page_header(active_nav_section_label, "Regras manuais de categorização", "Base oficial das regras de match e categorização que sustentam a operação e a leitura analítica do produto.") }}
 
 <section class="toolbar-card">
   <div>
