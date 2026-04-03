@@ -177,6 +177,7 @@ Esta lista cobre capacidades que ainda não existem no produto ou que ainda não
   - controles globais da página;
   - chips de contexto ativo ou de origem;
   - foco contextual leve quando a navegação veio da home.
+- Os controles globais de período das telas analíticas usam uma barra compacta com modo de seleção, campo ativo inline e resumo curto do período, reduzindo a altura do topo sem misturar esses controles com os controles locais do gráfico.
 - Os controles globais do `Resumo` passam a explicitar que `Visão de Caixa` e `Visão de Competência` são controles da página inteira, enquanto `Ano`, `Últimos 12 meses`, dropdown de ano e abas de comparação continuam locais ao bloco do gráfico principal.
 - O resumo executivo principal e os alertas prioritários acompanham a lente ativa sem misturar caixa com competência de forma artificial.
 - A home passa a funcionar como hub de aprofundamento: cards, gráfico, alertas, categorias e conferência oferecem CTAs explícitos com preservação de estado por querystring.

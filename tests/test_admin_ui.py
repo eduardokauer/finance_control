@@ -208,6 +208,8 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert 'data-context-chip="period"' in home.text
     assert 'data-context-chip="lens"' in home.text
     assert "Controles globais da página" in home.text
+    assert 'class="analysis-period-bar"' in home.text
+    assert 'data-period-summary="closed"' in home.text
     assert "Visão de Caixa" in home.text
     assert "Visão de Competência" in home.text
     assert "Fluxo líquido do mês" in home.text
@@ -1094,6 +1096,7 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     assert "Comparações históricas por categoria na visão de consumo" in page.text
     assert "Alertas determinísticos" in page.text
     assert "Ações recomendadas" in page.text
+    assert 'class="analysis-period-bar"' in page.text
     assert "Conferência e auditoria" in page.text
     assert "Análise determinística renderizada" not in page.text
     assert "Visão bruta de apoio" not in page.text

@@ -273,3 +273,9 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 - o mobile agora trata melhor tabs, chips e grupos de acoes em largura reduzida, enquanto a branch ficou mais consistente entre home, analise, conferencia, operacao, configuracao e detalhes
 - checkpoint da Fase 6 validado com `test-docs`, smoke/UI do admin e suite completa verde
 - estado operacional atual da branch: frente inteira consolidada e pronta para validacao integrada da branch pelo usuario
+
+### 2026-04-03
+
+- refinamento incremental do topo analitico iniciado a partir do feedback de uso da branch
+- o seletor global de periodo foi compactado em uma barra inline com modo, campo ativo e resumo curto do periodo, reduzindo altura ocupada no topo do `Resumo`, da `Analise detalhada` e da `Conferencia`
+- a mudanca preserva a separacao entre controle global da pagina e controles locais do grafico, mas reduz o peso visual e o espaco consumido pelo seletor de periodo

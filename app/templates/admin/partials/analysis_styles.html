@@ -36,7 +36,8 @@
     padding-top: 0;
   }
   .analysis-global-toolbar {
-    gap: 18px;
+    gap: 14px;
+    padding: 18px 20px;
   }
   .analysis-toolbar-header {
     display: flex;
@@ -44,6 +45,80 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 14px;
+  }
+  .analysis-period-form {
+    display: grid;
+    gap: 12px;
+  }
+  .analysis-period-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+  .analysis-period-mode-group {
+    flex: 0 0 auto;
+  }
+  .analysis-period-inline {
+    flex: 1 1 340px;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  .analysis-period-panel {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .analysis-period-panel-range {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+    gap: 10px;
+  }
+  .analysis-period-field {
+    display: grid;
+    gap: 6px;
+    min-width: 160px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+  .analysis-period-field input {
+    min-height: 42px;
+  }
+  .analysis-period-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(217, 226, 236, 0.92);
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
+    box-shadow: var(--shadow-soft);
+    color: var(--muted);
+  }
+  .analysis-period-summary strong {
+    color: var(--ink);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .analysis-period-summary span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .analysis-period-actions {
+    margin-left: auto;
+    flex: 0 0 auto;
   }
   .analysis-context-chips {
     display: flex;
@@ -531,6 +606,27 @@
     .analysis-focus-banner,
     .analysis-toolbar-header {
       align-items: stretch;
+    }
+    .analysis-period-bar {
+      align-items: stretch;
+    }
+    .analysis-period-inline,
+    .analysis-period-panel {
+      width: 100%;
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .analysis-period-panel-range {
+      grid-template-columns: 1fr;
+      width: 100%;
+    }
+    .analysis-period-field,
+    .analysis-period-summary,
+    .analysis-period-actions {
+      width: 100%;
+    }
+    .analysis-period-actions .button {
+      width: 100%;
     }
     .analysis-anchor-link {
       align-items: flex-start;
