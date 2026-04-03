@@ -204,7 +204,7 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 
 ### Fase 6 - Acabamento responsivo e consolidacao final
 
-- **Status:** pendente
+- **Status:** concluida
 - **Objetivo:** fechar consistencia, responsividade e regressao visual antes da validacao final
 - **Escopo:**
   - revisar desktop, tablet e mobile
@@ -269,4 +269,7 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 - Fase 5 concluida com readequacao do detalhe de lancamento, do detalhe de fatura, da edicao contextual de categoria de item de fatura e do login
 - os fluxos contextuais agora seguem a mesma linguagem do admin, com hero cards, guias de acao e melhor separacao entre resumo, manutencao pontual, preview e persistencia
 - checkpoint da Fase 5 validado com `test-docs`, smoke/UI do admin e suite completa verde
-- proxima etapa operacional da branch: Fase 6, focada em acabamento responsivo, consolidacao final e validacao da branch inteira
+- Fase 6 concluida com passe final de responsividade, utilitarios de layout, reducao de estilos inline e reforco dos contracts de layout dos archetypes do admin
+- o mobile agora trata melhor tabs, chips e grupos de acoes em largura reduzida, enquanto a branch ficou mais consistente entre home, analise, conferencia, operacao, configuracao e detalhes
+- checkpoint da Fase 6 validado com `test-docs`, smoke/UI do admin e suite completa verde
+- estado operacional atual da branch: frente inteira consolidada e pronta para validacao integrada da branch pelo usuario

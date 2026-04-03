@@ -85,7 +85,7 @@
   </aside>
 </section>
 
-<section class="card stack" style="margin-top:18px;">
+<section class="card stack section-gap-md">
   <div class="ops-panel-header">
     <h2 class="section-title">Editar categoria</h2>
     <p class="section-intro">O preview continua obrigatório antes de qualquer persistência, tanto na alteração pontual quanto na aplicação na base.</p>
@@ -137,7 +137,7 @@
 </section>
 
 {% if single_preview %}
-  <section class="card stack" style="margin-top:18px;">
+  <section class="card stack section-gap-md">
     <div class="ops-panel-header">
       <strong>Preview antes de aplicar</strong>
       <div class="subtle">Fluxo pontual: esta alteração afeta apenas o item atual e só será persistida após confirmação explícita.</div>
@@ -173,7 +173,7 @@
 {% endif %}
 
 {% if base_preview %}
-  <section class="card stack" style="margin-top:18px;">
+  <section class="card stack section-gap-md">
     <div class="ops-panel-header">
       <strong>Preview antes de aplicar na base</strong>
       <div class="subtle">Fluxo de base: a regra só será criada ou atualizada após confirmação explícita, e então será reaplicada nos itens existentes elegíveis.</div>

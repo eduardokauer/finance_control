@@ -138,6 +138,7 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      max-width: min(44vw, 540px);
     }
 
     .admin-nav-toggle,
@@ -461,6 +462,7 @@
       font-size: clamp(1.85rem, 2.8vw, 2.55rem);
       line-height: 1.08;
       letter-spacing: -0.03em;
+      overflow-wrap: anywhere;
     }
 
     .page-intro {
@@ -469,6 +471,7 @@
       font-size: 0.99rem;
       max-width: 860px;
       line-height: 1.5;
+      overflow-wrap: anywhere;
     }
 
     .page-actions {
@@ -769,6 +772,7 @@
       gap: 8px;
       box-shadow: var(--shadow-soft);
       transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+      max-width: 100%;
     }
 
     .button:hover,
@@ -869,6 +873,12 @@
       box-shadow: var(--shadow-soft);
     }
 
+    .flash-danger {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border-color: #f7b4ae;
+    }
+
     .tableish,
     .card-list {
       display: grid;
@@ -877,6 +887,7 @@
 
     .table-wrap {
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       border: 1px solid rgba(217, 226, 236, 0.92);
       border-radius: 20px;
       background: var(--surface);
@@ -1013,6 +1024,7 @@
     .ops-guide-link strong {
       color: var(--ink);
       font-size: 0.95rem;
+      overflow-wrap: anywhere;
     }
 
     .accordion summary {
@@ -1071,6 +1083,23 @@
       line-height: 1.45;
     }
 
+    .section-gap-sm {
+      margin-top: 12px;
+    }
+
+    .section-gap-md {
+      margin-top: 18px;
+    }
+
+    .panel-zero-padding {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .toolbar-inline-toggle {
+      margin-top: 28px;
+    }
+
     .amount-negative { color: #b42318; font-weight: 700; }
     .amount-positive { color: var(--ok); font-weight: 700; }
 
@@ -1125,6 +1154,11 @@
       .admin-topbar-center {
         display: none;
       }
+
+      .admin-topbar-actions {
+        justify-content: flex-end;
+        flex-wrap: wrap;
+      }
     }
 
     @media (max-width: 767px) {
@@ -1137,6 +1171,10 @@
         padding: 16px 14px 28px;
       }
 
+      .content-shell {
+        gap: 16px;
+      }
+
       .page-header {
         flex-direction: column;
         align-items: stretch;
@@ -1144,6 +1182,12 @@
 
       .page-actions {
         justify-content: flex-start;
+      }
+
+      .card,
+      .panel,
+      .toolbar-card {
+        padding: 18px;
       }
 
       .grid-2,
@@ -1158,6 +1202,24 @@
 
       .kv-grid {
         grid-template-columns: 1fr;
+      }
+
+      .actions,
+      .toolbar-actions,
+      .page-actions {
+        align-items: stretch;
+      }
+
+      .actions > *,
+      .toolbar-actions > *,
+      .page-actions > * {
+        width: 100%;
+      }
+
+      .actions > * > .button,
+      .toolbar-actions > * > .button,
+      .page-actions > * > .button {
+        width: 100%;
       }
 
       .table-wrap {
@@ -1219,6 +1281,16 @@
 
       .admin-sidebar-profile {
         padding: 10px 12px;
+      }
+
+      .toolbar-inline-toggle {
+        margin-top: 0;
+      }
+    }
+
+    @media (max-width: 540px) {
+      .admin-topbar-title {
+        max-width: 48vw;
       }
     }
   </style>

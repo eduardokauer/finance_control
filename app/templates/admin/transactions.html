@@ -62,7 +62,7 @@
   </aside>
 </section>
 
-<section class="toolbar-card" style="margin-top:18px;">
+<section class="toolbar-card section-gap-md">
   <div class="ops-panel-header">
     <strong>Filtros da listagem</strong>
     <div class="subtle">Os filtros continuam sendo controles globais da página, agrupados em uma toolbar estável para desktop e mobile.</div>
@@ -102,7 +102,7 @@
         <option value="amount_desc" {% if filters.sort == 'amount_desc' %}selected{% endif %}>Maior valor</option>
       </select>
     </label>
-    <label class="inline" style="margin-top:28px;">
+    <label class="inline toolbar-inline-toggle">
       <input type="checkbox" name="uncategorized_only" value="true" {% if filters.uncategorized_only %}checked{% endif %} style="width:auto;">
       Somente não categorizados
     </label>
@@ -112,7 +112,7 @@
   </form>
 </section>
 
-<form method="post" action="/admin/transactions/bulk-apply" class="ops-shell-grid" style="margin-top:18px;">
+<form method="post" action="/admin/transactions/bulk-apply" class="ops-shell-grid section-gap-md">
   <div class="ops-main-column">
     {% if transactions %}
       <section class="card stack">

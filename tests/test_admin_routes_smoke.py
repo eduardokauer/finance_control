@@ -248,3 +248,48 @@ def test_admin_analysis_and_conference_routes_support_legacy_saved_payload(clien
     assert "Visão bruta de apoio" not in analysis_response.text
     assert "Visão bruta de apoio" in conference_response.text
     assert "legacy html" in conference_response.text
+
+
+def test_admin_archetype_routes_expose_layout_contracts(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(db_session)
+    invoice = _seed_invoice(db_session)
+    item = db_session.query(CreditCardInvoiceItem).filter_by(invoice_id=invoice.id).first()
+    _login(client)
+
+    summary_response = client.get("/admin")
+    analysis_response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+    conference_response = client.get("/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
+    operations_response = client.get("/admin/operations")
+    transactions_response = client.get("/admin/transactions")
+    invoice_detail_response = client.get(f"/admin/credit-card-invoices/{invoice.id}")
+    transaction_detail_response = client.get(f"/admin/transactions/{tx.id}")
+    item_edit_response = client.get(f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category")
+
+    for response, route in [
+        (summary_response, "/admin"),
+        (analysis_response, "/admin/analysis"),
+        (conference_response, "/admin/conference"),
+        (operations_response, "/admin/operations"),
+        (transactions_response, "/admin/transactions"),
+        (invoice_detail_response, f"/admin/credit-card-invoices/{invoice.id}"),
+        (transaction_detail_response, f"/admin/transactions/{tx.id}"),
+        (item_edit_response, f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category"),
+    ]:
+        _assert_route_ok(response, route)
+
+    assert "home-kpi-strip" in summary_response.text
+    assert "home-dashboard-grid" in summary_response.text
+    assert "analysis-context-stack" in analysis_response.text
+    assert "analysis-shell-grid analysis-shell-grid-hero" in analysis_response.text
+    assert "analysis-context-stack" in conference_response.text
+    assert "analysis-shell-grid analysis-shell-grid-main" in conference_response.text
+    assert "ops-shell-grid" in operations_response.text
+    assert "summary-shortcuts" in operations_response.text
+    assert "ops-shell-grid" in transactions_response.text
+    assert "responsive-stack" in transactions_response.text
+    assert "split-layout-wide" in invoice_detail_response.text
+    assert "ops-shell-grid" in invoice_detail_response.text
+    assert "ops-shell-grid" in transaction_detail_response.text
+    assert "ops-shell-grid" in item_edit_response.text

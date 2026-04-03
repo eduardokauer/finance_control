@@ -9,7 +9,7 @@
 {% set analysis_show_generate = True %}
 {% include "admin/partials/analysis_period_form.html" %}
 
-<section class="analysis-shell-grid analysis-shell-grid-hero" style="margin-top:12px;">
+<section class="analysis-shell-grid analysis-shell-grid-hero section-gap-sm">
   <div
     id="conference-coverage-section"
     class="card stack analysis-focus-target analysis-hero-card {% if analysis_focus_banner and analysis_focus_banner.key == 'conference' %}analysis-focus-target-active{% endif %}"
@@ -75,7 +75,7 @@
   </aside>
 </section>
 
-<section class="analysis-shell-grid analysis-shell-grid-main" style="margin-top:12px;">
+<section class="analysis-shell-grid analysis-shell-grid-main section-gap-sm">
   <div class="analysis-main-column">
     <section id="conference-signals-section" class="card stack analysis-panel-card" style="margin-bottom:0;">
       <div class="analysis-section-header">
@@ -95,7 +95,7 @@
     </section>
 
     {% if analysis_run %}
-      <section class="comparison-grid" style="margin-top:12px;">
+      <section class="comparison-grid section-gap-sm">
         <div class="card analysis-panel-card" style="margin-bottom:0;">
           <div class="subtle">Receitas brutas vs {{ analysis_data.comparison.reference_label }}</div>
           <div style="font-weight:700; margin-top:6px;">{{ analysis_data.comparison.income.delta_display }}</div>
@@ -116,7 +116,7 @@
         </div>
       </section>
 
-      <div class="card stack analysis-panel-card" style="margin-top:12px; margin-bottom:0;">
+      <div class="card stack analysis-panel-card section-gap-sm" style="margin-bottom:0;">
         <div class="analysis-section-header">
           <strong>Consolidado mensal de 12 meses</strong>
           <div class="subtle">Meses zerados incluídos para leitura de tendência e comparação.</div>
@@ -149,21 +149,21 @@
         </div>
       </div>
 
-      <div id="conference-rendered-section" class="card analysis-panel-card" style="padding:0; overflow:hidden; margin-top:12px; margin-bottom:0;">
+      <div id="conference-rendered-section" class="card analysis-panel-card panel-zero-padding section-gap-sm" style="margin-bottom:0;">
         <div style="padding:16px; border-bottom:1px solid var(--line); font-weight:700;">Análise determinística renderizada</div>
         <div style="padding:16px;">
           {{ analysis_html_fragment|safe }}
         </div>
       </div>
 
-      <details class="accordion card analysis-panel-card" style="margin-top:12px;">
+      <details class="accordion card analysis-panel-card section-gap-sm">
         <summary>Ver HTML bruto</summary>
         <div class="accordion-body">
           <textarea readonly style="min-height:260px; font-family:Consolas, monospace;">{{ analysis_run.html_output }}</textarea>
         </div>
       </details>
     {% else %}
-      <div id="conference-rendered-section" class="card stack analysis-panel-card" style="margin-top:12px; margin-bottom:0;">
+      <div id="conference-rendered-section" class="card stack analysis-panel-card section-gap-sm" style="margin-bottom:0;">
         <strong>Análise ainda não gerada</strong>
         <div class="subtle">A conferência já mostra a cobertura e os sinais auxiliares do período. Gere uma nova análise determinística se quiser registrar o HTML renderizado e o consolidado mensal persistido.</div>
       </div>
@@ -247,7 +247,7 @@
   </div>
 </section>
 
-<details class="accordion card analysis-panel-card" style="margin-top:12px;">
+<details class="accordion card analysis-panel-card section-gap-sm">
   <summary>HTML final / LLM</summary>
   <div class="accordion-body subtle">
     O sistema não persiste hoje o HTML final do email/LLM por período. Esta tela mostra apenas a análise determinística atual.
