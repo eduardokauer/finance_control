@@ -192,7 +192,7 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 
 ### Fase 5 - Detalhes e fluxos contextuais
 
-- **Status:** pendente
+- **Status:** concluida
 - **Objetivo:** alinhar detalhes e fluxos contextuais a nova linguagem
 - **Escopo:**
   - detalhe de lancamento
@@ -266,4 +266,7 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 - Fase 4 concluida com migracao das telas de operacao e configuracao para um archetype mais estavel, com hero cards, metricas rapidas, formularios laterais, listas principais mais claras e continuidade mais proxima do template original
 - `Central operacional`, `Lancamentos`, `Faturas`, `Reaplicar regras`, `Regras` e `Categorias` agora compartilham hierarquia mais consistente entre contexto, metricas, listas e acoes
 - checkpoint da Fase 4 validado com `test-docs`, smoke/UI do admin e suite completa verde
-- proxima etapa operacional da branch: Fase 5, focada em detalhes e fluxos contextuais
+- Fase 5 concluida com readequacao do detalhe de lancamento, do detalhe de fatura, da edicao contextual de categoria de item de fatura e do login
+- os fluxos contextuais agora seguem a mesma linguagem do admin, com hero cards, guias de acao e melhor separacao entre resumo, manutencao pontual, preview e persistencia
+- checkpoint da Fase 5 validado com `test-docs`, smoke/UI do admin e suite completa verde
+- proxima etapa operacional da branch: Fase 6, focada em acabamento responsivo, consolidacao final e validacao da branch inteira

@@ -3,10 +3,16 @@
 {% block body %}
 <div class="login-shell">
   <div class="login-card stack">
-    <div>
-      <div class="badge">Interface administrativa</div>
-      <h1>Entrar</h1>
-      <p class="subtle">Use a senha fixa configurada em <code>ADMIN_UI_PASSWORD</code> para acessar a revisão financeira no celular ou desktop.</p>
+    <div class="shell-auth-header">
+      <div class="shell-auth-brand">
+        <span class="shell-auth-mark">FC</span>
+        <span>Finance Control Admin</span>
+      </div>
+      <div>
+        <div class="badge">Interface administrativa</div>
+        <h1>Entrar</h1>
+        <p class="subtle">A nova shell também vale para o acesso: contexto enxuto, linguagem visual coerente e entrada simples para continuar a operação no desktop ou no celular.</p>
+      </div>
     </div>
     {% if error %}<div class="flash" style="background:#fee4e2;color:#b42318;border-color:#f7b4ae;">{{ error }}</div>{% endif %}
     {% if not admin_enabled %}

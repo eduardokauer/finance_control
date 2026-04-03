@@ -226,6 +226,17 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert "Análise determinística renderizada" not in home.text
 
 
+def test_admin_login_page_uses_shell_auth_header(client, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+
+    response = client.get("/admin/login")
+
+    assert response.status_code == 200
+    assert "Finance Control Admin" in response.text
+    assert "Interface administrativa" in response.text
+    assert "A nova shell tamb" in response.text
+
+
 def test_admin_summary_page_exposes_contextual_ctas_with_preserved_state(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
@@ -1801,6 +1812,29 @@ def test_admin_transactions_page_marks_conciliated_bank_payment(client, db_sessi
     assert "status conciliated" in response.text
 
 
+def test_admin_transaction_detail_page_uses_detail_archetype(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(
+        db_session,
+        description="ALUGUEL DETALHE",
+        normalized="aluguel detalhe",
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _login(client)
+
+    response = client.get(f"/admin/transactions/{tx.id}")
+
+    assert response.status_code == 200
+    assert "Painel do lan" in response.text
+    assert "O que d" in response.text
+    assert "Editar lan" in response.text
+    assert "Criar categoria rapidamente" in response.text
+    assert "Reclassifica" in response.text
+
+
 def test_admin_loading_buttons_are_exposed_in_reapply_and_analysis(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
@@ -1996,6 +2030,8 @@ def test_admin_credit_card_invoice_detail_shows_items_and_summary(client, db_ses
     response = client.get(f"/admin/credit-card-invoices/{invoice.id}")
 
     assert response.status_code == 200
+    assert "Painel da fatura" in response.text
+    assert "Caminhos desta tela" in response.text
     assert f"Fatura #{invoice.id}" in response.text
     assert "pending_review" in response.text
     assert "Quantidade de lan\u00e7amentos" in response.text
@@ -2029,6 +2065,8 @@ def test_admin_credit_card_invoice_item_manual_category_flow_shows_preview_and_p
 
     edit_page = client.get(f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category")
     assert edit_page.status_code == 200
+    assert "Painel do item selecionado" in edit_page.text
+    assert "Escopos poss" in edit_page.text
     assert "Gerar preview do impacto" in edit_page.text
     assert "Alterar somente este item" in edit_page.text
     assert "Aplicar na base" in edit_page.text

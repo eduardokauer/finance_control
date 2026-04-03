@@ -37,23 +37,41 @@
   </section>
 {% endif %}
 
-<section class="grid grid-2">
-  <div class="card stack">
-    <h2>Item selecionado</h2>
-    <div class="kv-grid">
-      <div class="subtle">Fatura</div><div>#{{ editor.invoice.id }}</div>
-      <div class="subtle">Data</div><div>{{ editor.item.purchase_date }}</div>
-      <div class="subtle">Descrição</div><div>{{ editor.item.description_raw }}</div>
-      <div class="subtle">Tipo técnico</div><div><span class="badge">{{ editor.item_type }}</span></div>
-      <div class="subtle">Categoria atual</div><div>{{ editor.item.category or 'Não Categorizado' }}</div>
-      <div class="subtle">Método atual</div><div>{{ editor.item.categorization_method or '-' }}</div>
-      <div class="subtle">Valor</div><div>R$ {{ "%.2f"|format(editor.item.amount_brl) }}</div>
-      <div class="subtle">Status da conciliação</div><div><span class="badge {{ status_variant(editor.conciliation_status) }}">{{ editor.conciliation_status }}</span></div>
+<section class="ops-shell-grid">
+  <div class="card ops-hero-card">
+    <div class="ops-panel-header">
+      <strong>Painel do item selecionado</strong>
+      <div class="subtle">A edição continua conservadora: primeiro define escopo, depois mostra preview e só então permite persistir a mudança.</div>
+    </div>
+    <div class="ops-stat-grid">
+      <div class="ops-stat-card">
+        <div class="subtle">Fatura</div>
+        <strong>#{{ editor.invoice.id }}</strong>
+        <div class="subtle">{{ editor.card.card_label }}</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Tipo técnico</div>
+        <strong>{{ editor.item_type }}</strong>
+        <div class="subtle">Escopo elegível para edição</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Categoria atual</div>
+        <strong>{{ editor.item.category or 'Não Categorizado' }}</strong>
+        <div class="subtle">{{ editor.item.categorization_method or 'sem método atual' }}</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Valor</div>
+        <strong>R$ {{ "%.2f"|format(editor.item.amount_brl) }}</strong>
+        <div class="subtle">Status {{ editor.conciliation_status }}</div>
+      </div>
     </div>
   </div>
 
-  <div class="card stack">
-    <h2>Escolher escopo da correção</h2>
+  <aside class="card stack">
+    <div class="ops-panel-header">
+      <strong>Escopos possíveis</strong>
+      <div class="subtle">A decisão continua separando claramente correção pontual de aplicação na base.</div>
+    </div>
     <div class="preview-list">
       <div class="preview-item">
         <strong>Alterar somente este item</strong>
@@ -64,11 +82,14 @@
         <p>Cria ou atualiza uma regra oficial para itens equivalentes, reaplica nos existentes e continua valendo nas futuras importações elegíveis.</p>
       </div>
     </div>
-  </div>
+  </aside>
 </section>
 
-<section class="card stack">
-  <h2>Editar categoria</h2>
+<section class="card stack" style="margin-top:18px;">
+  <div class="ops-panel-header">
+    <h2 class="section-title">Editar categoria</h2>
+    <p class="section-intro">O preview continua obrigatório antes de qualquer persistência, tanto na alteração pontual quanto na aplicação na base.</p>
+  </div>
   {% if editor.item_type != 'charge' %}
     <div class="subtle">Somente itens <code>charge</code> aceitam edição manual de categoria de consumo. Itens <code>credit</code> e <code>payment</code> continuam técnicos.</div>
   {% elif not editor.available_categories %}
@@ -116,11 +137,10 @@
 </section>
 
 {% if single_preview %}
-  <section class="card stack">
-    <div>
+  <section class="card stack" style="margin-top:18px;">
+    <div class="ops-panel-header">
       <strong>Preview antes de aplicar</strong>
-      <div class="subtle">A alteração só será persistida após confirmação explícita.</div>
-      <div class="subtle">Fluxo pontual: esta alteração afeta apenas o item atual.</div>
+      <div class="subtle">Fluxo pontual: esta alteração afeta apenas o item atual e só será persistida após confirmação explícita.</div>
     </div>
     <div class="kv-grid">
       <div class="subtle">Categoria atual</div><div>{{ single_preview.current_category or 'Não Categorizado' }}</div>
@@ -153,8 +173,8 @@
 {% endif %}
 
 {% if base_preview %}
-  <section class="card stack">
-    <div>
+  <section class="card stack" style="margin-top:18px;">
+    <div class="ops-panel-header">
       <strong>Preview antes de aplicar na base</strong>
       <div class="subtle">Fluxo de base: a regra só será criada ou atualizada após confirmação explícita, e então será reaplicada nos itens existentes elegíveis.</div>
     </div>
