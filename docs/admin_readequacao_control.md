@@ -279,3 +279,23 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 - refinamento incremental do topo analitico iniciado a partir do feedback de uso da branch
 - o seletor global de periodo foi compactado em uma barra inline com modo, campo ativo e resumo curto do periodo, reduzindo altura ocupada no topo do `Resumo`, da `Analise detalhada` e da `Conferencia`
 - a mudanca preserva a separacao entre controle global da pagina e controles locais do grafico, mas reduz o peso visual e o espaco consumido pelo seletor de periodo
+
+### 2026-04-04
+
+- a frente entrou em um segundo passe estrutural a partir da insatisfacao com a adaptacao anterior da home
+- a `Visao Geral` deixou de depender da alternancia por lente e passou a ser reorientada para uma overview neutra com:
+  - filtros globais
+  - blocos principais do mes
+  - grafico de 12 meses conciliado
+  - grafico de 12 meses de extrato
+  - grafico de 12 meses de fatura
+  - grafico de categorias
+  - alertas com saida clicavel para listagens uteis
+- a arquitetura de informacao principal da branch foi alinhada para:
+  - `Visao Geral`
+  - `Visao conciliada`
+  - `Visao de Extrato`
+  - `Visao de Faturas`
+  - `Categorias`
+- `Categorias` passou a evoluir para subhome analitica propria, com grafico principal, ranking clicavel, composicao filtrada da categoria e manutencao da taxonomia na mesma area
+- `Visao conciliada`, `Visao de Extrato` e `Visao de Faturas` estao sendo reposicionadas como areas principais do menu, sem depender da antiga narrativa da home por lente

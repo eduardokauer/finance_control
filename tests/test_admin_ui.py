@@ -203,25 +203,29 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert "Operação" in home.text
     assert "Configuração" in home.text
     assert "Visão Geral" in home.text
-    assert "Resumo financeiro do período" in home.text
+    assert "Leitura principal do período com visão conciliada do mês" in home.text
     assert 'data-analysis-breadcrumbs' in home.text
     assert 'data-context-chip="period"' in home.text
-    assert 'data-context-chip="lens"' in home.text
+    assert 'data-context-chip="lens"' not in home.text
     assert "Controles globais da página" in home.text
     assert 'class="analysis-period-bar"' in home.text
     assert 'data-period-summary="closed"' in home.text
-    assert "Visão de Caixa" in home.text
-    assert "Visão de Competência" in home.text
-    assert "Fluxo líquido do mês" in home.text
-    assert "Entradas do mês" in home.text
-    assert "Saídas do mês" in home.text
-    assert "Maior saída do mês" in home.text
-    assert "home-primary-chart" in home.text
-    assert "Sem categorias de consumo no mês-base" not in home.text
+    assert "Receitas conciliadas" in home.text
+    assert "Despesa liquida conciliada" in home.text
+    assert "Saldo conciliado" in home.text
+    assert "Faturas conciliadas" in home.text
+    assert "12 meses conciliado" in home.text
+    assert "12 meses de extrato" in home.text
+    assert "12 meses de fatura" in home.text
+    assert "Gráfico de categorias" in home.text
+    assert "Alertas" in home.text
     assert "chart.js" in home.text.lower()
-    assert "Resumo executivo da Visão de Caixa" in home.text
-    assert "Análise detalhada" in home.text
-    assert "Conferência" in home.text
+    assert "Resumo executivo da Visão de Caixa" not in home.text
+    assert "Análise detalhada" not in home.text
+    assert "Conferência" not in home.text
+    assert "Visão conciliada" in home.text
+    assert "Visão de Extrato" in home.text
+    assert "Visão de Faturas" in home.text
     assert "Central operacional" in home.text
     assert "Visão bruta de apoio" not in home.text
     assert "Sinais analíticos de conciliação" not in home.text
@@ -271,29 +275,27 @@ def test_admin_summary_page_exposes_contextual_ctas_with_preserved_state(client,
     )
     _login(client)
 
-    response = client.get("/admin?selection_mode=month&month=2026-03&home_lens=competence&home_chart_mode=rolling_12&home_chart_compare=expense")
+    response = client.get("/admin?selection_mode=month&month=2026-03")
 
     assert response.status_code == 200
-    assert 'data-context-cta="cards"' in response.text
-    assert 'data-context-cta="chart"' in response.text
+    assert 'data-context-cta="conciliated"' in response.text
+    assert 'data-context-cta="statement"' in response.text
+    assert 'data-context-cta="invoice"' in response.text
     assert 'data-context-cta="alerts"' in response.text
     assert 'data-context-cta="categories"' in response.text
-    assert 'data-context-cta="conference"' in response.text
 
-    chart_href = _extract_href_by_data_attr(response.text, "data-context-cta", "chart")
+    chart_href = _extract_href_by_data_attr(response.text, "data-context-cta", "conciliated")
     assert "selection_mode=month" in chart_href
     assert "month=2026-03" in chart_href
-    assert "home_lens=competence" in chart_href
-    assert "origin=summary" in chart_href
-    assert "origin_block=chart" in chart_href
-    assert "home_chart_mode=rolling_12" in chart_href
-    assert "home_chart_compare=expense" in chart_href
+    assert chart_href.startswith("/admin/analysis?")
 
-    conference_href = _extract_href_by_data_attr(response.text, "data-context-cta", "conference")
-    assert conference_href.startswith("/admin/conference?")
-    assert "origin=summary" in conference_href
-    assert "origin_block=conference" in conference_href
-    assert "home_lens=competence" in conference_href
+    statement_href = _extract_href_by_data_attr(response.text, "data-context-cta", "statement")
+    assert statement_href.startswith("/admin/conference?")
+    assert "selection_mode=month" in statement_href
+    assert "month=2026-03" in statement_href
+
+    categories_href = _extract_href_by_data_attr(response.text, "data-context-cta", "categories")
+    assert categories_href.startswith("/admin/categories")
 
 
 def test_admin_summary_page_shows_home_category_comparison_block(client, db_session, monkeypatch):
@@ -391,12 +393,11 @@ def test_admin_summary_page_shows_home_category_comparison_block(client, db_sess
     )
     _login(client)
 
-    response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence")
+    response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Comparativo rápido das categorias do mês" in response.text
-    assert "nova no mês" in response.text
-    assert "fev/2026: R$ 0,00" in response.text
+    assert "Gráfico de categorias" in response.text
+    assert "Ver composição" in response.text
     assert (
         response.text.index('data-category-row="Moradia"')
         < response.text.index('data-category-row="Supermercado"')
@@ -441,17 +442,15 @@ def test_admin_summary_page_switches_home_lenses_and_hides_top_categories_in_cas
     competence_response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence")
 
     assert cash_response.status_code == 200
-    assert "Resumo executivo da Visão de Caixa" in cash_response.text
-    assert "Maior saída do mês" in cash_response.text
-    assert "Comparativo rápido das categorias do mês" not in cash_response.text
-    assert 'data-context-cta="categories"' not in cash_response.text
+    assert "Receitas conciliadas" in cash_response.text
+    assert "12 meses conciliado" in cash_response.text
+    assert 'data-context-cta="categories"' in cash_response.text
 
     assert competence_response.status_code == 200
-    assert "Resumo executivo da Visão de Competência" in competence_response.text
-    assert "Resultado do mês" in competence_response.text
-    assert "Margem do mês" in competence_response.text
-    assert "Comparativo rápido das categorias do mês" in competence_response.text
+    assert "Receitas conciliadas" in competence_response.text
+    assert "12 meses conciliado" in competence_response.text
     assert 'data-context-cta="categories"' in competence_response.text
+    assert 'data-context-chip="lens"' not in competence_response.text
 
 
 def test_admin_summary_page_shows_local_chart_controls_for_both_lenses(client, db_session, monkeypatch):
@@ -477,25 +476,19 @@ def test_admin_summary_page_shows_local_chart_controls_for_both_lenses(client, d
     )
     _login(client)
 
-    cash_response = client.get(
-        "/admin?period_start=2026-03-01&period_end=2026-03-31&home_chart_mode=year&home_chart_year=2026&home_chart_compare=income"
-    )
-    competence_response = client.get(
-        "/admin?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence&home_chart_mode=rolling_12&home_chart_compare=expense"
-    )
+    cash_response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31")
+    competence_response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence")
 
     assert cash_response.status_code == 200
-    assert 'name="home_chart_year"' in cash_response.text
-    assert "Fluxo líquido" in cash_response.text
-    assert "Entradas" in cash_response.text
-    assert "Saídas" in cash_response.text
-    assert "Visão de Caixa: evolução principal" in cash_response.text
+    assert "12 meses conciliado" in cash_response.text
+    assert "12 meses de extrato" in cash_response.text
+    assert "12 meses de fatura" in cash_response.text
+    assert 'name="home_chart_year"' not in cash_response.text
 
     assert competence_response.status_code == 200
-    assert "Resultado" in competence_response.text
-    assert "Receitas" in competence_response.text
-    assert "Despesas" in competence_response.text
-    assert "Visão de Competência: evolução principal" in competence_response.text
+    assert "12 meses conciliado" in competence_response.text
+    assert "12 meses de extrato" in competence_response.text
+    assert "12 meses de fatura" in competence_response.text
 
 
 def test_admin_summary_page_shows_recent_movements_block(client, db_session, monkeypatch):
@@ -524,9 +517,9 @@ def test_admin_summary_page_shows_recent_movements_block(client, db_session, mon
     response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Movimentações recentes" in response.text
-    assert 'data-home-recent-row="MERCADO MAR RECENT"' in response.text
-    assert 'data-home-recent-row="SALARIO MAR RECENT"' in response.text
+    assert "Movimentações recentes" not in response.text
+    assert "Alertas" in response.text
+    assert "Gráfico de categorias" in response.text
 
 
 def test_admin_analysis_page_restores_summary_context_from_chart_navigation(client, db_session, monkeypatch):
@@ -559,8 +552,8 @@ def test_admin_analysis_page_restores_summary_context_from_chart_navigation(clie
 
     assert response.status_code == 200
     assert 'data-analysis-breadcrumbs' in response.text
-    assert "Análise detalhada" in response.text
-    assert "Leitura principal do período" in response.text
+    assert "Visão conciliada" in response.text
+    assert "Leitura principal da visão conciliada" in response.text
     assert "Aprofundamentos desta tela" in response.text
     assert 'data-origin-banner="chart"' in response.text
     assert 'data-context-chip="origin_block"' in response.text
@@ -570,9 +563,9 @@ def test_admin_analysis_page_restores_summary_context_from_chart_navigation(clie
     assert return_href.startswith("/admin?")
     assert "selection_mode=month" in return_href
     assert "month=2026-03" in return_href
-    assert "home_lens=competence" in return_href
-    assert "home_chart_mode=rolling_12" in return_href
-    assert "home_chart_compare=expense" in return_href
+    assert "home_lens=" not in return_href
+    assert "home_chart_mode=" not in return_href
+    assert "home_chart_compare=" not in return_href
 
 
 def test_admin_conference_page_restores_summary_context(client, db_session, monkeypatch):
@@ -596,8 +589,8 @@ def test_admin_conference_page_restores_summary_context(client, db_session, monk
 
     assert response.status_code == 200
     assert 'data-analysis-breadcrumbs' in response.text
-    assert "Conferência e auditoria" in response.text
-    assert "Painel de cobertura e auditoria" in response.text
+    assert "Visão de Extrato" in response.text
+    assert "Painel da visão de extrato" in response.text
     assert "O que esta tela valida" in response.text
     assert 'data-origin-banner="conference"' in response.text
     assert 'data-context-chip="origin_block"' in response.text
@@ -606,7 +599,7 @@ def test_admin_conference_page_restores_summary_context(client, db_session, monk
     assert return_href.startswith("/admin?")
     assert "selection_mode=month" in return_href
     assert "month=2026-03" in return_href
-    assert "home_lens=cash" in return_href
+    assert "home_lens=" not in return_href
 
 
 def test_admin_can_create_credit_card_and_upload_invoice(client, db_session, monkeypatch, sample_credit_card_csv_file):
@@ -647,7 +640,7 @@ def test_admin_can_create_credit_card_and_upload_invoice(client, db_session, mon
         )
 
     assert upload.status_code == 200
-    assert "Faturas importadas" in upload.text
+    assert "Visão de Faturas" in upload.text
     assert "03/2026" in upload.text
     assert "Ita\u00fa Visa final 1234" in upload.text
     assert "2 lan\u00e7amento(s)" in upload.text
@@ -1091,13 +1084,13 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
 
     page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert page.status_code == 200
-    assert "Análise detalhada" in page.text
+    assert "Visão conciliada" in page.text
     assert "Visão de consumo do mês-base" in page.text
     assert "Comparações históricas por categoria na visão de consumo" in page.text
     assert "Alertas determinísticos" in page.text
     assert "Ações recomendadas" in page.text
     assert 'class="analysis-period-bar"' in page.text
-    assert "Conferência e auditoria" in page.text
+    assert "Visão de Extrato" in page.text
     assert "Análise determinística renderizada" not in page.text
     assert "Visão bruta de apoio" not in page.text
     assert "chart.js" in page.text.lower()
@@ -1128,7 +1121,7 @@ def test_admin_conference_page_shows_auxiliary_conciliation_signals(client, db_s
     response = client.get("/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Conferência e auditoria" in response.text
+    assert "Visão de Extrato" in response.text
     assert "Sinais analíticos de conciliação" in response.text
     assert "Cobertura da leitura principal" in response.text
     assert "Resumo executivo" in response.text
@@ -1788,7 +1781,7 @@ def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(c
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Análise detalhada" in response.text
+    assert "Visão conciliada" in response.text
     assert "Visão de consumo do mês-base" in response.text
     assert "Comparações históricas por categoria na visão de consumo" in response.text
     assert "Visão bruta de apoio" not in response.text
@@ -1961,7 +1954,7 @@ def test_admin_credit_card_invoice_list_shows_imported_invoices(client, db_sessi
     response = client.get("/admin/credit-card-invoices")
 
     assert response.status_code == 200
-    assert "Faturas importadas" in response.text
+    assert "Visão de Faturas" in response.text
     assert "Valor total das faturas importadas por m\u00eas, separado por ano" in response.text
     assert "Eixo fixo de 12 meses. Cada barra representa um ano com dados, mantendo a mesma cor ao longo do gr\u00e1fico." in response.text
     assert "invoice-imports-chart" in response.text
@@ -2008,7 +2001,7 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
     assert "Ações em lote" in transactions.text
 
     assert invoices.status_code == 200
-    assert "Painel operacional das faturas" in invoices.text
+    assert "Painel principal das faturas" in invoices.text
     assert "Atalhos de trabalho" in invoices.text
 
     assert rules.status_code == 200
@@ -2016,7 +2009,7 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
     assert "Adicionar regra" in rules.text
 
     assert categories.status_code == 200
-    assert "Painel de configuração das categorias" in categories.text
+    assert "Painel de configuracao das categorias" in categories.text
     assert "Criar categoria" in categories.text
 
     assert reapply.status_code == 200

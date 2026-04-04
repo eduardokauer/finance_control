@@ -9,7 +9,7 @@ import re
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.repositories.models import AnalysisRun, CategorizationRule, Category, Transaction, TransactionAuditLog
+from app.repositories.models import AnalysisRun, CategorizationRule, Category, SourceFile, Transaction, TransactionAuditLog
 from app.services.analysis import run_analysis
 from app.services.classification import apply_transaction_classification, classify_transaction, create_audit_log
 from app.services.credit_card_bills import map_conciliated_bank_payment_signals
@@ -203,6 +203,33 @@ def admin_dashboard_metrics(db: Session) -> dict:
         "latest_changes": latest_changes,
         "latest_rules": latest_rules,
     }
+
+
+def list_recent_source_files(
+    db: Session,
+    *,
+    source_types: Sequence[str] | None = None,
+    limit: int = 12,
+) -> list[dict]:
+    query = select(SourceFile).order_by(SourceFile.created_at.desc(), SourceFile.id.desc())
+    if source_types:
+        query = query.where(SourceFile.source_type.in_(list(source_types)))
+    rows = db.scalars(query.limit(limit)).all()
+    source_labels = {
+        "bank_statement": "Extrato",
+        "credit_card_bill": "Fatura",
+    }
+    return [
+        {
+            "id": source_file.id,
+            "source_type": source_file.source_type,
+            "source_label": source_labels.get(source_file.source_type, source_file.source_type),
+            "file_name": source_file.file_name,
+            "status": source_file.status,
+            "created_at": source_file.created_at,
+        }
+        for source_file in rows
+    ]
 
 
 def analysis_summary_for_period(db: Session, *, period_start: date, period_end: date) -> dict:

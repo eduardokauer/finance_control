@@ -1,9 +1,9 @@
 {% extends "admin/base.html" %}
-{% block title %}Conferência{% endblock %}
+{% block title %}Visão de Extrato{% endblock %}
 {% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
 {% block content %}
-{% set analysis_page_title = "Conferência e auditoria" %}
-{% set analysis_page_intro = "Área de apoio para validar a cobertura da leitura principal, conferir a visão bruta do período e diagnosticar sinais auxiliares sem poluir o resumo." %}
+{% set analysis_page_title = "Visão de Extrato" %}
+{% set analysis_page_intro = "Subhome da leitura bruta do extrato: cobertura da base, sinais auxiliares, visão mensal e auditoria do período." %}
 {% set analysis_form_action = "/admin/conference" %}
 {% set analysis_submit_label = "Ver conferência" %}
 {% set analysis_show_generate = True %}
@@ -16,8 +16,8 @@
     style="margin-bottom:0;"
   >
     <div class="analysis-section-header">
-      <strong>Painel de cobertura e auditoria</strong>
-      <div class="subtle">A conferência continua sendo a área de validação da leitura principal. O objetivo aqui é explicar cobertura, exclusões e sinais auxiliares sem mudar a semântica do resumo.</div>
+        <strong>Painel da visão de extrato</strong>
+        <div class="subtle">Esta área mantém a leitura bruta do extrato e a auditoria do período, sem confundir a semântica da overview conciliada.</div>
     </div>
     <div class="analysis-list">
       <div class="analysis-item">
@@ -92,6 +92,29 @@
         <div class="subtle">Conflito</div><div>{{ analysis_data.conciliation_signals.invoices_by_status.conflict }}</div>
       </div>
       <div class="subtle">{{ analysis_data.conciliation_signals.note }}</div>
+    </section>
+
+    <section class="card stack analysis-panel-card" style="margin-bottom:0;">
+      <div class="analysis-section-header">
+        <strong>Leitura histórica do extrato</strong>
+        <div class="subtle">Esta área mantém o histórico bruto de 12 meses e o gráfico categorial do recorte atual, sem misturar com a visão conciliada.</div>
+      </div>
+      <div class="analysis-chart-grid">
+        <div class="stack">
+          <div class="analysis-section-header">
+            <strong>12 meses de extrato</strong>
+            <div class="subtle">Receitas, despesas e saldo brutos do período.</div>
+          </div>
+          <div class="chart-shell"><canvas id="statement-monthly-chart"></canvas></div>
+        </div>
+        <div class="stack">
+          <div class="analysis-section-header">
+            <strong>Gráfico de categorias do extrato</strong>
+            <div class="subtle">Top categorias da base bruta no período selecionado.</div>
+          </div>
+          <div class="chart-shell"><canvas id="statement-categories-chart"></canvas></div>
+        </div>
+      </div>
     </section>
 
     {% if analysis_run %}
@@ -224,6 +247,30 @@
       </div>
     </section>
 
+    <section class="card stack analysis-panel-card" style="margin-bottom:0;">
+      <div class="analysis-section-header">
+        <strong>Cargas feitas</strong>
+        <div class="subtle">Arquivos recentes que alimentam a visão de extrato desta área.</div>
+      </div>
+      <div class="analysis-list">
+        {% for load in recent_loads %}
+          <div class="analysis-item">
+            <div class="analysis-item-title">
+              <strong>{{ load.source_label }}</strong>
+              <span class="badge">{{ load.status }}</span>
+            </div>
+            <p>{{ load.file_name }}</p>
+            <div class="subtle">{{ load.created_at.strftime('%d/%m/%Y %H:%M') if load.created_at else '-' }}</div>
+          </div>
+        {% else %}
+          <div class="analysis-item">
+            <strong>Nenhuma carga recente</strong>
+            <p>Os próximos extratos importados aparecem aqui para facilitar a rastreabilidade da leitura.</p>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
     <div class="card stack technical-note analysis-panel-card" style="margin-bottom:0;">
       <div class="analysis-section-header">
         <strong>Itens financeiros e técnicos</strong>
@@ -254,5 +301,136 @@
   </div>
 </details>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  (() => {
+    const compactCurrency = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      maximumFractionDigits: 0,
+    });
+    const tooltipCurrency = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+
+    const monthlyElement = document.getElementById('statement-monthly-chart');
+    if (monthlyElement) {
+      const monthlyData = {{ analysis_data.charts.monthly|tojson }};
+      new Chart(monthlyElement, {
+        type: 'bar',
+        data: {
+          labels: monthlyData.labels,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'Receitas',
+              data: monthlyData.income,
+              backgroundColor: 'rgba(24, 121, 78, 0.72)',
+              borderColor: 'rgba(24, 121, 78, 0.92)',
+              borderRadius: 8,
+              borderSkipped: false,
+              maxBarThickness: 28,
+              order: 2,
+            },
+            {
+              type: 'bar',
+              label: 'Despesas',
+              data: monthlyData.expense,
+              backgroundColor: 'rgba(180, 35, 24, 0.72)',
+              borderColor: 'rgba(180, 35, 24, 0.92)',
+              borderRadius: 8,
+              borderSkipped: false,
+              maxBarThickness: 28,
+              order: 2,
+            },
+            {
+              type: 'line',
+              label: 'Saldo',
+              data: monthlyData.balance,
+              borderColor: 'rgba(15, 118, 110, 0.92)',
+              backgroundColor: 'transparent',
+              pointBackgroundColor: 'rgba(15, 118, 110, 0.92)',
+              tension: 0.24,
+              borderWidth: 2.5,
+              pointRadius: 3,
+              pointHoverRadius: 4,
+              fill: false,
+              order: 1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return `${context.dataset.label}: ${tooltipCurrency.format(context.parsed.y || 0)}`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: { grid: { display: false } },
+            y: {
+              ticks: {
+                callback(value) {
+                  return compactCurrency.format(value || 0);
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    const categoriesElement = document.getElementById('statement-categories-chart');
+    if (categoriesElement) {
+      const categoryData = {{ analysis_data.charts.statement_categories|tojson }};
+      new Chart(categoriesElement, {
+        type: 'bar',
+        data: {
+          labels: categoryData.labels,
+          datasets: [
+            {
+              label: 'Despesas do período',
+              data: categoryData.values,
+              backgroundColor: categoryData.technical.map((isTechnical) => (isTechnical ? 'rgba(245, 158, 11, 0.75)' : 'rgba(37, 99, 235, 0.72)')),
+              borderRadius: 8,
+              borderSkipped: false,
+            },
+          ],
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return tooltipCurrency.format(context.parsed.x || 0);
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              ticks: {
+                callback(value) {
+                  return compactCurrency.format(value || 0);
+                },
+              },
+            },
+            y: { grid: { display: false } },
+          },
+        },
+      });
+    }
+  })();
+</script>
 {% include "admin/partials/analysis_period_form_script.html" %}
 {% endblock %}

@@ -70,9 +70,9 @@ Ordem de leitura recomendada:
 - Leitura mensal por categoria promovida para a visão de consumo do mês-base, com conta por `transaction_date` e cartão conciliado por `purchase_date`.
 - Comparações mês a mês / ano a ano por categoria usando a mesma visão de consumo já adotada no mês-base implementadas na análise do admin.
 - Alertas e ações recomendadas recalculados para priorizar sinais da visão de consumo quando falam de consumo, categorias e variação de gasto.
-- Arquitetura da informação do admin reorganizada para separar Resumo, Análise detalhada, Conferência, Operação e Configuração.
+- Arquitetura da informação do admin em readequação para consolidar `Visão Geral`, `Visão conciliada`, `Visão de Extrato`, `Visão de Faturas`, `Categorias`, Operação e Configuração dentro de uma mesma shell.
 - Shell global do admin redesenhada com sidebar persistente no desktop, drawer no tablet/mobile e topbar fixa nas telas autenticadas.
-- Home/resumo do admin simplificada para concentrar leitura financeira essencial, categorias prioritárias e atalhos de aprofundamento.
+- Home/resumo do admin em refinamento avançado para virar uma overview mais enxuta, com filtros, blocos principais do mês, gráficos anuais por fonte, categorias e alertas acionáveis.
 - Home/resumo do admin evoluída para alternar entre `Visão de Caixa` e `Visão de Competência`, com cards, resumo executivo e alertas coerentes com a lente ativa.
 - Gráfico principal da home/resumo materializado com controle temporal local (`Ano` e `Últimos 12 meses`), dropdown de ano, abas curtas de comparação por métrica e convenção visual com barras para entradas/saídas ou receitas/despesas e linha para fluxo/resultado.
 - Bloco-resumo com comparativo visual das Top 5 categorias de consumo do mês-base materializado apenas na `Visão de Competência`, com referência padrão no mês anterior.
@@ -164,10 +164,12 @@ Esta lista cobre capacidades que ainda não existem no produto ou que ainda não
 
 ### Leitura analítica atual
 
-- O admin separa a leitura em três entradas analíticas complementares:
-  - **Resumo:** entrada principal, com alternância entre `Visão de Caixa` e `Visão de Competência`, barra de contexto própria, faixa inicial de cards por lente, gráfico principal com controle temporal local, comparativo compacto de categorias apenas na lente de competência, resumo executivo, alertas mais urgentes e CTAs contextuais por bloco.
-  - **Análise detalhada:** aprofundamento da visão de consumo, com breadcrumb `Resumo > Análise detalhada`, retorno ao resumo com contexto restaurado, breakdown categorial completo, comparações históricas, gráficos analíticos atuais, alertas e ações.
-  - **Conferência:** visão bruta, cobertura da leitura principal, sinais auxiliares de conciliação, itens técnicos e HTML renderizado para auditoria, também com breadcrumb próprio e retorno ao resumo com contexto restaurado.
+- O admin está migrando para cinco entradas principais complementares:
+  - **Visão Geral:** overview neutra do período, sem depender da antiga alternância por lente, concentrando filtros, blocos principais do mês, gráficos anuais por fonte, categorias e alertas acionáveis.
+  - **Visão conciliada:** área principal da leitura conciliada, com histórico, categorias e sinais analíticos.
+  - **Visão de Extrato:** área principal da leitura bruta do extrato, com cobertura, categorias da base bruta e auditoria.
+  - **Visão de Faturas:** área principal das faturas, combinando histórico, categorias e cargas recentes com a operação da área.
+  - **Categorias:** subhome da leitura categorial, com gráfico principal, ranking clicável, composição do valor e manutenção da taxonomia.
 - Essa reorganização é uma decisão explícita de arquitetura da informação do produto, feita antes da próxima etapa de gráficos dedicados por categoria.
 - A `Visão de Caixa` da home usa a leitura de caixa do mês-base para fluxo líquido, entradas, saídas e maior saída individual do período.
 - A `Visão de Competência` da home usa a leitura gerencial já suportada pelo produto para resultado do mês, receitas por competência, despesas por competência e margem do mês.
@@ -249,7 +251,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Motivo resumido:** a camada analítica agora já preserva melhor período, lente e contexto ao navegar entre `Resumo`, `Análise detalhada` e `Conferência`; com isso, o foco volta para definir com mais precisão qual incremento funcional analítico vem na sequência.
 - **Prompt canônico para iniciar o ciclo:** usar `docs/pm_cycle_start_prompt.md` para classificar o estado atual antes de decidir entre refinamento, documentação ou handoff técnico.
 - **Documento operacional da frente de readequação:** usar `docs/admin_readequacao_control.md` para acompanhar a readequacao global do admin em fases, sem perder a coesao entre shell, IA, responsividade e checkpoints de execucao.
-- **Checkpoint atual da frente de readequação:** a Fase 1 da branch dedicada já consolidou shell global, sidebar, topbar e contracts base de page header; a Fase 2 já readequou a `Visão Geral`, reforçando a hierarquia da home e o bloco inferior de continuidade com dados reais do mês-base; a Fase 3 já reorganizou `Análise detalhada` e `Conferência` com cards de contexto mais fortes, navegação rápida por seções e painéis mais próximos do ritmo visual do template original; a Fase 4 já migrou `Central operacional`, `Lançamentos`, `Faturas`, `Reaplicar regras`, `Regras` e `Categorias` para um archetype mais estável de operação e configuração; a Fase 5 já alinhou detalhes, edição contextual e login à mesma linguagem do admin; a Fase 6 já fechou o passe de acabamento responsivo, consolidou utilitários de layout e reforçou os contracts de interface da branch inteira; o documento de controle agora marca a frente como pronta para validação integrada da branch.
+- **Checkpoint atual da frente de readequação:** a branch dedicada entrou em um segundo passe estrutural a partir do feedback de uso; a `Visão Geral` está sendo reduzida para uma overview neutra com filtros, blocos do mês, gráficos anuais por fonte, categorias e alertas clicáveis; `Visão conciliada`, `Visão de Extrato`, `Visão de Faturas` e `Categorias` estão sendo reposicionadas como subhomes principais da nova IA; o documento de controle acompanha esse passe incremental para manter coesão entre shell, IA e utilidade real das telas.
 
 ### Como ler o roadmap
 

@@ -1,9 +1,9 @@
 {% extends "admin/base.html" %}
-{% block title %}Análise detalhada{% endblock %}
+{% block title %}Visão conciliada{% endblock %}
 {% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
 {% block content %}
-{% set analysis_page_title = "Análise detalhada" %}
-{% set analysis_page_intro = "Aprofundamento da visão de consumo do mês-base, com comparações históricas, categorias completas e sinais analíticos que apoiam a decisão." %}
+{% set analysis_page_title = "Visão conciliada" %}
+{% set analysis_page_intro = "Subhome principal da leitura conciliada: composição do período, histórico, categorias e sinais analíticos sem virar uma segunda overview." %}
 {% set analysis_form_action = "/admin/analysis" %}
 {% set analysis_submit_label = "Ver análise detalhada" %}
 {% set analysis_show_generate = True %}
@@ -12,8 +12,8 @@
 <section class="analysis-shell-grid analysis-shell-grid-hero section-gap-sm">
   <div class="card stack analysis-hero-card">
     <div class="analysis-section-header">
-      <strong>Leitura principal do período</strong>
-      <div class="subtle">A análise detalhada continua aprofundando a leitura do resumo, mas sem virar uma segunda home. O foco aqui é entender composição, histórico e sinais analíticos do período.</div>
+        <strong>Leitura principal da visão conciliada</strong>
+        <div class="subtle">Esta área aprofunda a leitura conciliada do período com histórico e categorias, sem disputar papel com a Visão Geral.</div>
     </div>
     <div class="analysis-list">
       <div class="analysis-item">
@@ -244,6 +244,30 @@
           <div class="analysis-item">
             <strong>Nenhuma ação prioritária</strong>
             <p>A análise atual não encontrou um ajuste imediato acima da linha de base do período.</p>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card stack analysis-panel-card" style="margin-bottom:0;">
+      <div class="analysis-section-header">
+        <strong>Cargas feitas</strong>
+        <div class="subtle">Arquivos recentes que alimentam a visão conciliada desta área.</div>
+      </div>
+      <div class="analysis-list">
+        {% for load in recent_loads %}
+          <div class="analysis-item">
+            <div class="analysis-item-title">
+              <strong>{{ load.source_label }}</strong>
+              <span class="badge">{{ load.status }}</span>
+            </div>
+            <p>{{ load.file_name }}</p>
+            <div class="subtle">{{ load.created_at.strftime('%d/%m/%Y %H:%M') if load.created_at else '-' }}</div>
+          </div>
+        {% else %}
+          <div class="analysis-item">
+            <strong>Nenhuma carga recente</strong>
+            <p>Os próximos extratos e CSVs de fatura usados na leitura conciliada aparecem aqui.</p>
           </div>
         {% endfor %}
       </div>
