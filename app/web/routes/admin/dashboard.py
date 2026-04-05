@@ -5,10 +5,12 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from fastapi import Depends, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
+from app.repositories.models import Transaction
 from app.services.credit_card_bills import (
     build_credit_card_invoice_import_chart,
     CreditCardBillError,
@@ -19,6 +21,7 @@ from app.services.credit_card_bills import (
     list_credit_card_invoices,
     list_recent_credit_card_invoices,
 )
+from app.services.ingestion import ingest_bytes
 from app.services.admin import admin_dashboard_metrics, list_recent_source_files
 
 from .helpers import render_admin
@@ -27,6 +30,8 @@ from .helpers import render_admin
 CENT_VALUE = Decimal("0.01")
 CONTROL_CENTER_URL = "/admin/operations"
 INVOICE_MANAGE_URL = "/admin/credit-card-invoices/manage"
+STATEMENT_MANAGE_URL = "/admin/conference/manage"
+STATEMENT_URL = "/admin/conference"
 
 
 def _parse_brl_amount(raw_value: str) -> Decimal:
@@ -45,6 +50,28 @@ def _dashboard_context(db: Session) -> dict:
         "credit_cards": list_credit_cards(db),
         "recent_credit_card_invoices": list_recent_credit_card_invoices(db),
     }
+
+
+def _get_source_file_period(db: Session, source_file_id: int):
+    return db.execute(
+        select(
+            func.min(Transaction.transaction_date),
+            func.max(Transaction.transaction_date),
+        ).where(Transaction.source_file_id == source_file_id)
+    ).one()
+
+
+def _statement_manage_page_context(db: Session) -> dict:
+    return {
+        "recent_loads": list_recent_source_files(db, source_types=["bank_statement"], limit=10),
+    }
+
+
+def _validate_ofx_upload(file: UploadFile) -> None:
+    if not file.filename:
+        raise CreditCardBillError("Arquivo OFX obrigatorio.", status_code=422)
+    if not file.filename.lower().endswith(".ofx"):
+        raise CreditCardBillError("Somente arquivos .ofx sao aceitos.", status_code=422)
 
 
 def _status_variant(status: str) -> str:
@@ -88,6 +115,18 @@ def _credit_card_invoice_manage_page_context(db: Session) -> dict:
         "credit_cards": list_credit_cards(db, active_only=True),
         "recent_loads": list_recent_source_files(db, source_types=["credit_card_bill"], limit=10),
     }
+
+
+def admin_statements_manage(
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    return render_admin(
+        request,
+        "admin/statement_manage.html",
+        _statement_manage_page_context(db),
+    )
 
 def admin_operations(request: Request, db: Session = Depends(get_db), _: bool = Depends(require_admin_session)):
     return render_admin(request, "admin/dashboard.html", _dashboard_context(db))
@@ -178,3 +217,66 @@ async def admin_upload_credit_card_bill(
 
     request.session["flash"] = result["message"]
     return RedirectResponse(url="/admin/credit-card-invoices", status_code=303)
+
+
+async def admin_upload_bank_statement(
+    request: Request,
+    file: UploadFile = File(...),
+    reference_id: str | None = Form(default=None),
+    return_to: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    try:
+        _validate_ofx_upload(file)
+        raw_content = await file.read()
+        if not raw_content:
+            raise CreditCardBillError("Arquivo OFX vazio.", status_code=422)
+        result = ingest_bytes(
+            db=db,
+            source_type="bank_statement",
+            file_name=file.filename or "",
+            raw_content=raw_content,
+            reference_id=reference_id,
+        )
+    except CreditCardBillError as exc:
+        return render_admin(
+            request,
+            "admin/statement_manage.html",
+            {
+                **_statement_manage_page_context(db),
+                "statement_upload_error": str(exc),
+                "return_to": return_to or STATEMENT_MANAGE_URL,
+            },
+            status_code=exc.status_code,
+        )
+    except Exception as exc:
+        return render_admin(
+            request,
+            "admin/statement_manage.html",
+            {
+                **_statement_manage_page_context(db),
+                "statement_upload_error": str(exc),
+                "return_to": return_to or STATEMENT_MANAGE_URL,
+            },
+            status_code=422,
+        )
+
+    period_start, period_end = _get_source_file_period(db, result["source_file_id"])
+    if result["status"] == "processed" and period_start and period_end:
+        from app.services.analysis import run_analysis
+
+        run_analysis(
+            db,
+            period_start=period_start,
+            period_end=period_end,
+            trigger_source_file_id=result["source_file_id"],
+        )
+
+    request.session["flash"] = result["message"]
+    if period_start and period_end:
+        return RedirectResponse(
+            url=f"{STATEMENT_URL}?selection_mode=custom&period_start={period_start.isoformat()}&period_end={period_end.isoformat()}",
+            status_code=303,
+        )
+    return RedirectResponse(url=return_to or STATEMENT_MANAGE_URL, status_code=303)

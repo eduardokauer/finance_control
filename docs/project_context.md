@@ -79,6 +79,7 @@ Ordem de leitura recomendada:
 - Barra de contexto padronizada no topo de `Resumo`, `Análise detalhada` e `Conferência`, separando breadcrumb, controles globais da página, chips de contexto e foco contextual por origem.
 - Navegação contextual entre `Resumo`, `Análise detalhada` e `Conferência` materializada com preservação de período, lente, origem e contexto relevante do gráfico ao sair da home.
 - Páginas de `Visão Geral`, `Análise detalhada`, `Conferência`, `Central operacional`, listas operacionais, detalhes e login migradas para a nova linguagem visual do admin, mantendo as rotas públicas atuais.
+- Formulário de upload de extrato centralizado na área administrativa da `Visão de Extrato` do admin.
 - Formulário de upload de fatura centralizado na tela de faturas do admin.
 - Deduplicação forte implementada em OFX e faturas.
 
@@ -215,6 +216,10 @@ Esta lista cobre capacidades que ainda não existem no produto ou que ainda não
   - ver itens, tipo técnico e categoria quando aplicável;
   - editar manualmente a categoria de item `charge` com preview e confirmação explícita;
   - aplicar a categoria na base com preview dos itens impactados, confirmação, criação/atualização de regra e reaplicação dos itens elegíveis existentes.
+- **Extratos**
+  - importar OFX pela interface administrativa;
+  - acompanhar cargas recentes que alimentam a `Visão de Extrato`;
+  - cair na `Visão de Extrato` já com o período restaurado após o upload.
 - **Conciliação**
   - visualizar candidatos de pagamento;
   - vincular manualmente pagamentos do extrato;
@@ -472,7 +477,7 @@ Esta lista cobre capacidades que já existem, mas ainda dependem de maturação,
 - **Refino de produto necessário?:** Não
 - **Motivo do refino:** escopo relativamente claro.
 - **Dependências:** fluxo admin/upload.
-- **Status:** futuro planejado.
+- **Status:** implementado no admin.
 
 #### Ordem 6 - Incorporar o controle de faturas hoje mantido em outro projeto
 

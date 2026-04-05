@@ -9,11 +9,26 @@ import re
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.repositories.models import AnalysisRun, CategorizationRule, Category, SourceFile, Transaction, TransactionAuditLog
+from app.repositories.models import AnalysisRun, CategorizationRule, Category, CreditCardInvoice, SourceFile, Transaction, TransactionAuditLog
 from app.services.analysis import run_analysis
 from app.services.classification import apply_transaction_classification, classify_transaction, create_audit_log
 from app.services.credit_card_bills import map_conciliated_bank_payment_signals
 from app.utils.normalization import normalize_description
+
+FULL_MONTH_LABELS = [
+    "janeiro",
+    "fevereiro",
+    "marco",
+    "abril",
+    "maio",
+    "junho",
+    "julho",
+    "agosto",
+    "setembro",
+    "outubro",
+    "novembro",
+    "dezembro",
+]
 
 UNCATEGORIZED_NAMES = ("Não Categorizado", "Nao Categorizado")
 
@@ -68,6 +83,35 @@ def resolve_analysis_period(
     if period_start and period_end:
         return period_start, period_end
     return latest_closed_month_with_transactions(db) or default_closed_month()
+
+
+def list_available_analysis_months(db: Session) -> list[dict]:
+    month_values: set[tuple[int, int]] = set()
+
+    transaction_dates = db.scalars(select(Transaction.transaction_date).distinct()).all()
+    for tx_date in transaction_dates:
+        if tx_date is not None:
+            month_values.add((tx_date.year, tx_date.month))
+
+    invoice_rows = db.execute(
+        select(CreditCardInvoice.billing_year, CreditCardInvoice.billing_month).distinct()
+    ).all()
+    for billing_year, billing_month in invoice_rows:
+        if billing_year and billing_month:
+            month_values.add((int(billing_year), int(billing_month)))
+
+    if not month_values:
+        fallback_start, _ = default_closed_month()
+        month_values.add((fallback_start.year, fallback_start.month))
+
+    sorted_months = sorted(month_values, reverse=True)
+    return [
+        {
+            "value": f"{year:04d}-{month:02d}",
+            "label": f"{FULL_MONTH_LABELS[month - 1]} de {year}",
+        }
+        for year, month in sorted_months
+    ]
 
 
 def build_transaction_filters(

@@ -1,0 +1,179 @@
+<script>
+  (() => {
+    if (window.mountAdminStackedCategoryChart) {
+      return;
+    }
+
+    const totalCurrency = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      maximumFractionDigits: 0,
+    });
+    const tooltipCurrency = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+    const palette = [
+      { fill: 'rgba(37, 99, 235, 0.82)', stroke: 'rgb(37, 99, 235)' },
+      { fill: 'rgba(15, 118, 110, 0.82)', stroke: 'rgb(15, 118, 110)' },
+      { fill: 'rgba(245, 158, 11, 0.82)', stroke: 'rgb(245, 158, 11)' },
+      { fill: 'rgba(220, 38, 38, 0.82)', stroke: 'rgb(220, 38, 38)' },
+      { fill: 'rgba(124, 58, 237, 0.82)', stroke: 'rgb(124, 58, 237)' },
+      { fill: 'rgba(8, 145, 178, 0.82)', stroke: 'rgb(8, 145, 178)' },
+      { fill: 'rgba(234, 88, 12, 0.82)', stroke: 'rgb(234, 88, 12)' },
+      { fill: 'rgba(99, 102, 241, 0.82)', stroke: 'rgb(99, 102, 241)' },
+      { fill: 'rgba(5, 150, 105, 0.82)', stroke: 'rgb(5, 150, 105)' },
+      { fill: 'rgba(225, 29, 72, 0.82)', stroke: 'rgb(225, 29, 72)' },
+      { fill: 'rgba(14, 116, 144, 0.82)', stroke: 'rgb(14, 116, 144)' },
+      { fill: 'rgba(202, 138, 4, 0.82)', stroke: 'rgb(202, 138, 4)' },
+    ];
+
+    const stackedTotalsPlugin = {
+      id: 'adminStackedTotals',
+      afterDatasetsDraw(chart) {
+        const { ctx, data } = chart;
+        const xScale = chart.scales.x;
+        if (!xScale) {
+          return;
+        }
+
+        ctx.save();
+        ctx.fillStyle = '#475569';
+        ctx.font = '600 11px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+
+        data.labels.forEach((_label, index) => {
+          let total = 0;
+          let topY = Number.POSITIVE_INFINITY;
+          let hasVisibleValue = false;
+
+          data.datasets.forEach((dataset, datasetIndex) => {
+            if (!chart.isDatasetVisible(datasetIndex)) {
+              return;
+            }
+            const rawValue = Number(dataset.data[index] || 0);
+            if (!rawValue) {
+              return;
+            }
+            hasVisibleValue = true;
+            total += rawValue;
+            const element = chart.getDatasetMeta(datasetIndex).data[index];
+            if (element) {
+              topY = Math.min(topY, element.y);
+            }
+          });
+
+          if (!hasVisibleValue || total <= 0 || !Number.isFinite(topY)) {
+            return;
+          }
+
+          ctx.fillText(totalCurrency.format(total), xScale.getPixelForValue(index), topY - 8);
+        });
+
+        ctx.restore();
+      },
+    };
+
+    function renderLegend(chart, legendContainer) {
+      if (!legendContainer) {
+        return;
+      }
+
+      legendContainer.innerHTML = '';
+      chart.data.datasets.forEach((dataset, datasetIndex) => {
+        const item = document.createElement('label');
+        item.className = 'chart-legend-checkbox-item';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = chart.isDatasetVisible(datasetIndex);
+        checkbox.setAttribute('aria-label', dataset.label);
+        checkbox.addEventListener('change', () => {
+          chart.setDatasetVisibility(datasetIndex, checkbox.checked);
+          chart.update();
+        });
+
+        const swatch = document.createElement('span');
+        swatch.className = 'chart-legend-checkbox-swatch';
+        swatch.style.background = dataset.backgroundColor;
+        swatch.style.borderColor = dataset.borderColor;
+
+        const text = document.createElement('span');
+        text.className = 'chart-legend-checkbox-text';
+        text.textContent = dataset.label;
+
+        item.appendChild(checkbox);
+        item.appendChild(swatch);
+        item.appendChild(text);
+        legendContainer.appendChild(item);
+      });
+    }
+
+    window.mountAdminStackedCategoryChart = function mountAdminStackedCategoryChart(canvasId, data, options = {}) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas || !window.Chart) {
+        return null;
+      }
+
+      const legendContainer = options.legendId ? document.getElementById(options.legendId) : null;
+      const datasets = (data.datasets || []).map((dataset, index) => ({
+        label: dataset.label,
+        data: dataset.values,
+        backgroundColor: palette[index % palette.length].fill,
+        borderColor: palette[index % palette.length].stroke,
+        borderWidth: 1,
+        borderRadius: 6,
+        borderSkipped: false,
+        maxBarThickness: 42,
+        stack: 'categories',
+      }));
+
+      const chart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets,
+        },
+        plugins: [stackedTotalsPlugin],
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'nearest', intersect: true },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              displayColors: false,
+              callbacks: {
+                title() {
+                  return '';
+                },
+                label(context) {
+                  return `${context.dataset.label}: ${tooltipCurrency.format(context.parsed.y || 0)}`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              stacked: true,
+              grid: { display: false },
+            },
+            y: {
+              stacked: true,
+              beginAtZero: true,
+              ticks: {
+                callback(value) {
+                  return totalCurrency.format(value || 0);
+                },
+              },
+            },
+          },
+        },
+      });
+
+      renderLegend(chart, legendContainer);
+      return chart;
+    };
+  })();
+</script>

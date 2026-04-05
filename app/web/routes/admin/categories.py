@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
-from app.services.admin import list_categories, resolve_analysis_period, upsert_category
+from app.services.admin import list_available_analysis_months, list_categories, resolve_analysis_period, upsert_category
 from app.services.analysis import (
     build_analysis_snapshot,
     build_category_composition_for_period,
@@ -151,6 +151,13 @@ def _categories_page_context(
         else _summarize_selected_categories(selected_category_names)
     )
 
+    latest_closed_value = f"{latest_closed_start.year:04d}-{latest_closed_start.month:02d}"
+    analysis_month_options = list_available_analysis_months(db)
+    latest_closed_label = next(
+        (option["label"] for option in analysis_month_options if option["value"] == latest_closed_value),
+        latest_closed_value,
+    )
+
     return {
         "selection_mode": selected_mode,
         "period_start": resolved_start,
@@ -160,6 +167,8 @@ def _categories_page_context(
         "latest_closed_end": latest_closed_end,
         "month_preview_start": month_preview_start,
         "month_preview_end": month_preview_end,
+        "analysis_month_options": analysis_month_options,
+        "latest_closed_label": latest_closed_label,
         "analysis_breadcrumb_items": [{"label": "Categorias", "href": None}],
         "analysis_back_href": None,
         "analysis_context_chips": [

@@ -5,8 +5,7 @@
 
     const modeInput = document.getElementById('selection-mode-input');
     const monthInput = document.getElementById('analysis-month-input');
-    const monthStartText = document.getElementById('month-start-text');
-    const monthEndText = document.getElementById('month-end-text');
+    const applyButton = document.getElementById('analysis-apply-button');
     const clearOnEmptyInputs = Array.from(form.querySelectorAll('input[data-clear-on-empty="true"]'));
     const panels = {
       closed: document.getElementById('panel-closed'),
@@ -17,22 +16,24 @@
     const customInputs = panels.custom ? Array.from(panels.custom.querySelectorAll('input')) : [];
     const filterDropdowns = Array.from(form.querySelectorAll('.analysis-filter-dropdown'));
 
-    const updateMonthPreview = () => {
-      if (!monthInput || !monthInput.value) return;
-      const [year, month] = monthInput.value.split('-').map(Number);
-      if (!year || !month) return;
-      const start = new Date(year, month - 1, 1);
-      const end = new Date(year, month, 0);
-      const format = (value) => value.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-      if (monthStartText) monthStartText.textContent = format(start);
-      if (monthEndText) monthEndText.textContent = format(end);
+    const getSelectedFilterCount = () => (
+      filterDropdowns.reduce((count, dropdown) => (
+        count + dropdown.querySelectorAll('input[type="checkbox"]:checked').length
+      ), 0)
+    );
+
+    const syncContextInputs = () => {
+      const selectedFilterCount = getSelectedFilterCount();
+      clearOnEmptyInputs.forEach((input) => {
+        input.disabled = selectedFilterCount === 0;
+      });
     };
 
     const setMode = (mode) => {
       modeInput.value = mode;
       buttons.forEach((button) => {
         const isActive = button.dataset.mode === mode;
-        button.classList.toggle('button-primary', isActive);
+        button.classList.toggle('period-tab-active', isActive);
       });
       Object.entries(panels).forEach(([panelMode, panel]) => {
         if (!panel) return;
@@ -44,18 +45,59 @@
       });
     };
 
-    const syncContextInputs = () => {
-      const selectedFilterCount = filterDropdowns.reduce((count, dropdown) => {
-        return count + dropdown.querySelectorAll('input[type="checkbox"]:checked').length;
-      }, 0);
-      clearOnEmptyInputs.forEach((input) => {
-        input.disabled = selectedFilterCount === 0;
+    const serializeState = () => {
+      syncContextInputs();
+      const state = {
+        mode: modeInput ? modeInput.value : 'closed',
+        month: '',
+        periodStart: '',
+        periodEnd: '',
+        selectedCategories: [],
+      };
+
+      if (state.mode === 'month' && monthInput) {
+        state.month = monthInput.value || '';
+      }
+      if (state.mode === 'custom') {
+        const [startInput, endInput] = customInputs;
+        state.periodStart = startInput ? startInput.value || '' : '';
+        state.periodEnd = endInput ? endInput.value || '' : '';
+      }
+
+      filterDropdowns.forEach((dropdown) => {
+        dropdown.querySelectorAll('input[type="checkbox"]:checked').forEach((checkbox) => {
+          state.selectedCategories.push(checkbox.value);
+        });
       });
+      state.selectedCategories.sort();
+      return JSON.stringify(state);
+    };
+
+    const initialState = serializeState();
+
+    const syncApplyState = () => {
+      const isDirty = serializeState() !== initialState;
+      if (applyButton) {
+        applyButton.disabled = !isDirty;
+      }
     };
 
     buttons.forEach((button) => {
-      button.addEventListener('click', () => setMode(button.dataset.mode));
+      button.addEventListener('click', () => {
+        setMode(button.dataset.mode);
+        syncApplyState();
+      });
     });
+
+    if (monthInput) {
+      monthInput.addEventListener('change', syncApplyState);
+    }
+
+    customInputs.forEach((input) => {
+      input.addEventListener('input', syncApplyState);
+      input.addEventListener('change', syncApplyState);
+    });
+
     filterDropdowns.forEach((dropdown) => {
       const checkboxes = Array.from(dropdown.querySelectorAll('input[type="checkbox"]'));
       dropdown.querySelectorAll('[data-dropdown-action]').forEach((button) => {
@@ -70,19 +112,19 @@
               checkbox.checked = false;
             });
           }
-          syncContextInputs();
-          form.requestSubmit();
+          syncApplyState();
         });
       });
       checkboxes.forEach((checkbox) => {
-        checkbox.addEventListener('change', syncContextInputs);
+        checkbox.addEventListener('change', syncApplyState);
       });
     });
-    if (monthInput) {
-      monthInput.addEventListener('change', updateMonthPreview);
-    }
-    form.addEventListener('submit', syncContextInputs);
-    updateMonthPreview();
-    syncContextInputs();
+
+    form.addEventListener('submit', () => {
+      syncContextInputs();
+    });
+
+    setMode(modeInput ? modeInput.value : 'closed');
+    syncApplyState();
   })();
 </script>
