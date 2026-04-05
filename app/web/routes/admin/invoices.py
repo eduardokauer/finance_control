@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
+from app.services.admin import list_recent_source_files, resolve_analysis_period
+from app.services.analysis import build_analysis_snapshot
 from app.services.credit_card_bills import (
     build_credit_card_invoice_import_chart,
     CreditCardInvoiceCategoryEditError,
@@ -100,13 +102,27 @@ def admin_credit_card_invoice_list(
         if chart_data
         else None
     )
+    period_start, period_end = resolve_analysis_period(
+        db,
+        month=None,
+        period_start=None,
+        period_end=None,
+    )
+    analysis_snapshot = build_analysis_snapshot(
+        db,
+        period_start=period_start,
+        period_end=period_end,
+    )
     return render_admin(
         request,
         "admin/credit_card_invoices.html",
         {
             "entries": entries,
             "chart_data": chart_payload,
+            "invoice_category_chart": analysis_snapshot["charts"]["invoice_categories"],
+            "invoice_period_label": analysis_snapshot["period"]["month_reference_label"],
             "credit_cards": list_credit_cards(db, active_only=True),
+            "recent_loads": list_recent_source_files(db, source_types=["credit_card_bill"], limit=10),
             "status_variant": _status_variant,
         },
     )

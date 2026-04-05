@@ -3,229 +3,146 @@
 {% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
 {% block content %}
 {% set analysis_page_title = "Visão Geral" %}
-{% set analysis_page_intro = "Resumo financeiro do período com navegação contextual para aprofundar a leitura sem perder lente, período nem contexto de origem." %}
+{% set analysis_page_intro = "Leitura principal do período com visão conciliada do mês, três gráficos de 12 meses, categorias e alertas acionáveis." %}
 {% set analysis_form_action = "/admin" %}
 {% set analysis_submit_label = "Ver resumo" %}
-{% set analysis_show_generate = True %}
-{% set home_dashboard = analysis_data.home_dashboard %}
+{% set analysis_show_generate = False %}
 {% include "admin/partials/analysis_period_form.html" %}
 
-<section class="home-kpi-strip" aria-label="Faixa inicial da home financeira">
-  {% for card in home_dashboard.cards %}
-    <div class="card home-kpi-card {% if card.is_primary %}home-kpi-card-primary{% endif %}">
-      <div class="home-kpi-eyebrow">
-        {% if card.is_primary %}
-          {{ home_dashboard.chart.lens_label }} | {{ home_dashboard.current_month_label }}
-        {% else %}
-          {{ home_dashboard.current_month_label }}
-        {% endif %}
+<section class="home-kpi-strip" aria-label="Blocos principais do mês">
+  {% for card in overview_cards %}
+    <article class="card home-kpi-card {% if loop.first %}home-kpi-card-primary{% endif %}">
+      <div class="home-kpi-meta">
+        <span class="home-kpi-meta-period">{{ card.eyebrow }}</span>
       </div>
-      <div class="subtle">{{ card.title }}</div>
-      <div class="home-kpi-subtitle">{{ card.subtitle }}</div>
-      {% if card.detail %}
-        <div class="home-kpi-detail">{{ card.detail }}</div>
-      {% endif %}
-      <div class="metric-value {{ card.value_class }}">{{ card.current_display }}</div>
-      <div class="home-kpi-comparison">
-        {% if card.comparison_available %}
-          <span><strong>{{ card.comparison_primary_display }}</strong></span>
-          {% if card.comparison_secondary_display %}
-            <span>{{ card.comparison_secondary_display }}</span>
+      <div class="home-kpi-header">
+        <div class="home-kpi-header-copy">
+          <h3 class="home-kpi-title">{{ card.title }}</h3>
+          <p class="home-kpi-subtitle">{{ card.subtitle }}</p>
+        </div>
+        <span class="home-kpi-icon {% if 'positive' in card.value_class %}home-kpi-icon-income{% elif 'negative' in card.value_class %}home-kpi-icon-expense{% else %}home-kpi-icon-net_flow{% endif %}" aria-hidden="true">
+          {% if 'positive' in card.value_class %}
+            &uarr;
+          {% elif 'negative' in card.value_class %}
+            &darr;
+          {% else %}
+            &#9679;
           {% endif %}
-        {% else %}
-          <span>Sem base em {{ card.reference_label }}</span>
-        {% endif %}
+        </span>
       </div>
-    </div>
+      {% if card.detail %}
+        <div class="home-kpi-detail" title="{{ card.detail }}">{{ card.detail }}</div>
+      {% endif %}
+      <div class="home-kpi-value-block">
+        <div class="metric-value {{ card.value_class }}">{{ card.value }}</div>
+      </div>
+    </article>
   {% endfor %}
 </section>
 
-<section class="home-dashboard-grid">
-  <div class="card stack">
-    <div class="home-chart-header">
+<section class="overview-stack">
+  <section class="card stack overview-chart-card">
+    <div class="overview-chart-header">
       <div class="stack" style="gap:4px;">
-        <strong>{{ home_dashboard.chart.title }}</strong>
-        <div class="subtle">{{ home_dashboard.chart.note }}</div>
+        <strong>{{ overview_charts.conciliated.title }}</strong>
+        <div class="subtle">{{ overview_charts.conciliated.note }}</div>
       </div>
-      <div class="home-chart-controls">
-        <div class="home-inline-tabs" role="tablist" aria-label="Horizonte temporal do gráfico principal">
-          {% for mode in home_dashboard.chart.mode_tabs %}
-            <a class="home-inline-tab {% if mode.is_active %}home-inline-tab-active{% endif %}" href="{{ mode.href }}">{{ mode.label }}</a>
-          {% endfor %}
-        </div>
-        {% if home_dashboard.chart.mode == "year" %}
-          <form method="get" action="/admin" class="home-chart-year-form">
-            <input type="hidden" name="selection_mode" value="{{ selection_mode }}">
-            {% if selection_mode == "month" %}
-              <input type="hidden" name="month" value="{{ month_value }}">
-            {% else %}
-              <input type="hidden" name="period_start" value="{{ period_start }}">
-              <input type="hidden" name="period_end" value="{{ period_end }}">
-            {% endif %}
-            <input type="hidden" name="home_lens" value="{{ home_dashboard.active_lens }}">
-            <input type="hidden" name="home_chart_mode" value="year">
-            <input type="hidden" name="home_chart_compare" value="{{ home_dashboard.chart.compare_metric }}">
-            <label class="home-chart-year-label">
-              Ano
-              <select name="home_chart_year" onchange="this.form.submit()">
-                {% for year in home_dashboard.chart.available_years %}
-                  <option value="{{ year }}" {% if year == home_dashboard.chart.selected_year %}selected{% endif %}>{{ year }}</option>
-                {% endfor %}
-              </select>
-            </label>
-          </form>
-        {% endif %}
-      </div>
+      <a class="button button-ghost" href="{{ analysis_urls.detail }}" data-context-cta="conciliated">Abrir visão conciliada</a>
     </div>
+    <div class="chart-shell chart-shell-tall">
+      <canvas id="{{ overview_charts.conciliated.canvas_id }}" aria-label="{{ overview_charts.conciliated.title }}"></canvas>
+    </div>
+  </section>
 
-      <div class="home-inline-tabs" role="tablist" aria-label="Comparação visual do gráfico principal">
-        {% for compare in home_dashboard.chart.compare_tabs %}
-          <a class="home-inline-tab {% if compare.is_active %}home-inline-tab-active{% endif %}" href="{{ compare.href }}">{{ compare.label }}</a>
+  <section class="card stack overview-chart-card">
+    <div class="overview-chart-header">
+      <div class="stack" style="gap:4px;">
+        <strong>{{ overview_charts.statement.title }}</strong>
+        <div class="subtle">{{ overview_charts.statement.note }}</div>
+      </div>
+      <a class="button button-ghost" href="{{ analysis_urls.conference }}" data-context-cta="statement">Abrir visão de extrato</a>
+    </div>
+    <div class="chart-shell chart-shell-tall">
+      <canvas id="{{ overview_charts.statement.canvas_id }}" aria-label="{{ overview_charts.statement.title }}"></canvas>
+    </div>
+  </section>
+
+  <section class="card stack overview-chart-card">
+    <div class="overview-chart-header">
+      <div class="stack" style="gap:4px;">
+        <strong>{{ overview_charts.invoice.title }}</strong>
+        <div class="subtle">{{ overview_charts.invoice.note }}</div>
+      </div>
+      <a class="button button-ghost" href="{{ analysis_urls.invoice_view }}" data-context-cta="invoice">Abrir visão de faturas</a>
+    </div>
+    <div class="chart-shell chart-shell-tall">
+      <canvas id="{{ overview_charts.invoice.canvas_id }}" aria-label="{{ overview_charts.invoice.title }}"></canvas>
+    </div>
+  </section>
+
+  <section class="overview-category-grid">
+    <div class="card stack overview-chart-card">
+      <div class="overview-chart-header">
+        <div class="stack" style="gap:4px;">
+          <strong>{{ overview_charts.categories.title }}</strong>
+          <div class="subtle">{{ overview_charts.categories.note }}</div>
+        </div>
+        <a class="button button-ghost" href="{{ analysis_urls.categories_view }}" data-context-cta="categories">Abrir categorias</a>
+      </div>
+      <div class="chart-shell">
+        <canvas id="{{ overview_charts.categories.canvas_id }}" aria-label="{{ overview_charts.categories.title }}"></canvas>
+      </div>
+      <div class="overview-link-list">
+        {% for category in overview_category_rows %}
+          <a class="overview-link-row" href="{{ category.href }}" data-category-row="{{ category.name }}">
+            <div class="overview-link-copy">
+              <strong>{{ category.name }}</strong>
+              <span>{{ category.expense_display }}{% if category.share_of_expense_display != 'n/a' %} | {{ category.share_of_expense_display }}{% endif %}</span>
+            </div>
+            <span class="text-link">Ver composição</span>
+          </a>
+        {% else %}
+          <div class="empty-state">
+            <strong>Sem categorias no período</strong>
+            <div class="subtle">Quando houver consumo categorizado, as categorias principais aparecem aqui com acesso direto à composição.</div>
+          </div>
         {% endfor %}
       </div>
+    </div>
 
-    <div class="chart-shell chart-shell-tall">
-      <canvas id="home-primary-chart" aria-label="Gráfico principal da home"></canvas>
-    </div>
-    <div class="actions">
-      <a class="button button-ghost" href="{{ analysis_urls.contextual.chart_detail }}" data-context-cta="chart">Ver leitura histórica completa</a>
-    </div>
-  </div>
-
-  <aside class="card stack">
-    <div>
-      <strong>Alertas prioritários</strong>
-      <div class="subtle">A coluna lateral ajuda a separar o que pede ação imediata do restante da leitura financeira da home.</div>
-    </div>
-    <div class="analysis-list">
-      {% for alert in priority_alerts %}
-        <div class="analysis-item">
-          <div class="analysis-item-title">
-            <strong>{{ alert.title }}</strong>
-            <span class="badge {% if alert.level == 'danger' %}danger{% elif alert.level == 'warn' %}warn{% endif %}">{{ alert.level }}</span>
-          </div>
-          <p>{{ alert.body }}</p>
+    <aside class="card stack overview-alerts-card">
+      <div class="overview-chart-header">
+        <div class="stack" style="gap:4px;">
+          <strong>Alertas</strong>
+          <div class="subtle">Todo alerta leva para alguma listagem útil, para a leitura da overview terminar sempre em ação clara.</div>
         </div>
-      {% else %}
-        <div class="analysis-item">
-          <strong>Nenhum alerta prioritário</strong>
-          <p>O período não trouxe um desvio crítico acima da linha de base da leitura atual.</p>
-        </div>
-      {% endfor %}
-    </div>
-    <div class="actions">
-      <a class="button button-ghost" href="{{ analysis_urls.contextual.alerts_detail }}" data-context-cta="alerts">Ver alertas e ações completas</a>
-    </div>
-  </aside>
-</section>
-
-<section class="home-summary-grid">
-  <div class="card stack">
-    <div>
-      <strong>{{ home_dashboard.summary.title }}</strong>
-      <div class="subtle">O resumo executivo acompanha a lente ativa da home e mantém a distinção entre leitura de caixa e leitura por competência.</div>
-    </div>
-    <div class="analysis-list">
-      <div class="analysis-item">
-        <strong>Resumo executivo</strong>
-        <p>{{ home_dashboard.summary.executive_summary }}</p>
       </div>
-      <div class="analysis-item">
-        <strong>Cobertura da leitura atual</strong>
-        <p>{{ home_dashboard.summary.coverage_note }}</p>
-      </div>
-    </div>
-    <div class="actions">
-      <a class="button button-ghost" href="{{ analysis_urls.contextual.cards_detail }}" data-context-cta="cards">Abrir análise detalhada desta leitura</a>
-    </div>
-  </div>
-
-  {% if home_dashboard.category_comparison.visible %}
-    <div class="card stack">
-      <div>
-        <strong>Comparativo rápido das categorias do mês</strong>
-        <div class="subtle">{{ home_dashboard.category_comparison.note }}</div>
-      </div>
-      <div class="home-category-ranking" aria-label="Comparativo das Top 5 categorias do mês-base">
-        {% for category in home_dashboard.category_comparison.rows %}
-          <div class="home-category-row" data-category-row="{{ category.name }}">
-            <div class="home-category-rank">#{{ loop.index }}</div>
-            <div class="home-category-body">
-              <div class="home-category-title">
-                <strong>{{ category.name }}</strong>
-                {% if category.is_new_in_month %}
-                  <span class="badge warn">nova no mês</span>
-                {% endif %}
-              </div>
-              <div class="subtle">
-                {{ home_dashboard.category_comparison.current_month_label }}: {{ category.current_display }}
-                | {{ home_dashboard.category_comparison.previous_month_label }}: {{ category.previous_display }}
-                | delta: {{ category.change.delta_signed_display }}
-                {% if category.percent_available %}
-                  | {{ category.change.percent_display }}
-                {% endif %}
-              </div>
+      <div class="analysis-list overview-alert-list">
+        {% for alert in overview_alerts %}
+          <div class="analysis-item home-alert-item">
+            <div class="analysis-item-title">
+              <strong>{{ alert.title }}</strong>
+              <span class="badge {% if alert.level == 'danger' %}danger{% elif alert.level == 'warn' %}warn{% endif %}">{{ alert.level }}</span>
+            </div>
+            <p>{{ alert.body }}</p>
+            <div class="actions">
+              <a class="button button-ghost" href="{{ alert.href }}" data-context-cta="alerts">{{ alert.link_label }}</a>
             </div>
           </div>
         {% else %}
-          <div class="analysis-item">
-            <strong>Sem categorias de consumo no mês-base</strong>
-            <p>A home segue enxuta neste período. A visão completa de categorias continua disponível na análise detalhada.</p>
+          <div class="empty-state">
+            <strong>Nenhum alerta prioritário</strong>
+            <div class="subtle">O período não trouxe sinal crítico acima da linha de base da leitura atual.</div>
           </div>
         {% endfor %}
       </div>
-      <div class="actions">
-        <a class="button button-ghost" href="{{ analysis_urls.contextual.categories_detail }}" data-context-cta="categories">Ver categorias completas</a>
-      </div>
-    </div>
-  {% endif %}
-</section>
-
-<section class="analysis-grid analysis-grid-2">
-  <div class="card stack">
-    <div>
-      <strong>Ações recomendadas e continuidade</strong>
-      <div class="subtle">A home funciona como hub de aprofundamento: cada bloco já leva à próxima leitura com o contexto preservado.</div>
-    </div>
-    <div class="analysis-list">
-      {% for action in priority_actions %}
-        <div class="analysis-item">
-          <strong>{{ action.title }}</strong>
-          <p>{{ action.body }}</p>
-        </div>
-      {% endfor %}
-    </div>
-    <div class="actions">
-      <a class="button" href="{{ analysis_urls.contextual.conference }}" data-context-cta="conference">Abrir conferência do período</a>
-      <a class="button button-ghost" href="{{ analysis_urls.operations }}">Central operacional</a>
-    </div>
-  </div>
-
-  <div class="card stack">
-    <div>
-      <strong>Continuidade operacional</strong>
-      <div class="subtle">A nova shell da home preserva a função de resumo, mas mantém o caminho curto para agir no admin quando a leitura pedir intervenção.</div>
-    </div>
-    <div class="analysis-list">
-      <div class="analysis-item">
-        <strong>Cards e gráfico continuam ancorados no mês-base</strong>
-        <p>Somente o horizonte do gráfico muda localmente. Os demais blocos da home seguem resumindo o período principal selecionado.</p>
-      </div>
-      <div class="analysis-item">
-        <strong>Visão completa continua fora da home</strong>
-        <p>A home permanece enxuta: categorias completas, itens técnicos e conferência detalhada seguem nas telas apropriadas.</p>
-      </div>
-    </div>
-  </div>
+    </aside>
+  </section>
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   (() => {
-    const chartElement = document.getElementById('home-primary-chart');
-    if (!chartElement) return;
-
-    const chartData = {{ home_dashboard.chart|tojson }};
     const compactCurrency = new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
@@ -236,186 +153,244 @@
       currency: 'BRL',
     });
 
-    const styleMap = {
-      'cash-balance': {
-        borderColor(context) {
-          const value = Number(context.raw || 0);
-          return value >= 0 ? 'rgba(15, 118, 110, 0.92)' : 'rgba(180, 35, 24, 0.92)';
+    function buildCashFlowDatasets(data, palette) {
+      return [
+        {
+          type: 'bar',
+          label: palette.incomeLabel,
+          data: data.income,
+          backgroundColor: palette.incomeColor,
+          borderColor: palette.incomeBorder,
+          borderRadius: 8,
+          borderSkipped: false,
+          maxBarThickness: 28,
+          order: 2,
         },
-        backgroundColor: 'transparent',
-        pointBackgroundColor(context) {
-          const value = Number(context.raw || 0);
-          return value >= 0 ? 'rgba(15, 118, 110, 0.92)' : 'rgba(180, 35, 24, 0.92)';
+        {
+          type: 'bar',
+          label: palette.expenseLabel,
+          data: data.expense,
+          backgroundColor: palette.expenseColor,
+          borderColor: palette.expenseBorder,
+          borderRadius: 8,
+          borderSkipped: false,
+          maxBarThickness: 28,
+          order: 2,
         },
-        tension: 0.24,
-        borderWidth: 2.5,
-        pointRadius: 3,
-        pointHoverRadius: 4,
-        fill: false,
-        order: 1,
-      },
-      'cash-income': {
-        backgroundColor: 'rgba(24, 121, 78, 0.72)',
-        borderColor: 'rgba(24, 121, 78, 0.92)',
-        borderRadius: 8,
-        maxBarThickness: 28,
-        borderSkipped: false,
-        order: 2,
-      },
-      'cash-expense': {
-        backgroundColor: 'rgba(180, 35, 24, 0.72)',
-        borderColor: 'rgba(180, 35, 24, 0.92)',
-        borderRadius: 8,
-        maxBarThickness: 28,
-        borderSkipped: false,
-        order: 2,
-      },
-      'competence-balance': {
-        borderColor(context) {
-          const value = Number(context.raw || 0);
-          return value >= 0 ? 'rgba(9, 94, 151, 0.92)' : 'rgba(180, 35, 24, 0.92)';
+        {
+          type: 'line',
+          label: palette.balanceLabel,
+          data: data.balance,
+          borderColor: palette.balanceColor,
+          backgroundColor: 'transparent',
+          pointBackgroundColor: palette.balanceColor,
+          tension: 0.24,
+          borderWidth: 2.5,
+          pointRadius: 3,
+          pointHoverRadius: 4,
+          fill: false,
+          order: 1,
         },
-        backgroundColor: 'transparent',
-        pointBackgroundColor(context) {
-          const value = Number(context.raw || 0);
-          return value >= 0 ? 'rgba(9, 94, 151, 0.92)' : 'rgba(180, 35, 24, 0.92)';
-        },
-        tension: 0.24,
-        borderWidth: 2.5,
-        pointRadius: 3,
-        pointHoverRadius: 4,
-        fill: false,
-        order: 1,
-      },
-      'competence-income': {
-        backgroundColor: 'rgba(9, 94, 151, 0.72)',
-        borderColor: 'rgba(9, 94, 151, 0.92)',
-        borderRadius: 8,
-        maxBarThickness: 28,
-        borderSkipped: false,
-        order: 2,
-      },
-      'competence-expense': {
-        backgroundColor: 'rgba(181, 71, 8, 0.72)',
-        borderColor: 'rgba(181, 71, 8, 0.92)',
-        borderRadius: 8,
-        maxBarThickness: 28,
-        borderSkipped: false,
-        order: 2,
-      },
-      'comparison-cash-balance': {
-        borderColor: 'rgba(15, 118, 110, 0.38)',
-        pointBackgroundColor: 'rgba(15, 118, 110, 0.38)',
-        tension: 0.18,
-        borderWidth: 2,
-        pointRadius: 2,
-        pointHoverRadius: 3,
-        borderDash: [6, 6],
-        fill: false,
-        order: 0,
-      },
-      'comparison-cash-income': {
-        borderColor: 'rgba(24, 121, 78, 0.38)',
-        pointBackgroundColor: 'rgba(24, 121, 78, 0.38)',
-        tension: 0.18,
-        borderWidth: 2,
-        pointRadius: 2,
-        pointHoverRadius: 3,
-        borderDash: [6, 6],
-        fill: false,
-        order: 0,
-      },
-      'comparison-cash-expense': {
-        borderColor: 'rgba(180, 35, 24, 0.38)',
-        pointBackgroundColor: 'rgba(180, 35, 24, 0.38)',
-        tension: 0.18,
-        borderWidth: 2,
-        pointRadius: 2,
-        pointHoverRadius: 3,
-        borderDash: [6, 6],
-        fill: false,
-        order: 0,
-      },
-      'comparison-competence-balance': {
-        borderColor: 'rgba(9, 94, 151, 0.38)',
-        pointBackgroundColor: 'rgba(9, 94, 151, 0.38)',
-        tension: 0.18,
-        borderWidth: 2,
-        pointRadius: 2,
-        pointHoverRadius: 3,
-        borderDash: [6, 6],
-        fill: false,
-        order: 0,
-      },
-      'comparison-competence-income': {
-        borderColor: 'rgba(9, 94, 151, 0.38)',
-        pointBackgroundColor: 'rgba(9, 94, 151, 0.38)',
-        tension: 0.18,
-        borderWidth: 2,
-        pointRadius: 2,
-        pointHoverRadius: 3,
-        borderDash: [6, 6],
-        fill: false,
-        order: 0,
-      },
-      'comparison-competence-expense': {
-        borderColor: 'rgba(181, 71, 8, 0.38)',
-        pointBackgroundColor: 'rgba(181, 71, 8, 0.38)',
-        tension: 0.18,
-        borderWidth: 2,
-        pointRadius: 2,
-        pointHoverRadius: 3,
-        borderDash: [6, 6],
-        fill: false,
-        order: 0,
-      },
-    };
+      ];
+    }
 
-    const datasets = chartData.datasets.map((dataset) => ({
-      label: dataset.label,
-      data: dataset.data,
-      type: dataset.type,
-      ...styleMap[dataset.style],
-    }));
-
-    new Chart(chartElement, {
-      type: 'bar',
-      data: {
-        labels: chartData.labels,
-        datasets,
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-          mode: 'index',
-          intersect: false,
+    function mountCashFlowChart(canvasId, data, palette) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets: buildCashFlowDatasets(data, palette),
         },
-        scales: {
-          x: {
-            grid: {
-              display: false,
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { grid: { display: false } },
+            y: {
+              ticks: {
+                callback(value) {
+                  return compactCurrency.format(value || 0);
+                },
+              },
             },
           },
-          y: {
-            ticks: {
-              callback(value) {
-                return compactCurrency.format(value);
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return `${context.dataset.label}: ${tooltipCurrency.format(context.parsed.y || 0)}`;
+                },
               },
             },
           },
         },
-        plugins: {
-          tooltip: {
-            callbacks: {
-              label(context) {
-                return `${context.dataset.label}: ${tooltipCurrency.format(context.parsed.y || 0)}`;
+      });
+    }
+
+    function mountInvoiceChart(canvasId, data) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'Valor faturado',
+              data: data.total_billed,
+              backgroundColor: 'rgba(37, 99, 235, 0.72)',
+              borderColor: 'rgba(37, 99, 235, 0.92)',
+              borderRadius: 8,
+              borderSkipped: false,
+              maxBarThickness: 28,
+            },
+            {
+              type: 'line',
+              label: 'Charges',
+              data: data.charge_total,
+              borderColor: 'rgba(24, 121, 78, 0.92)',
+              backgroundColor: 'transparent',
+              pointBackgroundColor: 'rgba(24, 121, 78, 0.92)',
+              tension: 0.24,
+              borderWidth: 2.4,
+              pointRadius: 3,
+            },
+            {
+              type: 'line',
+              label: 'Créditos',
+              data: data.credit_total,
+              borderColor: 'rgba(181, 71, 8, 0.92)',
+              backgroundColor: 'transparent',
+              pointBackgroundColor: 'rgba(181, 71, 8, 0.92)',
+              tension: 0.24,
+              borderWidth: 2.4,
+              pointRadius: 3,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { grid: { display: false } },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback(value) {
+                  return compactCurrency.format(value || 0);
+                },
+              },
+            },
+          },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return `${context.dataset.label}: ${tooltipCurrency.format(context.parsed.y || 0)}`;
+                },
               },
             },
           },
         },
-      },
-    });
+      });
+    }
+
+    function mountCategoryChart(canvasId, data) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets: [
+            {
+              label: 'Categorias do período',
+              data: data.values,
+              backgroundColor: data.technical.map((isTechnical) => (
+                isTechnical ? 'rgba(181, 71, 8, 0.72)' : 'rgba(37, 99, 235, 0.72)'
+              )),
+              borderColor: data.technical.map((isTechnical) => (
+                isTechnical ? 'rgba(181, 71, 8, 0.92)' : 'rgba(37, 99, 235, 0.92)'
+              )),
+              borderRadius: 8,
+              borderSkipped: false,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          scales: {
+            x: {
+              ticks: {
+                callback(value) {
+                  return compactCurrency.format(value || 0);
+                },
+              },
+            },
+            y: {
+              grid: { display: false },
+            },
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return tooltipCurrency.format(context.parsed.x || 0);
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    mountCashFlowChart(
+      {{ overview_charts.conciliated.canvas_id|tojson }},
+      {{ overview_charts.conciliated.data|tojson }},
+      {
+        incomeLabel: 'Receitas conciliadas',
+        expenseLabel: 'Despesas conciliadas',
+        balanceLabel: 'Saldo conciliado',
+        incomeColor: 'rgba(24, 121, 78, 0.72)',
+        incomeBorder: 'rgba(24, 121, 78, 0.92)',
+        expenseColor: 'rgba(180, 35, 24, 0.72)',
+        expenseBorder: 'rgba(180, 35, 24, 0.92)',
+        balanceColor: 'rgba(9, 94, 151, 0.92)',
+      }
+    );
+
+    mountCashFlowChart(
+      {{ overview_charts.statement.canvas_id|tojson }},
+      {{ overview_charts.statement.data|tojson }},
+      {
+        incomeLabel: 'Entradas do extrato',
+        expenseLabel: 'Saídas do extrato',
+        balanceLabel: 'Saldo do extrato',
+        incomeColor: 'rgba(15, 118, 110, 0.72)',
+        incomeBorder: 'rgba(15, 118, 110, 0.92)',
+        expenseColor: 'rgba(197, 52, 47, 0.72)',
+        expenseBorder: 'rgba(197, 52, 47, 0.92)',
+        balanceColor: 'rgba(37, 99, 235, 0.92)',
+      }
+    );
+
+    mountInvoiceChart(
+      {{ overview_charts.invoice.canvas_id|tojson }},
+      {{ overview_charts.invoice.data|tojson }}
+    );
+
+    mountCategoryChart(
+      {{ overview_charts.categories.canvas_id|tojson }},
+      {{ overview_charts.categories.data|tojson }}
+    );
   })();
 </script>
 {% include "admin/partials/analysis_period_form_script.html" %}

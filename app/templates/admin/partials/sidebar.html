@@ -32,9 +32,21 @@
   </div>
 
   <div class="admin-sidebar-footer">
+    <div class="admin-sidebar-profile">
+      <div class="admin-sidebar-profile-mark" aria-hidden="true">FC</div>
+      <div class="admin-sidebar-profile-copy">
+        <strong>{{ admin_shell_profile_name }}</strong>
+        <span>{{ admin_shell_profile_subtitle }}</span>
+      </div>
+    </div>
     <div class="admin-sidebar-session">
-      <div class="admin-sidebar-session-label">Sessão administrativa</div>
+      <div class="admin-sidebar-session-label">Contexto atual</div>
       <div class="admin-sidebar-session-value">{{ active_nav_section_label }}</div>
+    </div>
+    <div class="admin-sidebar-quick-links">
+      {% for link in admin_shell_quick_links %}
+        <a href="{{ link.href }}" class="admin-sidebar-quick-link">{{ link.label }}</a>
+      {% endfor %}
     </div>
     <form method="post" action="/admin/logout">
       <button type="submit" class="button button-ghost admin-sidebar-logout">Sair</button>

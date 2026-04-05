@@ -1,0 +1,18 @@
+{% macro page_header(eyebrow, title, intro='', actions_class='') -%}
+  <section class="page-header">
+    <div class="page-header-copy">
+      {% if eyebrow %}
+        <div class="page-eyebrow">{{ eyebrow }}</div>
+      {% endif %}
+      <h1 class="page-title">{{ title }}</h1>
+      {% if intro %}
+        <p class="page-intro">{{ intro }}</p>
+      {% endif %}
+    </div>
+    {% if caller is defined %}
+      <div class="page-actions{% if actions_class %} {{ actions_class }}{% endif %}">
+        {{ caller() }}
+      </div>
+    {% endif %}
+  </section>
+{%- endmacro %}

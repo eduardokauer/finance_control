@@ -1,6 +1,7 @@
 {% extends "admin/base.html" %}
-{% block title %}Faturas de Cartão{% endblock %}
+{% block title %}Visão de Faturas{% endblock %}
 {% block content %}
+{% from "admin/partials/page_parts.html" import page_header %}
 <style>
   .invoice-chart-shell {
     min-height: 320px;
@@ -11,22 +12,62 @@
   }
 </style>
 
-<section class="page-header">
-  <div class="page-header-copy">
-    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
-    <h1 class="page-title">Faturas importadas</h1>
-    <p class="page-intro">Área operacional das faturas já importadas, com gráfico histórico, formulário de upload e acesso rápido ao detalhe.</p>
+{% call page_header(active_nav_section_label, "Visão de Faturas", "Subhome das faturas: blocos principais, gráfico histórico, cargas recentes e acesso rápido ao detalhe operacional.") %}
+  <a class="button button-ghost" href="/admin/operations">Voltar para central</a>
+{% endcall %}
+
+<section class="ops-shell-grid">
+  <div class="card ops-hero-card">
+    <div class="ops-panel-header">
+      <strong>Painel principal das faturas</strong>
+      <div class="subtle">A área de faturas combina leitura histórica, cargas importadas e operação corrente sem sair da shell principal.</div>
+    </div>
+    <div class="ops-stat-grid">
+      <div class="ops-stat-card">
+        <div class="subtle">Faturas listadas</div>
+        <strong>{{ entries|length }}</strong>
+        <div class="subtle">Base operacional disponível</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Cartões ativos</div>
+        <strong>{{ credit_cards|length }}</strong>
+        <div class="subtle">Prontos para novo upload</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Histórico visual</div>
+        <strong>{% if chart_data %}12 meses{% else %}—{% endif %}</strong>
+        <div class="subtle">{% if chart_data %}Gráfico disponível{% else %}Sem base suficiente{% endif %}</div>
+      </div>
+    </div>
   </div>
-  <div class="page-actions">
-    <a class="button button-ghost" href="/admin/operations">Voltar para central</a>
-  </div>
+
+  <aside class="card stack">
+    <div class="ops-panel-header">
+      <strong>Atalhos de trabalho</strong>
+      <div class="subtle">Esses atalhos mantêm a lógica operacional da tela sem abrir navegação paralela fora da shell nova.</div>
+    </div>
+    <div class="ops-guide-list">
+      <a class="ops-guide-link" href="/admin/operations">
+        <span>Hub operacional</span>
+        <strong>Voltar para central</strong>
+      </a>
+      <a class="ops-guide-link" href="/admin/credit-card-invoices">
+        <span>Lista principal</span>
+        <strong>Revisar faturas</strong>
+      </a>
+      <a class="ops-guide-link" href="/admin/transactions">
+        <span>Base transacional</span>
+        <strong>Ver lançamentos</strong>
+      </a>
+    </div>
+  </aside>
 </section>
 
-<section class="split-layout-wide">
+<section class="split-layout-wide section-gap-md">
   <div class="split-main">
     {% if chart_data %}
       <div class="card stack">
-        <div>
+        <div class="ops-panel-header">
           <strong>Valor total das faturas importadas por mês, separado por ano</strong>
           <div class="subtle">Eixo fixo de 12 meses. Cada barra representa um ano com dados, mantendo a mesma cor ao longo do gráfico.</div>
         </div>
@@ -34,9 +75,17 @@
       </div>
     {% endif %}
 
+    <div class="card stack">
+      <div class="ops-panel-header">
+        <strong>Gráfico de categorias das faturas</strong>
+        <div class="subtle">Top categorias reconhecidas na visão de faturas do período-base {{ invoice_period_label }}.</div>
+      </div>
+      <div class="invoice-chart-shell"><canvas id="invoice-categories-chart"></canvas></div>
+    </div>
+
     {% if entries %}
       <div class="card stack">
-        <div>
+        <div class="ops-panel-header">
           <strong>Lista operacional das faturas</strong>
           <div class="subtle">A tabela mantém a navegação completa no desktop e vira leitura empilhada no mobile.</div>
         </div>
@@ -83,7 +132,7 @@
 
   <aside class="split-aside">
     <div class="card stack">
-      <div>
+      <div class="ops-panel-header">
         <strong>Importar fatura</strong>
         <div class="subtle">Upload manual do CSV oficial da fatura com os metadados necessários.</div>
       </div>
@@ -118,56 +167,123 @@
         </div>
       {% endif %}
     </div>
+
+    <div class="card stack">
+      <div class="ops-panel-header">
+        <strong>Cargas feitas</strong>
+        <div class="subtle">Lista curta das cargas de fatura que alimentam esta subhome.</div>
+      </div>
+      {% if recent_loads %}
+        <div class="list-stack">
+          {% for load in recent_loads %}
+            <div class="list-row">
+              <strong>{{ load.file_name }}</strong>
+              <div class="subtle">{{ load.created_at.strftime('%d/%m/%Y %H:%M') if load.created_at else '-' }} | {{ load.status }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <strong>Nenhuma carga recente</strong>
+          <div class="subtle">As próximas importações de fatura aparecerão aqui.</div>
+        </div>
+      {% endif %}
+    </div>
   </aside>
 </section>
 
-{% if chart_data %}
+{% if chart_data or invoice_category_chart %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   (() => {
     const canvas = document.getElementById('invoice-imports-chart');
-    if (!canvas || typeof Chart === 'undefined') return;
+    if (canvas && typeof Chart !== 'undefined' && {{ (chart_data is not none)|tojson }}) {
+      const chartData = {
+        labels: {{ chart_data.month_labels | default([], true) | tojson }},
+        datasets: {{ chart_data.datasets | default([], true) | tojson }},
+      };
 
-    const chartData = {
-      labels: {{ chart_data.month_labels | tojson }},
-      datasets: {{ chart_data.datasets | tojson }},
-    };
-
-    new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels: chartData.labels,
-        datasets: chartData.datasets.map((dataset) => ({
-          label: String(dataset.year),
-          data: dataset.values,
-          backgroundColor: dataset.color,
-          borderRadius: 10,
-        })),
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback(value) {
-                return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: chartData.labels,
+          datasets: chartData.datasets.map((dataset) => ({
+            label: String(dataset.year),
+            data: dataset.values,
+            backgroundColor: dataset.color,
+            borderRadius: 10,
+          })),
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback(value) {
+                  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+                },
+              },
+            },
+          },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return `${context.dataset.label}: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed.y || 0)}`;
+                },
               },
             },
           },
         },
-        plugins: {
-          tooltip: {
-            callbacks: {
-              label(context) {
-                return `${context.dataset.label}: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed.y || 0)}`;
+      });
+    }
+
+    const categoriesCanvas = document.getElementById('invoice-categories-chart');
+    if (categoriesCanvas) {
+      const categoriesData = {{ invoice_category_chart | tojson }};
+      new Chart(categoriesCanvas, {
+        type: 'bar',
+        data: {
+          labels: categoriesData.labels,
+          datasets: [
+            {
+              label: 'Despesas por categoria',
+              data: categoriesData.values,
+              backgroundColor: categoriesData.technical.map((isTechnical) => (isTechnical ? 'rgba(245, 158, 11, 0.75)' : 'rgba(37, 99, 235, 0.72)')),
+              borderRadius: 10,
+              borderSkipped: false,
+            },
+          ],
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: {
+                callback(value) {
+                  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+                },
+              },
+            },
+            y: { grid: { display: false } },
+          },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed.x || 0);
+                },
               },
             },
           },
         },
-      },
-    });
+      });
+    }
   })();
 </script>
 {% endif %}

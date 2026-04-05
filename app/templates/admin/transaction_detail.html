@@ -1,42 +1,81 @@
 {% extends "admin/base.html" %}
 {% block title %}Lançamento #{{ transaction.id }}{% endblock %}
 {% block content %}
-<section class="page-header">
-  <div class="page-header-copy">
-    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
-    <h1 class="page-title">Detalhe do lançamento</h1>
-    <p class="page-intro">Tela de manutenção pontual do lançamento, com edição manual, atalho para criar categoria e preview de reclassificação por descrição semelhante.</p>
-  </div>
-  <div class="page-actions">
-    <a class="button button-ghost" href="{{ return_to }}">Voltar</a>
-  </div>
-</section>
+{% from "admin/partials/page_parts.html" import page_header %}
+{% call page_header(active_nav_section_label, "Detalhe do lançamento", "Tela de manutenção pontual do lançamento, com edição manual, criação rápida de categoria e preview de reclassificação por descrição semelhante.") %}
+  <a class="button button-ghost" href="{{ return_to }}">Voltar</a>
+{% endcall %}
 
-<section class="card detail-hero">
-  <div class="detail-hero-meta">
-    <span class="badge {% if transaction.category == 'Não Categorizado' or transaction.category == 'Nao Categorizado' %}warn{% endif %}">#{{ transaction.id }}</span>
-    <span class="badge">{{ transaction.source_type }}</span>
-    <span class="badge {% if transaction.amount < 0 %}danger{% else %}ok{% endif %}">{{ transaction.amount }}</span>
-  </div>
-  <div>
-    <h2 class="section-title" style="font-size:1.45rem;">{{ transaction.description_raw }}</h2>
-    <p class="section-intro">{{ transaction.transaction_date }} · descrição normalizada: <code>{{ transaction.description_normalized }}</code></p>
-  </div>
-  {% if current_rule %}
-    <div><span class="badge">Regra atual: {{ current_rule.pattern }} → {{ current_rule.category_name }}</span></div>
-  {% endif %}
-  {% if transaction.is_conciliated_bank_payment %}
-    <div class="list-row">
-      <div><span class="badge warn">bank_payment conciliado</span></div>
-      <div class="subtle">Este lançamento está vinculado à fatura #{{ transaction.conciliation_signal.invoice_id }} · {{ transaction.conciliation_signal.card_label }} · {{ "%02d/%04d"|format(transaction.conciliation_signal.billing_month, transaction.conciliation_signal.billing_year) }}</div>
-      <div class="subtle">Status da conciliação: {{ transaction.conciliation_signal.conciliation_status }} · vencimento {{ transaction.conciliation_signal.due_date }}</div>
+<section class="ops-shell-grid">
+  <div class="card ops-hero-card">
+    <div class="detail-hero-meta">
+      <span class="badge {% if transaction.category == 'Não Categorizado' or transaction.category == 'Nao Categorizado' %}warn{% endif %}">#{{ transaction.id }}</span>
+      <span class="badge">{{ transaction.source_type }}</span>
+      <span class="badge {% if transaction.amount < 0 %}danger{% else %}ok{% endif %}">{{ transaction.amount }}</span>
     </div>
-  {% endif %}
+    <div class="ops-panel-header">
+      <strong>Painel do lançamento</strong>
+      <div class="subtle">{{ transaction.description_raw }} · {{ transaction.transaction_date }} · descrição normalizada: <code>{{ transaction.description_normalized }}</code></div>
+    </div>
+    <div class="ops-stat-grid">
+      <div class="ops-stat-card">
+        <div class="subtle">Categoria atual</div>
+        <strong>{{ transaction.category }}</strong>
+        <div class="subtle">Leitura operacional vigente</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Tipo atual</div>
+        <strong>{{ transaction.transaction_kind }}</strong>
+        <div class="subtle">Semântica aplicada na base</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Origem</div>
+        <strong>{{ transaction.source_type }}</strong>
+        <div class="subtle">Fonte do lançamento</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Regra atual</div>
+        <strong>{% if current_rule %}Sim{% else %}Não{% endif %}</strong>
+        <div class="subtle">{% if current_rule %}{{ current_rule.pattern }} → {{ current_rule.category_name }}{% else %}Sem regra vinculada{% endif %}</div>
+      </div>
+    </div>
+    {% if transaction.is_conciliated_bank_payment %}
+      <div class="list-row">
+        <div><span class="badge warn">bank_payment conciliado</span></div>
+        <div class="subtle">Este lançamento está vinculado à fatura #{{ transaction.conciliation_signal.invoice_id }} · {{ transaction.conciliation_signal.card_label }} · {{ "%02d/%04d"|format(transaction.conciliation_signal.billing_month, transaction.conciliation_signal.billing_year) }}</div>
+        <div class="subtle">Status da conciliação: {{ transaction.conciliation_signal.conciliation_status }} · vencimento {{ transaction.conciliation_signal.due_date }}</div>
+      </div>
+    {% endif %}
+  </div>
+
+  <aside class="card stack">
+    <div class="ops-panel-header">
+      <strong>O que dá para fazer daqui</strong>
+      <div class="subtle">O detalhe continua focado em manutenção pontual, sem virar uma tela paralela de operação em massa.</div>
+    </div>
+    <div class="ops-guide-list">
+      <a class="ops-guide-link" href="#transaction-edit-section">
+        <span>Ajuste pontual</span>
+        <strong>Editar lançamento</strong>
+      </a>
+      <a class="ops-guide-link" href="#transaction-category-section">
+        <span>Taxonomia</span>
+        <strong>Criar categoria</strong>
+      </a>
+      <a class="ops-guide-link" href="#transaction-similar-section">
+        <span>Escala segura</span>
+        <strong>Pré-visualizar similares</strong>
+      </a>
+    </div>
+  </aside>
 </section>
 
-<section class="detail-grid">
-  <div class="card stack">
-    <h2 class="section-title">Editar lançamento</h2>
+<section class="detail-grid section-gap-md">
+  <div id="transaction-edit-section" class="card stack">
+    <div class="ops-panel-header">
+      <h2 class="section-title">Editar lançamento</h2>
+      <p class="section-intro">A edição manual continua pontual e pode, quando fizer sentido, virar regra nova ou atualização da regra atual.</p>
+    </div>
     <form method="post" action="/admin/transactions/{{ transaction.id }}/update" class="stack">
       <div class="toolbar-grid">
         <label>Categoria
@@ -81,8 +120,11 @@
   </div>
 
   <div class="split-aside">
-    <div class="card stack">
-      <h2 class="section-title">Criar categoria rapidamente</h2>
+    <div id="transaction-category-section" class="card stack">
+      <div class="ops-panel-header">
+        <h2 class="section-title">Criar categoria rapidamente</h2>
+        <p class="section-intro">A criação rápida continua disponível sem sair do detalhe, mantendo o fluxo contextual da revisão pontual.</p>
+      </div>
       <form method="post" action="/admin/categories" class="stack">
         <label>Nome da nova categoria
           <input type="text" name="name" placeholder="Ex.: Saúde Pet" required>
@@ -99,8 +141,11 @@
       </form>
     </div>
 
-    <div class="card stack">
-      <h2 class="section-title">Reclassificação em lote por descrição parecida</h2>
+    <div id="transaction-similar-section" class="card stack">
+      <div class="ops-panel-header">
+        <h2 class="section-title">Reclassificação em lote por descrição parecida</h2>
+        <p class="section-intro">O preview continua obrigatório antes de qualquer expansão da correção para itens parecidos.</p>
+      </div>
       <form class="stack">
         <div class="toolbar-grid toolbar-grid-compact">
           <label>Padrão

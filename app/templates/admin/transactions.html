@@ -1,21 +1,71 @@
 {% extends "admin/base.html" %}
 {% block title %}Lançamentos{% endblock %}
 {% block content %}
-<section class="page-header">
-  <div class="page-header-copy">
-    <div class="page-eyebrow">{{ active_nav_section_label }}</div>
-    <h1 class="page-title">Lançamentos</h1>
-    <p class="page-intro">Tabela operacional da base importada, com filtros densos, edição em massa e acesso rápido ao detalhe de cada lançamento.</p>
+{% from "admin/partials/page_parts.html" import page_header %}
+{% call page_header(active_nav_section_label, "Lançamentos", "Tabela operacional da base importada, com filtros densos, edição em massa e acesso rápido ao detalhe de cada lançamento.") %}
+  <a class="button button-ghost" href="/admin/operations">Voltar para central</a>
+{% endcall %}
+
+<section class="ops-shell-grid">
+  <div class="card ops-hero-card">
+    <div class="ops-panel-header">
+      <strong>Base operacional de lançamentos</strong>
+      <div class="subtle">A listagem continua densa, mas agora deixa mais clara a hierarquia entre contexto do recorte, filtros da página e ações em lote sobre a base.</div>
+    </div>
+    <div class="ops-stat-grid">
+      <div class="ops-stat-card">
+        <div class="subtle">Resultados</div>
+        <strong>{{ pagination.total }}</strong>
+        <div class="subtle">Lançamento(s) no recorte atual</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Período</div>
+        <strong>{{ filters.period_start.strftime('%m/%Y') }}</strong>
+        <div class="subtle">{{ filters.period_start }} até {{ filters.period_end }}</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Ordenação</div>
+        <strong>{{ 'Mais recentes' if filters.sort == 'recent' else 'Maior valor' }}</strong>
+        <div class="subtle">Leitura principal da tabela</div>
+      </div>
+      <div class="ops-stat-card">
+        <div class="subtle">Modo atual</div>
+        <strong>{% if filters.uncategorized_only %}Não categorizados{% else %}Base completa{% endif %}</strong>
+        <div class="subtle">Filtros da página ainda controlam todo o recorte</div>
+      </div>
+    </div>
   </div>
-  <div class="page-actions">
-    <a class="button button-ghost" href="/admin/operations">Voltar para central</a>
-  </div>
+
+  <aside class="card stack">
+    <div class="ops-panel-header">
+      <strong>Atalhos da operação</strong>
+      <div class="subtle">Os atalhos abaixo mantêm o foco no fluxo operacional sem abrir uma nova IA paralela.</div>
+    </div>
+    <div class="ops-guide-list">
+      <a class="ops-guide-link" href="/admin/transactions?uncategorized_only=true">
+        <span>Tratamento rápido</span>
+        <strong>Ver não categorizados</strong>
+      </a>
+      <a class="ops-guide-link" href="/admin/reapply">
+        <span>Reprocessamento</span>
+        <strong>Reaplicar regras</strong>
+      </a>
+      <a class="ops-guide-link" href="/admin/rules">
+        <span>Base oficial</span>
+        <strong>Gerenciar regras</strong>
+      </a>
+      <a class="ops-guide-link" href="/admin/operations">
+        <span>Hub operacional</span>
+        <strong>Voltar para central</strong>
+      </a>
+    </div>
+  </aside>
 </section>
 
-<section class="toolbar-card">
-  <div>
+<section class="toolbar-card section-gap-md">
+  <div class="ops-panel-header">
     <strong>Filtros da listagem</strong>
-    <div class="subtle">Os filtros permanecem na página, mas agora ficam agrupados em uma toolbar contextual mais estável em desktop e mobile.</div>
+    <div class="subtle">Os filtros continuam sendo controles globais da página, agrupados em uma toolbar estável para desktop e mobile.</div>
   </div>
   <form method="get" action="/admin/transactions" class="toolbar-grid">
     <label>Mês fechado
@@ -52,7 +102,7 @@
         <option value="amount_desc" {% if filters.sort == 'amount_desc' %}selected{% endif %}>Maior valor</option>
       </select>
     </label>
-    <label class="inline" style="margin-top:28px;">
+    <label class="inline toolbar-inline-toggle">
       <input type="checkbox" name="uncategorized_only" value="true" {% if filters.uncategorized_only %}checked{% endif %} style="width:auto;">
       Somente não categorizados
     </label>
@@ -62,80 +112,16 @@
   </form>
 </section>
 
-<section class="info-strip">
-  <div class="info-metric">
-    <div class="subtle">Resultados</div>
-    <div class="metric-value">{{ pagination.total }}</div>
-    <div class="subtle">Lançamento(s) no recorte atual</div>
-  </div>
-  <div class="info-metric">
-    <div class="subtle">Período</div>
-    <strong>{{ filters.period_start }} até {{ filters.period_end }}</strong>
-  </div>
-  <div class="info-metric">
-    <div class="subtle">Ordenação</div>
-    <strong>{{ 'Mais recentes' if filters.sort == 'recent' else 'Maior valor' }}</strong>
-  </div>
-</section>
-
-<form method="post" action="/admin/transactions/bulk-apply" class="stack">
-  <section class="toolbar-card">
-    <div>
-      <strong>Edição em massa</strong>
-      <div class="subtle">Selecione lançamentos na tabela e use o bloco abaixo para aplicar reclassificações ou salvar uma regra futura.</div>
-    </div>
-    <div class="toolbar-grid">
-      <label>Nova categoria
-        <select name="category" required>
-          <option value="">Selecione</option>
-          {% for category in categories if category.is_active %}
-            <option value="{{ category.name }}">{{ category.name }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Novo tipo
-        <select name="transaction_kind" required>
-          <option value="expense">expense</option>
-          <option value="income">income</option>
-          <option value="transfer">transfer</option>
-        </select>
-      </label>
-      <label>Padrão opcional para salvar regra futura
-        <input type="text" name="rule_pattern" placeholder="Ex.: uber ou pix mercado pago">
-      </label>
-      <label>Modo do match da regra
-        <select name="rule_match_mode">
-          <option value="contains">contains</option>
-          <option value="exact_normalized">exact_normalized</option>
-        </select>
-      </label>
-    </div>
-    <label>Observação
-      <textarea name="notes" placeholder="Motivo da reclassificação"></textarea>
-    </label>
-    <label class="inline">
-      <input type="checkbox" name="save_rule" value="true" style="width:auto;">
-      Salvar regra para uso futuro
-    </label>
-    <input type="hidden" name="return_to" value="{{ current_url }}">
-    <div id="bulk-preview"></div>
-    <div class="toolbar-actions">
-      <button
-        type="button"
-        class="button button-ghost"
-        hx-post="/admin/transactions/bulk-preview"
-        hx-include="closest form"
-        hx-target="#bulk-preview"
-        hx-swap="innerHTML">Pré-visualizar seleção</button>
-      <button type="submit" class="button button-primary" onclick="return confirm('Aplicar reclassificação em massa?');">Aplicar aos selecionados</button>
-    </div>
-  </section>
-
-  {% if transactions %}
-    <section class="card stack">
-      <div class="subtle">Selecione um ou mais lançamentos para usar a edição em massa. O detalhe individual continua acessível na descrição.</div>
-      <div class="table-wrap">
-        <table class="responsive-stack">
+<form method="post" action="/admin/transactions/bulk-apply" class="ops-shell-grid section-gap-md">
+  <div class="ops-main-column">
+    {% if transactions %}
+      <section class="card stack">
+        <div class="ops-panel-header">
+          <strong>Tabela operacional da base</strong>
+          <div class="subtle">Selecione um ou mais lançamentos para usar a edição em massa. O detalhe individual continua acessível pela descrição.</div>
+        </div>
+        <div class="table-wrap">
+          <table class="responsive-stack">
           <thead>
             <tr>
               <th></th>
@@ -188,12 +174,84 @@
         </table>
       </div>
     </section>
-  {% else %}
-    <div class="empty-state">
-      <strong>Nenhum lançamento encontrado</strong>
-      <div class="subtle">Ajuste os filtros acima para buscar outro intervalo ou outra combinação de categoria, tipo e descrição.</div>
-    </div>
-  {% endif %}
+    {% else %}
+      <div class="empty-state">
+        <strong>Nenhum lançamento encontrado</strong>
+        <div class="subtle">Ajuste os filtros acima para buscar outro intervalo ou outra combinação de categoria, tipo e descrição.</div>
+      </div>
+    {% endif %}
+  </div>
+
+  <aside class="ops-side-column">
+    <section class="toolbar-card">
+      <div class="ops-panel-header">
+        <strong>Ações em lote</strong>
+        <div class="subtle">Use este bloco para reclassificar a seleção atual e, se fizer sentido, salvar uma regra futura a partir do mesmo padrão.</div>
+      </div>
+      <div class="toolbar-grid">
+        <label>Nova categoria
+          <select name="category" required>
+            <option value="">Selecione</option>
+            {% for category in categories if category.is_active %}
+              <option value="{{ category.name }}">{{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Novo tipo
+          <select name="transaction_kind" required>
+            <option value="expense">expense</option>
+            <option value="income">income</option>
+            <option value="transfer">transfer</option>
+          </select>
+        </label>
+        <label>Padrão opcional para salvar regra futura
+          <input type="text" name="rule_pattern" placeholder="Ex.: uber ou pix mercado pago">
+        </label>
+        <label>Modo do match da regra
+          <select name="rule_match_mode">
+            <option value="contains">contains</option>
+            <option value="exact_normalized">exact_normalized</option>
+          </select>
+        </label>
+      </div>
+      <label>Observação
+        <textarea name="notes" placeholder="Motivo da reclassificação"></textarea>
+      </label>
+      <label class="inline">
+        <input type="checkbox" name="save_rule" value="true" style="width:auto;">
+        Salvar regra para uso futuro
+      </label>
+      <input type="hidden" name="return_to" value="{{ current_url }}">
+      <div id="bulk-preview"></div>
+      <div class="toolbar-actions">
+        <button
+          type="button"
+          class="button button-ghost"
+          hx-post="/admin/transactions/bulk-preview"
+          hx-include="closest form"
+          hx-target="#bulk-preview"
+          hx-swap="innerHTML">Pré-visualizar seleção</button>
+        <button type="submit" class="button button-primary" onclick="return confirm('Aplicar reclassificação em massa?');">Aplicar aos selecionados</button>
+      </div>
+    </section>
+
+    <section class="card stack">
+      <div class="ops-panel-header">
+        <strong>Como ler esta página</strong>
+        <div class="subtle">Filtros definem o recorte inteiro da listagem. Ações em lote atuam apenas sobre os itens marcados na tabela.</div>
+      </div>
+      <div class="list-stack">
+        <div class="list-row">
+          <strong>Controle global</strong>
+          <div class="subtle">Período, categoria, descrição, tipo e ordenação são filtros da página inteira.</div>
+        </div>
+        <div class="list-row">
+          <strong>Ação local</strong>
+          <div class="subtle">A seleção por checkbox controla apenas a reclassificação em lote atual.</div>
+        </div>
+      </div>
+    </section>
+  </aside>
 </form>
 
 {% if pagination.has_more %}

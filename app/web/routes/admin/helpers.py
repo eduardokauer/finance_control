@@ -18,8 +18,10 @@ ADMIN_NAV_SECTIONS = [
         "label": "Principal",
         "items": [
             {"key": "overview", "label": "Visão Geral", "href": "/admin"},
-            {"key": "analysis", "label": "Análise detalhada", "href": "/admin/analysis"},
-            {"key": "conference", "label": "Conferência", "href": "/admin/conference"},
+            {"key": "conciliated", "label": "Visão conciliada", "href": "/admin/analysis"},
+            {"key": "statement", "label": "Visão de Extrato", "href": "/admin/conference"},
+            {"key": "invoice_view", "label": "Visão de Faturas", "href": "/admin/credit-card-invoices"},
+            {"key": "categories", "label": "Categorias", "href": "/admin/categories"},
         ],
     },
     {
@@ -27,15 +29,13 @@ ADMIN_NAV_SECTIONS = [
         "items": [
             {"key": "operations", "label": "Central operacional", "href": "/admin/operations"},
             {"key": "transactions", "label": "Lançamentos", "href": "/admin/transactions"},
-            {"key": "invoices", "label": "Faturas", "href": "/admin/credit-card-invoices"},
-            {"key": "reapply", "label": "Reaplicar regras", "href": "/admin/reapply"},
         ],
     },
     {
         "label": "Configuração",
         "items": [
             {"key": "rules", "label": "Regras", "href": "/admin/rules"},
-            {"key": "categories", "label": "Categorias", "href": "/admin/categories"},
+            {"key": "reapply", "label": "Reaplicar regras", "href": "/admin/reapply"},
         ],
     },
 ]
@@ -43,15 +43,15 @@ ADMIN_NAV_SECTIONS = [
 
 def _active_nav_key(path: str) -> str:
     if path.startswith("/admin/analysis"):
-        return "analysis"
+        return "conciliated"
     if path.startswith("/admin/conference"):
-        return "conference"
+        return "statement"
     if path.startswith("/admin/operations"):
         return "operations"
     if path.startswith("/admin/transactions"):
         return "transactions"
     if path.startswith("/admin/credit-card-invoices"):
-        return "invoices"
+        return "invoice_view"
     if path.startswith("/admin/reapply"):
         return "reapply"
     if path.startswith("/admin/rules"):
@@ -84,6 +84,12 @@ def _build_shell_context(request: Request) -> dict:
         "active_nav_section_label": active_section or "Principal",
         "admin_brand_name": "Finance Control Admin",
         "admin_brand_subtitle": "Gestão Financeira",
+        "admin_shell_profile_name": "Finance Control Admin",
+        "admin_shell_profile_subtitle": "Ambiente administrativo",
+        "admin_shell_quick_links": [
+            {"label": "Central operacional", "href": "/admin/operations"},
+            {"label": "Regras", "href": "/admin/rules"},
+        ],
     }
 
 

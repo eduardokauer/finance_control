@@ -1,187 +1,279 @@
 {% extends "admin/base.html" %}
-{% block title %}Análise detalhada{% endblock %}
+{% block title %}Visão conciliada{% endblock %}
 {% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
 {% block content %}
-{% set analysis_page_title = "Análise detalhada" %}
-{% set analysis_page_intro = "Aprofundamento da visão de consumo do mês-base, com comparações históricas, categorias completas e sinais analíticos que apoiam a decisão." %}
+{% set analysis_page_title = "Visão conciliada" %}
+{% set analysis_page_intro = "Subhome principal da leitura conciliada: composição do período, histórico, categorias e sinais analíticos sem virar uma segunda overview." %}
 {% set analysis_form_action = "/admin/analysis" %}
 {% set analysis_submit_label = "Ver análise detalhada" %}
 {% set analysis_show_generate = True %}
 {% include "admin/partials/analysis_period_form.html" %}
 
-<section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
-  <div
-    id="analysis-overview-section"
-    class="card stack analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'cards' %}analysis-focus-target-active{% endif %}"
-    style="margin-bottom:0;"
-  >
-    <div>
-      <strong>Visão de consumo do mês-base</strong>
-      <div class="subtle">{{ analysis_data.category_breakdown.note }}</div>
+<section class="analysis-shell-grid analysis-shell-grid-hero section-gap-sm">
+  <div class="card stack analysis-hero-card">
+    <div class="analysis-section-header">
+        <strong>Leitura principal da visão conciliada</strong>
+        <div class="subtle">Esta área aprofunda a leitura conciliada do período com histórico e categorias, sem disputar papel com a Visão Geral.</div>
     </div>
     <div class="analysis-list">
-      {% for category in analysis_data.categories %}
-        <div class="analysis-item">
-          <div class="analysis-item-title">
-            <strong>{{ category.name }}</strong>
-            {% if category.is_technical %}
-              <span class="badge warn">{{ category.technical_label }}</span>
-            {% else %}
-              <span class="badge">{{ category.flow_label }}</span>
-            {% endif %}
-          </div>
-          <p>
-            Movimento líquido: {{ category.display_total }}
-            {% if category.expense_total > 0 %}| despesa considerada: {{ category.expense_display }}{% endif %}
-            {% if category.expense_total > 0 %}| peso nas despesas: {{ category.share_of_expense_display }}{% endif %}
-            {% if category.income_total > 0 %}| entradas: {{ category.income_display }}{% endif %}
-            {% if category.technical_label == 'Crédito de Fatura' %}| abatimento técnico fora das categorias de consumo{% endif %}
-            | {{ category.transaction_count }} lançamento(s)
-          </p>
-        </div>
-      {% else %}
-        <div class="analysis-item">
-          <strong>Sem categorias conciliadas no mês-base</strong>
-          <p>Não houve movimentação categorizada na base conciliada do mês de referência.</p>
-        </div>
-      {% endfor %}
       <div class="analysis-item">
-        <strong>Ajustes técnicos da leitura conciliada</strong>
-        <p>Créditos técnicos de fatura: {{ analysis_data.category_breakdown.invoice_credit_adjustment_display }} | pagamentos bancários excluídos: {{ analysis_data.category_breakdown.excluded_bank_payment_display }}.</p>
+        <strong>Resumo executivo</strong>
+        <p>{{ analysis_data.primary_summary.executive_summary }}</p>
+      </div>
+      <div class="analysis-item">
+        <strong>Cobertura da leitura atual</strong>
+        <p>{{ analysis_data.primary_summary.coverage_note }}</p>
+      </div>
+    </div>
+    <div class="analysis-stat-strip">
+      <div class="analysis-stat">
+        <div class="subtle">Receitas conciliadas</div>
+        <strong>{{ analysis_data.primary_summary.income_display }}</strong>
+      </div>
+      <div class="analysis-stat">
+        <div class="subtle">Despesa líquida conciliada</div>
+        <strong>{{ analysis_data.primary_summary.expense_display }}</strong>
+      </div>
+      <div class="analysis-stat">
+        <div class="subtle">Saldo conciliado</div>
+        <strong>{{ analysis_data.primary_summary.balance_display }}</strong>
+      </div>
+      <div class="analysis-stat">
+        <div class="subtle">Categorias no mês-base</div>
+        <strong>{{ analysis_data.categories|length }}</strong>
       </div>
     </div>
   </div>
 
-  <div
-    id="analysis-category-history-section"
-    class="card stack analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'categories' %}analysis-focus-target-active{% endif %}"
-    style="margin-bottom:0;"
-  >
-    <div>
-      <strong>Comparações históricas por categoria na visão de consumo</strong>
-      <div class="subtle">{{ analysis_data.category_history.note }}</div>
+  <aside class="card stack analysis-side-guide">
+    <div class="analysis-section-header">
+      <strong>Aprofundamentos desta tela</strong>
+      <div class="subtle">A navegação rápida abaixo ajuda a chegar direto ao bloco que mais faz sentido para a leitura que veio do resumo.</div>
     </div>
-    <div class="analysis-list">
-      {% for category in analysis_data.category_history.rows %}
-        <div class="analysis-item">
-          <div class="analysis-item-title">
-            <strong>{{ category.name }}</strong>
-            {% if category.is_technical %}
-              <span class="badge warn">{{ category.technical_label }}</span>
-            {% else %}
-              <span class="badge">{{ category.flow_label }}</span>
-            {% endif %}
-          </div>
-          <p>
-            {{ analysis_data.category_history.current_month_label }}: {{ category.current_display }}
-            {% if category.current_share_of_expense_display != 'n/a' %}| peso atual: {{ category.current_share_of_expense_display }}{% endif %}
-            | {{ analysis_data.category_history.previous_month_label }}: {{ category.previous_month_display }}
-            {% if category.previous_month_change %}| delta m/m: {{ category.previous_month_change.delta_display }} | {{ category.previous_month_change.trend_label }} {{ category.previous_month_change.percent_display }}{% else %}| m/m sem base{% endif %}
-            | {{ analysis_data.category_history.previous_year_label }}: {{ category.previous_year_display }}
-            {% if category.previous_year_change %}| delta a/a: {{ category.previous_year_change.delta_display }} | {{ category.previous_year_change.trend_label }} {{ category.previous_year_change.percent_display }}{% else %}| a/a sem base{% endif %}
-          </p>
-        </div>
-      {% else %}
-        <div class="analysis-item">
-          <strong>Sem base histórica suficiente por categoria</strong>
-          <p>O mês-base ainda não tem categorias conciliadas com histórico comparável suficiente para leitura m/m ou a/a.</p>
-        </div>
-      {% endfor %}
-      <div class="analysis-item">
-        <strong>Ajustes técnicos fora das categorias de consumo</strong>
-        <p>
-          {{ analysis_data.category_history.current_month_label }}: {{ analysis_data.category_history.technical_adjustments.current_invoice_credit_display }}
-          | {{ analysis_data.category_history.previous_month_label }}: {{ analysis_data.category_history.technical_adjustments.previous_month_invoice_credit_display }}
-          {% if analysis_data.category_history.technical_adjustments.previous_month_change %}| delta m/m: {{ analysis_data.category_history.technical_adjustments.previous_month_change.delta_display }} | {{ analysis_data.category_history.technical_adjustments.previous_month_change.trend_label }} {{ analysis_data.category_history.technical_adjustments.previous_month_change.percent_display }}{% else %}| m/m sem base{% endif %}
-          | {{ analysis_data.category_history.previous_year_label }}: {{ analysis_data.category_history.technical_adjustments.previous_year_invoice_credit_display }}
-          {% if analysis_data.category_history.technical_adjustments.previous_year_change %}| delta a/a: {{ analysis_data.category_history.technical_adjustments.previous_year_change.delta_display }} | {{ analysis_data.category_history.technical_adjustments.previous_year_change.trend_label }} {{ analysis_data.category_history.technical_adjustments.previous_year_change.percent_display }}{% else %}| a/a sem base{% endif %}
-        </p>
-        <p>{{ analysis_data.category_history.technical_adjustments.note }}</p>
-      </div>
+    <div class="analysis-anchor-list">
+      <a class="analysis-anchor-link" href="#analysis-overview-section">
+        <span>Consumo do mês-base</span>
+        <strong>Ver composição</strong>
+      </a>
+      <a class="analysis-anchor-link" href="#analysis-historical-section">
+        <span>Leitura histórica</span>
+        <strong>Ver gráficos</strong>
+      </a>
+      <a class="analysis-anchor-link" href="#analysis-category-history-section">
+        <span>Categorias e histórico</span>
+        <strong>Ver comparações</strong>
+      </a>
+      <a class="analysis-anchor-link" href="#analysis-alerts-section">
+        <span>Alertas e ações</span>
+        <strong>Ver sinais</strong>
+      </a>
     </div>
-  </div>
+  </aside>
 </section>
 
-<div id="analysis-historical-section" class="analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'chart' %}analysis-focus-target-active{% endif %}">
-{% if analysis_run %}
-  <section class="analysis-grid analysis-grid-2" style="margin-top:12px;">
-    <div class="card stack" style="margin-bottom:0;">
-      <div>
-        <strong>Receitas x despesas x saldo</strong>
-        <div class="subtle">Últimos 12 meses do calendário, com meses zerados incluídos.</div>
+<section class="analysis-shell-grid analysis-shell-grid-main section-gap-sm">
+  <div class="analysis-main-column">
+    <section
+      id="analysis-overview-section"
+      class="card stack analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'cards' %}analysis-focus-target-active{% endif %}"
+      style="margin-bottom:0;"
+    >
+      <div class="analysis-section-header">
+        <strong>Visão de consumo do mês-base</strong>
+        <div class="subtle">{{ analysis_data.category_breakdown.note }}</div>
       </div>
-      <div class="chart-shell"><canvas id="monthly-chart"></canvas></div>
-    </div>
-    <div class="card stack" style="margin-bottom:0;">
-      <div>
-        <strong>Top categorias de consumo por peso nas despesas</strong>
-        <div class="subtle">Referência: {{ analysis_data.period.month_reference_label }} | ranking por despesas do mês-base na visão de consumo</div>
-      </div>
-      <div class="chart-shell"><canvas id="categories-chart"></canvas></div>
-    </div>
-  </section>
-{% else %}
-  <div class="card stack" style="margin-top:12px; margin-bottom:0;">
-    <strong>Análise ainda não gerada</strong>
-    <div class="subtle">As leituras de consumo acima já refletem o período selecionado. Gere uma nova análise determinística para liberar os gráficos desta visão detalhada.</div>
-  </div>
-{% endif %}
-</div>
-
-<section id="analysis-alerts-section" class="analysis-grid analysis-grid-2 analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'alerts' %}analysis-focus-target-active{% endif %}" style="margin-top:12px;">
-  <div class="card stack" style="margin-bottom:0;">
-    <div>
-      <strong>Alertas determinísticos</strong>
-      <div class="subtle">Até 5 sinais mais relevantes da visão de consumo e do resumo principal conciliado para o período selecionado.</div>
-    </div>
-    <div class="analysis-list">
-      {% for alert in analysis_data.alerts %}
-        <div class="analysis-item">
-          <div class="analysis-item-title">
-            <strong>{{ alert.title }}</strong>
-            <span class="badge {% if alert.level == 'danger' %}danger{% elif alert.level == 'warn' %}warn{% endif %}">{{ alert.level }}</span>
+      <div class="analysis-list">
+        {% for category in analysis_data.categories %}
+          <div class="analysis-item">
+            <div class="analysis-item-title">
+              <strong>{{ category.name }}</strong>
+              {% if category.is_technical %}
+                <span class="badge warn">{{ category.technical_label }}</span>
+              {% else %}
+                <span class="badge">{{ category.flow_label }}</span>
+              {% endif %}
+            </div>
+            <p>
+              Movimento líquido: {{ category.display_total }}
+              {% if category.expense_total > 0 %}| despesa considerada: {{ category.expense_display }}{% endif %}
+              {% if category.expense_total > 0 %}| peso nas despesas: {{ category.share_of_expense_display }}{% endif %}
+              {% if category.income_total > 0 %}| entradas: {{ category.income_display }}{% endif %}
+              {% if category.technical_label == 'Crédito de Fatura' %}| abatimento técnico fora das categorias de consumo{% endif %}
+              | {{ category.transaction_count }} lançamento(s)
+            </p>
           </div>
-          <p>{{ alert.body }}</p>
-        </div>
-      {% else %}
+        {% else %}
+          <div class="analysis-item">
+            <strong>Sem categorias conciliadas no mês-base</strong>
+            <p>Não houve movimentação categorizada na base conciliada do mês de referência.</p>
+          </div>
+        {% endfor %}
         <div class="analysis-item">
-          <strong>Nenhum alerta crítico</strong>
-          <p>O período não trouxe sinais determinísticos prioritários além do acompanhamento normal.</p>
+          <strong>Ajustes técnicos da leitura conciliada</strong>
+          <p>Créditos técnicos de fatura: {{ analysis_data.category_breakdown.invoice_credit_adjustment_display }} | pagamentos bancários excluídos: {{ analysis_data.category_breakdown.excluded_bank_payment_display }}.</p>
         </div>
-      {% endfor %}
+      </div>
+    </section>
+
+    <div
+      id="analysis-historical-section"
+      class="analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'chart' %}analysis-focus-target-active{% endif %}"
+    >
+      {% if analysis_run %}
+        <section class="card stack analysis-panel-card" style="margin-bottom:0;">
+          <div class="analysis-section-header">
+            <strong>Leitura histórica e categorias do período</strong>
+            <div class="subtle">Os gráficos continuam em uma área própria de profundidade, deixando claro que os controles locais do histórico não substituem os controles globais da página.</div>
+          </div>
+          <div class="analysis-chart-grid">
+            <div class="stack">
+              <div class="analysis-section-header">
+                <strong>Receitas x despesas x saldo</strong>
+                <div class="subtle">Últimos 12 meses do calendário, com meses zerados incluídos.</div>
+              </div>
+              <div class="chart-shell"><canvas id="monthly-chart"></canvas></div>
+            </div>
+            <div class="stack">
+              <div class="analysis-section-header">
+                <strong>Top categorias de consumo por peso nas despesas</strong>
+                <div class="subtle">Referência: {{ analysis_data.period.month_reference_label }} | ranking por despesas do mês-base na visão de consumo</div>
+              </div>
+              <div class="chart-shell"><canvas id="categories-chart"></canvas></div>
+            </div>
+          </div>
+        </section>
+      {% else %}
+        <div class="card stack analysis-panel-card" style="margin-bottom:0;">
+          <strong>Análise ainda não gerada</strong>
+          <div class="subtle">As leituras de consumo acima já refletem o período selecionado. Gere uma nova análise determinística para liberar os gráficos desta visão detalhada.</div>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="card stack analysis-panel-card" style="margin-bottom:0;">
+      <div class="analysis-section-header">
+        <strong>Conferência e auditoria</strong>
+        <div class="subtle">A visão bruta, os sinais auxiliares de conciliação, os itens técnicos e o HTML renderizado seguem concentrados na área de conferência para não poluir esta leitura principal.</div>
+      </div>
+      <div class="actions">
+        <a class="button" href="{{ analysis_urls.conference }}">Abrir conferência do período</a>
+      </div>
     </div>
   </div>
 
-  <div class="card stack" style="margin-bottom:0;">
-    <div>
-      <strong>Ações recomendadas</strong>
-      <div class="subtle">Próximos passos objetivos para melhorar a leitura de consumo e apoiar a decisão no período.</div>
-    </div>
-    <div class="analysis-list">
-      {% for action in analysis_data.actions %}
+  <div class="analysis-side-column">
+    <section
+      id="analysis-category-history-section"
+      class="card stack analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'categories' %}analysis-focus-target-active{% endif %}"
+      style="margin-bottom:0;"
+    >
+      <div class="analysis-section-header">
+        <strong>Comparações históricas por categoria</strong>
+        <div class="subtle">{{ analysis_data.category_history.note }}</div>
+      </div>
+      <div class="analysis-list">
+        {% for category in analysis_data.category_history.rows %}
+          <div class="analysis-item">
+            <div class="analysis-item-title">
+              <strong>{{ category.name }}</strong>
+              {% if category.is_technical %}
+                <span class="badge warn">{{ category.technical_label }}</span>
+              {% else %}
+                <span class="badge">{{ category.flow_label }}</span>
+              {% endif %}
+            </div>
+            <p>
+              {{ analysis_data.category_history.current_month_label }}: {{ category.current_display }}
+              {% if category.current_share_of_expense_display != 'n/a' %}| peso atual: {{ category.current_share_of_expense_display }}{% endif %}
+              | {{ analysis_data.category_history.previous_month_label }}: {{ category.previous_month_display }}
+              {% if category.previous_month_change %}| delta m/m: {{ category.previous_month_change.delta_display }} | {{ category.previous_month_change.trend_label }} {{ category.previous_month_change.percent_display }}{% else %}| m/m sem base{% endif %}
+              | {{ analysis_data.category_history.previous_year_label }}: {{ category.previous_year_display }}
+              {% if category.previous_year_change %}| delta a/a: {{ category.previous_year_change.delta_display }} | {{ category.previous_year_change.trend_label }} {{ category.previous_year_change.percent_display }}{% else %}| a/a sem base{% endif %}
+            </p>
+          </div>
+        {% else %}
+          <div class="analysis-item">
+            <strong>Sem base histórica suficiente por categoria</strong>
+            <p>O mês-base ainda não tem categorias conciliadas com histórico comparável suficiente para leitura m/m ou a/a.</p>
+          </div>
+        {% endfor %}
         <div class="analysis-item">
-          <strong>{{ action.title }}</strong>
-          <p>{{ action.body }}</p>
+          <strong>Ajustes técnicos fora das categorias de consumo</strong>
+          <p>
+            {{ analysis_data.category_history.current_month_label }}: {{ analysis_data.category_history.technical_adjustments.current_invoice_credit_display }}
+            | {{ analysis_data.category_history.previous_month_label }}: {{ analysis_data.category_history.technical_adjustments.previous_month_invoice_credit_display }}
+            {% if analysis_data.category_history.technical_adjustments.previous_month_change %}| delta m/m: {{ analysis_data.category_history.technical_adjustments.previous_month_change.delta_display }} | {{ analysis_data.category_history.technical_adjustments.previous_month_change.trend_label }} {{ analysis_data.category_history.technical_adjustments.previous_month_change.percent_display }}{% else %}| m/m sem base{% endif %}
+            | {{ analysis_data.category_history.previous_year_label }}: {{ analysis_data.category_history.technical_adjustments.previous_year_invoice_credit_display }}
+            {% if analysis_data.category_history.technical_adjustments.previous_year_change %}| delta a/a: {{ analysis_data.category_history.technical_adjustments.previous_year_change.delta_display }} | {{ analysis_data.category_history.technical_adjustments.previous_year_change.trend_label }} {{ analysis_data.category_history.technical_adjustments.previous_year_change.percent_display }}{% else %}| a/a sem base{% endif %}
+          </p>
+          <p>{{ analysis_data.category_history.technical_adjustments.note }}</p>
         </div>
-      {% else %}
-        <div class="analysis-item">
-          <strong>Nenhuma ação prioritária</strong>
-          <p>A análise atual não encontrou um ajuste imediato acima da linha de base do período.</p>
-        </div>
-      {% endfor %}
-    </div>
+      </div>
+    </section>
+
+    <section
+      id="analysis-alerts-section"
+      class="card stack analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'alerts' %}analysis-focus-target-active{% endif %}"
+      style="margin-bottom:0;"
+    >
+      <div class="analysis-section-header">
+        <strong>Alertas determinísticos</strong>
+        <div class="subtle">Ações recomendadas e sinais mais relevantes da visão de consumo e do resumo principal conciliado para o período selecionado.</div>
+      </div>
+      <div class="analysis-list">
+        {% for alert in analysis_data.alerts %}
+          <div class="analysis-item">
+            <div class="analysis-item-title">
+              <strong>{{ alert.title }}</strong>
+              <span class="badge {% if alert.level == 'danger' %}danger{% elif alert.level == 'warn' %}warn{% endif %}">{{ alert.level }}</span>
+            </div>
+            <p>{{ alert.body }}</p>
+          </div>
+        {% else %}
+          <div class="analysis-item">
+            <strong>Nenhum alerta crítico</strong>
+            <p>O período não trouxe sinais determinísticos prioritários além do acompanhamento normal.</p>
+          </div>
+        {% endfor %}
+        {% for action in analysis_data.actions %}
+          <div class="analysis-item">
+            <strong>{{ action.title }}</strong>
+            <p>{{ action.body }}</p>
+          </div>
+        {% else %}
+          <div class="analysis-item">
+            <strong>Nenhuma ação prioritária</strong>
+            <p>A análise atual não encontrou um ajuste imediato acima da linha de base do período.</p>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card stack analysis-panel-card" style="margin-bottom:0;">
+      <div class="analysis-section-header">
+        <strong>Cargas feitas</strong>
+        <div class="subtle">Arquivos recentes que alimentam a visão conciliada desta área.</div>
+      </div>
+      <div class="analysis-list">
+        {% for load in recent_loads %}
+          <div class="analysis-item">
+            <div class="analysis-item-title">
+              <strong>{{ load.source_label }}</strong>
+              <span class="badge">{{ load.status }}</span>
+            </div>
+            <p>{{ load.file_name }}</p>
+            <div class="subtle">{{ load.created_at.strftime('%d/%m/%Y %H:%M') if load.created_at else '-' }}</div>
+          </div>
+        {% else %}
+          <div class="analysis-item">
+            <strong>Nenhuma carga recente</strong>
+            <p>Os próximos extratos e CSVs de fatura usados na leitura conciliada aparecem aqui.</p>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
   </div>
 </section>
-
-<div class="card stack" style="margin-top:12px; margin-bottom:0;">
-  <div>
-    <strong>Conferência e auditoria</strong>
-    <div class="subtle">A visão bruta, os sinais auxiliares de conciliação, os itens técnicos e o HTML renderizado foram movidos para a área de conferência.</div>
-  </div>
-  <div class="actions">
-    <a class="button" href="{{ analysis_urls.conference }}">Abrir conferência do período</a>
-  </div>
-</div>
 
 {% if analysis_run %}
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
