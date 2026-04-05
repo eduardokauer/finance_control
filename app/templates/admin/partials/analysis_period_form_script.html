@@ -7,6 +7,7 @@
     const monthInput = document.getElementById('analysis-month-input');
     const monthStartText = document.getElementById('month-start-text');
     const monthEndText = document.getElementById('month-end-text');
+    const clearOnEmptyInputs = Array.from(form.querySelectorAll('input[data-clear-on-empty="true"]'));
     const panels = {
       closed: document.getElementById('panel-closed'),
       month: document.getElementById('panel-month'),
@@ -14,6 +15,7 @@
     };
     const buttons = Array.from(form.querySelectorAll('.period-tab'));
     const customInputs = panels.custom ? Array.from(panels.custom.querySelectorAll('input')) : [];
+    const filterDropdowns = Array.from(form.querySelectorAll('.analysis-filter-dropdown'));
 
     const updateMonthPreview = () => {
       if (!monthInput || !monthInput.value) return;
@@ -42,12 +44,45 @@
       });
     };
 
+    const syncContextInputs = () => {
+      const selectedFilterCount = filterDropdowns.reduce((count, dropdown) => {
+        return count + dropdown.querySelectorAll('input[type="checkbox"]:checked').length;
+      }, 0);
+      clearOnEmptyInputs.forEach((input) => {
+        input.disabled = selectedFilterCount === 0;
+      });
+    };
+
     buttons.forEach((button) => {
       button.addEventListener('click', () => setMode(button.dataset.mode));
+    });
+    filterDropdowns.forEach((dropdown) => {
+      const checkboxes = Array.from(dropdown.querySelectorAll('input[type="checkbox"]'));
+      dropdown.querySelectorAll('[data-dropdown-action]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const action = button.dataset.dropdownAction;
+          if (action === 'select_all') {
+            checkboxes.forEach((checkbox) => {
+              checkbox.checked = true;
+            });
+          } else if (action === 'clear_all') {
+            checkboxes.forEach((checkbox) => {
+              checkbox.checked = false;
+            });
+          }
+          syncContextInputs();
+          form.requestSubmit();
+        });
+      });
+      checkboxes.forEach((checkbox) => {
+        checkbox.addEventListener('change', syncContextInputs);
+      });
     });
     if (monthInput) {
       monthInput.addEventListener('change', updateMonthPreview);
     }
+    form.addEventListener('submit', syncContextInputs);
     updateMonthPreview();
+    syncContextInputs();
   })();
 </script>

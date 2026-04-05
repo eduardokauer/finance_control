@@ -1,0 +1,71 @@
+{% extends "admin/base.html" %}
+{% block title %}Administrar categorias{% endblock %}
+{% block content %}
+{% from "admin/partials/page_parts.html" import page_header %}
+{{ page_header(active_nav_section_label, "Administrar categorias", "Tela de manutencao da taxonomia oficial, separando leitura categorial da rotina de cadastro e ajustes.") }}
+
+<section class="stack" style="gap:20px;">
+  <section class="toolbar-card">
+    <div class="ops-panel-header">
+      <strong>Criar categoria</strong>
+      <div class="subtle">Novas categorias entram tipadas para evitar ambiguidade entre despesa, receita e transferencia.</div>
+    </div>
+    <form method="post" action="/admin/categories" class="toolbar-grid">
+      <input type="hidden" name="return_to" value="{{ management_return_to }}">
+      <label>Nome
+        <input type="text" name="name" required>
+      </label>
+      <label>Tipo obrigatorio
+        <select name="transaction_kind">
+          <option value="expense">expense</option>
+          <option value="income">income</option>
+          <option value="transfer">transfer</option>
+        </select>
+      </label>
+      <label class="inline toolbar-inline-toggle">
+        <input type="checkbox" name="is_active" value="true" checked style="width:auto;">
+        Ativa
+      </label>
+      <div class="toolbar-actions">
+        <button type="submit" class="button button-primary">Criar categoria</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card tableish">
+    <div class="ops-panel-header">
+      <h2 class="section-title">Painel de configuracao das categorias</h2>
+      <p class="section-intro">A manutencao rapida da taxonomia fica separada da leitura analitica, mas continua disponivel em uma unica area de configuracao.</p>
+    </div>
+    {% for category in categories %}
+      <div class="category-row">
+        <form method="post" action="/admin/categories/{{ category.id }}/update" class="toolbar-grid">
+          <input type="hidden" name="return_to" value="{{ management_return_to }}">
+          <label>Nome
+            <input type="text" name="name" value="{{ category.name }}" required>
+          </label>
+          <label>Tipo
+            <select name="transaction_kind">
+              {% for kind in ['expense', 'income', 'transfer'] %}
+                <option value="{{ kind }}" {% if kind == category.transaction_kind %}selected{% endif %}>{{ kind }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="inline toolbar-inline-toggle">
+            <input type="checkbox" name="is_active" value="true" {% if category.is_active %}checked{% endif %} style="width:auto;">
+            Ativa
+          </label>
+          <div class="toolbar-actions">
+            <button type="submit" class="button button-ghost">Salvar</button>
+          </div>
+        </form>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <strong>Nenhuma categoria cadastrada</strong>
+        <div class="subtle">A primeira categoria oficial criada passa a aparecer aqui para manutencao continua.</div>
+      </div>
+    {% endfor %}
+  </section>
+</section>
+{% endblock %}

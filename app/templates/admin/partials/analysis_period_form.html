@@ -48,7 +48,11 @@
       <input type="hidden" name="selection_mode" id="selection-mode-input" value="{{ selection_mode }}">
       {% for field in analysis_extra_hidden_fields or [] %}
         {% if field.value is not none %}
-          <input type="hidden" name="{{ field.name }}" value="{{ field.value }}">
+          <input
+            type="hidden"
+            name="{{ field.name }}"
+            value="{{ field.value }}"
+            {% if field.clear_on_empty %}data-clear-on-empty="true"{% endif %}>
         {% endif %}
       {% endfor %}
 
@@ -87,6 +91,41 @@
           </div>
         </div>
 
+        {% if analysis_toolbar_filters %}
+          <div class="analysis-toolbar-filters">
+            {% for control in analysis_toolbar_filters %}
+              {% if control.kind == "multi_select_dropdown" %}
+                <details class="analysis-filter-dropdown">
+                  <summary class="analysis-filter-dropdown-summary">
+                    <span class="analysis-filter-dropdown-label">{{ control.label }}</span>
+                    <strong>{{ control.summary }}</strong>
+                  </summary>
+                  <div class="analysis-filter-dropdown-panel">
+                    {% if control.actions %}
+                      <div class="analysis-filter-dropdown-actions">
+                        {% for action in control.actions %}
+                          <button
+                            type="button"
+                            class="button button-ghost"
+                            data-dropdown-action="{{ action.key }}"
+                            data-dropdown-target="{{ control.name }}">
+                            {{ action.label }}
+                          </button>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                    {% for option in control.options %}
+                      <label class="analysis-filter-option">
+                        <input type="checkbox" name="{{ control.name }}" value="{{ option.value }}" {% if option.is_selected %}checked{% endif %}>
+                        <span>{{ option.label }}</span>
+                      </label>
+                    {% endfor %}
+                  </div>
+                </details>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
         <div class="toolbar-actions analysis-period-actions">
           <button type="submit" class="button button-primary" data-loading-button data-loading-label="Carregando análise...">{{ analysis_submit_label }}</button>
         </div>

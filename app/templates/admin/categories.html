@@ -6,71 +6,12 @@
 {% set analysis_page_intro = "Subhome da leitura categorial: consumo do periodo, grafico de 12 meses, ranking clicavel e composicao do valor por categoria." %}
 {% include "admin/partials/analysis_period_form.html" %}
 
-<section class="home-kpi-strip" aria-label="Blocos principais das categorias">
-  <article class="card home-kpi-card home-kpi-card-primary">
-    <div class="home-kpi-meta"><span class="home-kpi-meta-period">{{ category_breakdown.note }}</span></div>
-    <div class="home-kpi-header">
-      <div class="home-kpi-header-copy">
-        <h3 class="home-kpi-title">Consumo do periodo</h3>
-        <p class="home-kpi-subtitle">Leitura principal da area de categorias no recorte selecionado.</p>
-      </div>
-      <span class="home-kpi-icon home-kpi-icon-income" aria-hidden="true">&uarr;</span>
-    </div>
-    <div class="home-kpi-value-block">
-      <div class="metric-value amount-positive">{{ category_breakdown.consumption_total_display }}</div>
-    </div>
-  </article>
-
-  <article class="card home-kpi-card">
-    <div class="home-kpi-meta"><span class="home-kpi-meta-period">{{ period_start.strftime('%m/%Y') }}</span></div>
-    <div class="home-kpi-header">
-      <div class="home-kpi-header-copy">
-        <h3 class="home-kpi-title">Categoria lider</h3>
-        <p class="home-kpi-subtitle">Maior peso do consumo do periodo atual.</p>
-      </div>
-      <span class="home-kpi-icon home-kpi-icon-net_flow" aria-hidden="true">&#9679;</span>
-    </div>
-    <div class="home-kpi-detail">{% if top_category %}{{ top_category.name }}{% else %}Sem base{% endif %}</div>
-    <div class="home-kpi-value-block">
-      <div class="metric-value">{% if top_category %}{{ top_category.expense_display }}{% else %}R$ 0,00{% endif %}</div>
-    </div>
-  </article>
-
-  <article class="card home-kpi-card">
-    <div class="home-kpi-meta"><span class="home-kpi-meta-period">{{ period_start.strftime('%m/%Y') }}</span></div>
-    <div class="home-kpi-header">
-      <div class="home-kpi-header-copy">
-        <h3 class="home-kpi-title">Nao categorizado</h3>
-        <p class="home-kpi-subtitle">Parte do periodo que ainda nao virou leitura gerencial limpa.</p>
-      </div>
-      <span class="home-kpi-icon home-kpi-icon-expense" aria-hidden="true">&darr;</span>
-    </div>
-    <div class="home-kpi-value-block">
-      <div class="metric-value amount-negative">{{ category_breakdown.uncategorized_display }}</div>
-    </div>
-  </article>
-
-  <article class="card home-kpi-card">
-    <div class="home-kpi-meta"><span class="home-kpi-meta-period">Base oficial</span></div>
-    <div class="home-kpi-header">
-      <div class="home-kpi-header-copy">
-        <h3 class="home-kpi-title">Categorias ativas</h3>
-        <p class="home-kpi-subtitle">Taxonomia disponivel para leitura e operacao.</p>
-      </div>
-      <span class="home-kpi-icon home-kpi-icon-net_flow" aria-hidden="true">&#9679;</span>
-    </div>
-    <div class="home-kpi-value-block">
-      <div class="metric-value">{{ active_categories_count }}</div>
-    </div>
-  </article>
-</section>
-
 <section class="overview-stack">
   <section class="card stack overview-chart-card">
     <div class="overview-chart-header">
       <div class="stack" style="gap:4px;">
         <strong>Grafico principal de 12 meses</strong>
-        <div class="subtle">Serie mensal do consumo reconhecido na area de categorias, mantendo meses zerados visiveis.</div>
+        <div class="subtle">Colunas empilhadas por categoria no contexto atual da página, mantendo os 12 meses visíveis mesmo quando algum mês fecha zerado.</div>
       </div>
     </div>
     <div class="chart-shell chart-shell-tall">
@@ -78,71 +19,15 @@
     </div>
   </section>
 
-  <section class="overview-category-grid">
-    <div class="card stack overview-chart-card">
-      <div class="overview-chart-header">
-        <div class="stack" style="gap:4px;">
-          <strong>Grafico de categorias</strong>
-          <div class="subtle">Ranking atual por peso nas despesas do periodo. Clique em uma categoria para abrir a composicao do valor.</div>
-        </div>
-      </div>
-      <div class="chart-shell">
-        <canvas id="categories-breakdown-chart" aria-label="Grafico de categorias"></canvas>
-      </div>
-      <div class="overview-link-list">
-        {% for category in category_rows %}
-          <a class="overview-link-row" href="{{ category.href }}">
-            <div class="overview-link-copy">
-              <strong>{{ category.name }}</strong>
-              <span>{{ category.expense_display }}{% if category.share_of_expense_display != 'n/a' %} | {{ category.share_of_expense_display }}{% endif %}</span>
-            </div>
-            <span class="text-link">Ver composicao</span>
-          </a>
-        {% else %}
-          <div class="empty-state">
-            <strong>Sem categorias com consumo no periodo</strong>
-            <div class="subtle">Quando houver consumo categorizado, o ranking clicavel aparece aqui.</div>
-          </div>
-        {% endfor %}
-      </div>
-    </div>
-
-    <aside class="card stack overview-alerts-card">
-      <div class="overview-chart-header">
-        <div class="stack" style="gap:4px;">
-          <strong>Cargas feitas</strong>
-          <div class="subtle">Lista curta das cargas que alimentam a leitura de categorias nesta area.</div>
-        </div>
-      </div>
-      <div class="analysis-list overview-alert-list">
-        {% for load in recent_loads %}
-          <div class="analysis-item">
-            <div class="analysis-item-title">
-              <strong>{{ load.source_label }}</strong>
-              <span class="badge">{{ load.status }}</span>
-            </div>
-            <p>{{ load.file_name }}</p>
-            <div class="subtle">{{ load.created_at.strftime('%d/%m/%Y %H:%M') if load.created_at else '-' }}</div>
-          </div>
-        {% else %}
-          <div class="empty-state">
-            <strong>Nenhuma carga recente</strong>
-            <div class="subtle">As proximas importacoes de extrato e fatura aparecerao aqui.</div>
-          </div>
-        {% endfor %}
-      </div>
-    </aside>
-  </section>
-
   <section id="category-composition-section" class="card stack overview-chart-card">
     <div class="overview-chart-header">
       <div class="stack" style="gap:4px;">
-        <strong>Composicao da categoria</strong>
+        <strong>{% if category_composition and category_composition.selected_categories|length > 1 %}Composicao das categorias selecionadas{% else %}Composicao da categoria{% endif %}</strong>
         <div class="subtle">
           {% if category_composition %}
             {{ category_composition.note }}
           {% else %}
-            Clique em uma categoria do ranking para abrir a listagem filtrada com a composicao daquele valor no periodo.
+            A composicao aparece a partir das categorias selecionadas no contexto da pagina ou do foco vindo da overview.
           {% endif %}
         </div>
       </div>
@@ -151,8 +36,12 @@
     {% if category_composition %}
       <div class="analysis-stat-strip">
         <div class="analysis-stat">
-          <div class="subtle">Categoria</div>
-          <strong>{{ category_composition.category_name }}</strong>
+          <div class="subtle">{{ category_composition.selection_label }}</div>
+          <strong
+            class="analysis-stat-truncate"
+            title="{{ category_composition.selection_display }}">
+            {{ category_composition.selection_display }}
+          </strong>
         </div>
         <div class="analysis-stat">
           <div class="subtle">Total composto</div>
@@ -170,21 +59,32 @@
             <tr>
               <th>Data</th>
               <th>Descricao</th>
+              <th>Categoria</th>
               <th>Origem</th>
               <th>Escopo</th>
               <th>Valor</th>
-              <th>Detalhe</th>
+              <th>Ação</th>
             </tr>
           </thead>
           <tbody>
             {% for row in category_composition.rows %}
               <tr>
                 <td data-label="Data">{{ row.date_display }}</td>
-                <td data-label="Descricao">{{ row.description }}</td>
+                <td data-label="Descricao">
+                  <div>{{ row.description }}</div>
+                  <div class="subtle">{{ row.detail }}</div>
+                </td>
+                <td data-label="Categoria">{{ row.category_name }}</td>
                 <td data-label="Origem">{{ row.source_label }}</td>
                 <td data-label="Escopo">{{ row.scope_label }}</td>
                 <td data-label="Valor">{{ row.amount_display }}</td>
-                <td data-label="Detalhe">{{ row.detail }}</td>
+                <td data-label="Ação">
+                  {% if row.edit_href %}
+                    <a class="button button-ghost" href="{{ row.edit_href }}">{{ row.edit_label or "Editar" }}</a>
+                  {% else %}
+                    <span class="subtle">Sem ação</span>
+                  {% endif %}
+                </td>
               </tr>
             {% endfor %}
           </tbody>
@@ -193,79 +93,11 @@
     {% else %}
       <div class="empty-state">
         <strong>Nenhuma categoria em foco ainda</strong>
-        <div class="subtle">Escolha uma categoria no ranking acima para ver a composicao do valor dentro do periodo selecionado.</div>
+        <div class="subtle">Selecione uma ou mais categorias no contexto da pagina ou venha da overview com uma categoria em foco para abrir a composicao filtrada.</div>
       </div>
     {% endif %}
   </section>
 
-  <section class="ops-shell-grid">
-    <div class="ops-main-column">
-      <section class="card tableish">
-        <div class="ops-panel-header">
-          <h2 class="section-title">Painel de configuracao das categorias</h2>
-          <p class="section-intro">A area continua permitindo manutencao rapida da taxonomia sem separar configuracao e leitura em telas diferentes.</p>
-        </div>
-        {% for category in categories %}
-          <div class="category-row">
-            <form method="post" action="/admin/categories/{{ category.id }}/update" class="toolbar-grid">
-              <input type="hidden" name="return_to" value="{{ request.url }}">
-              <label>Nome
-                <input type="text" name="name" value="{{ category.name }}" required>
-              </label>
-              <label>Tipo
-                <select name="transaction_kind">
-                  {% for kind in ['expense', 'income', 'transfer'] %}
-                    <option value="{{ kind }}" {% if kind == category.transaction_kind %}selected{% endif %}>{{ kind }}</option>
-                  {% endfor %}
-                </select>
-              </label>
-              <label class="inline toolbar-inline-toggle">
-                <input type="checkbox" name="is_active" value="true" {% if category.is_active %}checked{% endif %} style="width:auto;">
-                Ativa
-              </label>
-              <div class="toolbar-actions">
-                <button type="submit" class="button button-ghost">Salvar</button>
-              </div>
-            </form>
-          </div>
-        {% else %}
-          <div class="empty-state">
-            <strong>Nenhuma categoria cadastrada</strong>
-            <div class="subtle">A primeira categoria oficial criada passa a aparecer aqui para manutencao continua.</div>
-          </div>
-        {% endfor %}
-      </section>
-    </div>
-
-    <aside class="ops-side-column">
-      <section class="toolbar-card">
-        <div class="ops-panel-header">
-          <strong>Criar categoria</strong>
-          <div class="subtle">Novas categorias entram tipadas para evitar ambiguidade entre despesa, receita e transferencia.</div>
-        </div>
-        <form method="post" action="/admin/categories" class="toolbar-grid">
-          <input type="hidden" name="return_to" value="{{ request.url }}">
-          <label>Nome
-            <input type="text" name="name" required>
-          </label>
-          <label>Tipo obrigatorio
-            <select name="transaction_kind">
-              <option value="expense">expense</option>
-              <option value="income">income</option>
-              <option value="transfer">transfer</option>
-            </select>
-          </label>
-          <label class="inline toolbar-inline-toggle">
-            <input type="checkbox" name="is_active" value="true" checked style="width:auto;">
-            Ativa
-          </label>
-          <div class="toolbar-actions">
-            <button type="submit" class="button button-primary">Criar categoria</button>
-          </div>
-        </form>
-      </section>
-    </aside>
-  </section>
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -284,90 +116,67 @@
     const monthlyCanvas = document.getElementById('categories-main-monthly-chart');
     if (monthlyCanvas) {
       const monthlyData = {{ consumption_chart|tojson }};
+      const palette = [
+        { fill: 'rgba(37, 99, 235, 0.82)', stroke: 'rgb(37, 99, 235)' },
+        { fill: 'rgba(15, 118, 110, 0.82)', stroke: 'rgb(15, 118, 110)' },
+        { fill: 'rgba(245, 158, 11, 0.82)', stroke: 'rgb(245, 158, 11)' },
+        { fill: 'rgba(220, 38, 38, 0.82)', stroke: 'rgb(220, 38, 38)' },
+        { fill: 'rgba(124, 58, 237, 0.82)', stroke: 'rgb(124, 58, 237)' },
+        { fill: 'rgba(8, 145, 178, 0.82)', stroke: 'rgb(8, 145, 178)' },
+        { fill: 'rgba(234, 88, 12, 0.82)', stroke: 'rgb(234, 88, 12)' },
+        { fill: 'rgba(99, 102, 241, 0.82)', stroke: 'rgb(99, 102, 241)' },
+      ];
       new Chart(monthlyCanvas, {
-        type: 'line',
-        data: {
-          labels: monthlyData.labels,
-          datasets: [
-            {
-              label: 'Consumo',
-              data: monthlyData.values,
-              borderColor: 'rgba(37, 99, 235, 0.92)',
-              backgroundColor: 'rgba(37, 99, 235, 0.12)',
-              pointBackgroundColor: 'rgba(37, 99, 235, 0.92)',
-              pointRadius: 3,
-              pointHoverRadius: 4,
-              borderWidth: 2.5,
-              tension: 0.24,
-              fill: true,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            tooltip: {
-              callbacks: {
-                label(context) {
-                  return `Consumo: ${tooltipCurrency.format(context.parsed.y || 0)}`;
-                },
-              },
-            },
-          },
-          scales: {
-            x: { grid: { display: false } },
-            y: {
-              ticks: {
-                callback(value) {
-                  return compactCurrency.format(value || 0);
-                },
-              },
-            },
-          },
-        },
-      });
-    }
-
-    const categoriesCanvas = document.getElementById('categories-breakdown-chart');
-    if (categoriesCanvas) {
-      const categoryData = {{ category_chart|tojson }};
-      new Chart(categoriesCanvas, {
         type: 'bar',
         data: {
-          labels: categoryData.labels,
-          datasets: [
-            {
-              label: 'Despesas do periodo',
-              data: categoryData.values,
-              backgroundColor: categoryData.technical.map((isTechnical) => (isTechnical ? 'rgba(245, 158, 11, 0.75)' : 'rgba(15, 118, 110, 0.75)')),
-              borderRadius: 8,
-              borderSkipped: false,
-            },
-          ],
+          labels: monthlyData.labels,
+          datasets: monthlyData.datasets.map((dataset, index) => ({
+            label: dataset.label,
+            data: dataset.values,
+            backgroundColor: palette[index % palette.length].fill,
+            borderColor: palette[index % palette.length].stroke,
+            borderWidth: 1,
+            borderRadius: 6,
+            borderSkipped: false,
+            maxBarThickness: 42,
+            stack: 'categories',
+          })),
         },
         options: {
-          indexAxis: 'y',
           responsive: true,
           maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
           plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                usePointStyle: true,
+                boxWidth: 10,
+              },
+            },
             tooltip: {
               callbacks: {
                 label(context) {
-                  return tooltipCurrency.format(context.parsed.x || 0);
+                  return `${context.dataset.label}: ${tooltipCurrency.format(context.parsed.y || 0)}`;
+                },
+                footer(items) {
+                  const total = items.reduce((sum, item) => sum + (item.parsed.y || 0), 0);
+                  return `Total do mes: ${tooltipCurrency.format(total)}`;
                 },
               },
             },
           },
           scales: {
-            x: {
+            x: { stacked: true, grid: { display: false } },
+            y: {
+              stacked: true,
+              beginAtZero: true,
               ticks: {
                 callback(value) {
                   return compactCurrency.format(value || 0);
                 },
               },
             },
-            y: { grid: { display: false } },
           },
         },
       });

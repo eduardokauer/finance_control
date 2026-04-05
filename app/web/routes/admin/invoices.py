@@ -49,6 +49,7 @@ def _render_invoice_item_category_editor(
     selected_apply_mode: str = "single",
     selected_rule_pattern: str | None = None,
     selected_rule_match_mode: str = "exact_normalized",
+    return_to: str | None = None,
     single_preview=None,
     base_preview=None,
     form_error: str | None = None,
@@ -70,6 +71,7 @@ def _render_invoice_item_category_editor(
             "selected_apply_mode": selected_apply_mode,
             "selected_rule_pattern": resolved_rule_pattern,
             "selected_rule_match_mode": selected_rule_match_mode,
+            "return_to": return_to,
             "single_preview": single_preview,
             "base_preview": base_preview,
             "form_error": form_error,
@@ -121,10 +123,28 @@ def admin_credit_card_invoice_list(
             "chart_data": chart_payload,
             "invoice_category_chart": analysis_snapshot["charts"]["invoice_categories"],
             "invoice_period_label": analysis_snapshot["period"]["month_reference_label"],
-            "credit_cards": list_credit_cards(db, active_only=True),
-            "recent_loads": list_recent_source_files(db, source_types=["credit_card_bill"], limit=10),
             "status_variant": _status_variant,
         },
+    )
+
+
+def _credit_card_invoice_manage_context(db: Session) -> dict:
+    return {
+        "credit_cards": list_credit_cards(db, active_only=True),
+        "recent_loads": list_recent_source_files(db, source_types=["credit_card_bill"], limit=10),
+    }
+
+
+@router.get("/credit-card-invoices/manage", response_class=HTMLResponse)
+def admin_credit_card_invoice_manage(
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    return render_admin(
+        request,
+        "admin/credit_card_invoices_manage.html",
+        _credit_card_invoice_manage_context(db),
     )
 
 
@@ -154,6 +174,7 @@ def admin_credit_card_invoice_item_category_edit(
     invoice_id: int,
     item_id: int,
     request: Request,
+    return_to: str | None = None,
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
@@ -162,6 +183,7 @@ def admin_credit_card_invoice_item_category_edit(
         item_id=item_id,
         request=request,
         db=db,
+        return_to=return_to,
     )
 
 
@@ -174,6 +196,7 @@ def admin_credit_card_invoice_item_category_preview(
     apply_mode: str = Form("single"),
     rule_pattern: str | None = Form(default=None),
     rule_match_mode: str = Form("exact_normalized"),
+    return_to: str | None = Form(default=None),
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
@@ -206,6 +229,7 @@ def admin_credit_card_invoice_item_category_preview(
             selected_apply_mode=apply_mode,
             selected_rule_pattern=rule_pattern,
             selected_rule_match_mode=rule_match_mode,
+            return_to=return_to,
             form_error=str(exc),
             status_code=exc.status_code,
         )
@@ -218,6 +242,7 @@ def admin_credit_card_invoice_item_category_preview(
         selected_apply_mode=apply_mode,
         selected_rule_pattern=rule_pattern,
         selected_rule_match_mode=rule_match_mode,
+        return_to=return_to,
         single_preview=single_preview,
         base_preview=base_preview,
     )
@@ -232,6 +257,7 @@ def admin_credit_card_invoice_item_category_apply(
     apply_mode: str = Form("single"),
     rule_pattern: str | None = Form(default=None),
     rule_match_mode: str = Form("exact_normalized"),
+    return_to: str | None = Form(default=None),
     confirm_apply: bool = Form(False),
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
