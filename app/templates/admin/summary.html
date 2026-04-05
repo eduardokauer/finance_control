@@ -89,7 +89,8 @@
         </div>
         <a class="button button-ghost" href="{{ analysis_urls.categories_view }}" data-context-cta="categories">Abrir categorias</a>
       </div>
-      <div class="chart-shell">
+      <div id="overview-categories-legend" class="chart-legend-checkboxes" aria-label="Categorias visiveis na overview"></div>
+      <div class="chart-shell chart-shell-tall">
         <canvas id="{{ overview_charts.categories.canvas_id }}" aria-label="{{ overview_charts.categories.title }}"></canvas>
       </div>
       <div class="overview-link-list">
@@ -142,6 +143,7 @@
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% include "admin/partials/category_stacked_chart_script.html" %}
 <script>
   (() => {
     const compactCurrency = new Intl.NumberFormat('pt-BR', {
@@ -388,9 +390,10 @@
       {{ overview_charts.invoice.data|tojson }}
     );
 
-    mountCategoryChart(
+    window.mountAdminStackedCategoryChart(
       {{ overview_charts.categories.canvas_id|tojson }},
-      {{ overview_charts.categories.data|tojson }}
+      {{ overview_charts.categories.data|tojson }},
+      { legendId: 'overview-categories-legend' }
     );
   })();
 </script>

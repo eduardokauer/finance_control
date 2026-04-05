@@ -9,7 +9,13 @@ from sqlalchemy.orm import Session
 
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
-from app.services.admin import latest_analysis_run_for_period, list_recent_source_files, renderable_analysis_html, resolve_analysis_period
+from app.services.admin import (
+    latest_analysis_run_for_period,
+    list_available_analysis_months,
+    list_recent_source_files,
+    renderable_analysis_html,
+    resolve_analysis_period,
+)
 from app.services.analysis import build_analysis_snapshot, parse_analysis_payload
 
 from .helpers import render_admin
@@ -169,10 +175,10 @@ def _build_overview_charts(analysis_data: dict) -> dict[str, dict]:
         },
         "categories": {
             "title": "Gráfico de categorias",
-            "note": analysis_data["category_breakdown"]["note"],
+            "note": "Colunas empilhadas por categoria ao longo de 12 meses, com total mensal visivel e filtros rapidos na legenda.",
             "canvas_id": "overview-categories-chart",
             "kind": "categories",
-            "data": analysis_data["charts"]["categories"],
+            "data": analysis_data["charts"]["categories_monthly"],
         },
     }
 
@@ -379,6 +385,7 @@ def _analysis_page_context(
         payload_snapshot["charts"]["conciliated"] = live_snapshot["charts"]["conciliated"]
         payload_snapshot["charts"]["invoice_monthly"] = live_snapshot["charts"]["invoice_monthly"]
         payload_snapshot["charts"]["consumption_monthly"] = live_snapshot["charts"]["consumption_monthly"]
+        payload_snapshot["charts"]["categories_monthly"] = live_snapshot["charts"]["categories_monthly"]
         payload_snapshot["charts"]["statement_categories"] = live_snapshot["charts"]["statement_categories"]
         payload_snapshot["charts"]["invoice_categories"] = live_snapshot["charts"]["invoice_categories"]
     analysis_data = payload_snapshot or live_snapshot
@@ -466,6 +473,12 @@ def _analysis_page_context(
         recent_loads = list_recent_source_files(db, source_types=["bank_statement"], limit=10)
     else:
         recent_loads = []
+    analysis_month_options = list_available_analysis_months(db)
+    latest_closed_value = f"{latest_closed_start.year:04d}-{latest_closed_start.month:02d}"
+    latest_closed_label = next(
+        (option["label"] for option in analysis_month_options if option["value"] == latest_closed_value),
+        latest_closed_value,
+    )
     return {
         "selection_mode": selected_mode,
         "period_start": resolved_start,
@@ -475,6 +488,8 @@ def _analysis_page_context(
         "latest_closed_end": latest_closed_end,
         "month_preview_start": month_preview_start,
         "month_preview_end": month_preview_end,
+        "analysis_month_options": analysis_month_options,
+        "latest_closed_label": latest_closed_label,
         "summary": analysis_data.get("primary_summary", analysis_data["summary"]),
         "analysis_run": analysis_run,
         "analysis_data": analysis_data,

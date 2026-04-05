@@ -1875,8 +1875,8 @@ def build_category_consumption_monthly_series(
 
     series_start = add_months(month_start(anchor_month), -11)
     month_snapshots: list[dict] = []
-    category_order: list[str] = []
-    category_seen: set[str] = set()
+    category_totals: dict[str, float] = defaultdict(float)
+    category_labels: dict[str, str] = {}
     for offset in range(12):
         current_month = add_months(series_start, offset)
         snapshot = _build_conciliated_category_month_snapshot(db, anchor_month=current_month)
@@ -1885,12 +1885,16 @@ def build_category_consumption_monthly_series(
             if row["expense_total"] <= 0 or row["is_technical"]:
                 continue
             category_key = row["name"].casefold()
-            if category_key in category_seen:
-                continue
-            category_seen.add(category_key)
-            category_order.append(row["name"])
+            category_labels[category_key] = row["name"]
+            category_totals[category_key] += row["expense_total"]
 
-    resolved_names = selected_names or category_order
+    resolved_names = selected_names or [
+        category_labels[key]
+        for key, _total in sorted(
+            category_totals.items(),
+            key=lambda item: (-item[1], category_labels[item[0]].casefold()),
+        )
+    ]
     labels = [snapshot["label"] for snapshot in month_snapshots]
     datasets = [{"label": name, "values": []} for name in resolved_names]
     for snapshot in month_snapshots:
@@ -2025,7 +2029,14 @@ def build_category_composition_for_period(
             }
         )
 
-    rows.sort(key=lambda item: (item["date"], item["amount"], item["description"]), reverse=True)
+    rows.sort(
+        key=lambda item: (
+            item["amount"],
+            item["date"],
+            item["description"].casefold(),
+        ),
+        reverse=True,
+    )
     total = sum(item["amount"] for item in rows)
     selection_label = "Categoria" if len(selected_names) == 1 else "Categorias"
     if not selected_names:
@@ -2288,8 +2299,12 @@ def build_analysis_snapshot(
     )
     invoice_monthly_series = _build_invoice_monthly_series(db, anchor_month=anchor_month)
     consumption_monthly_series = _build_consumption_monthly_series(db, anchor_month=anchor_month)
-
     top_expense_categories = category_breakdown["top_expense_categories"]
+    category_consumption_monthly_series = build_category_consumption_monthly_series(
+        db,
+        anchor_month=anchor_month,
+        category_names=[item["name"] for item in top_expense_categories[:8]],
+    )
     return {
         "period": {
             "start": period_start.isoformat(),
@@ -2357,6 +2372,7 @@ def build_analysis_snapshot(
                 "values": [round(item["expense_total"], 2) for item in top_expense_categories],
                 "technical": [item["is_technical"] for item in top_expense_categories],
             },
+            "categories_monthly": category_consumption_monthly_series,
             "statement_categories": {
                 "labels": [item["name"] for item in statement_category_breakdown["top_expense_categories"]],
                 "values": [round(item["expense_total"], 2) for item in statement_category_breakdown["top_expense_categories"]],

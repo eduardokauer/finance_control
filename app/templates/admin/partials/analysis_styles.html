@@ -51,25 +51,36 @@
     gap: 12px;
   }
   .analysis-period-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    display: grid;
     gap: 12px;
   }
   .analysis-period-mode-group {
-    flex: 0 0 auto;
-  }
-  .analysis-period-inline {
-    flex: 1 1 340px;
-    min-width: 0;
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    gap: 10px;
+  }
+  .period-tab {
+    border-color: rgba(217, 226, 236, 0.92);
+    background: linear-gradient(180deg, #ffffff 0%, #f6f8fb 100%);
+    color: var(--ink);
+    box-shadow: none;
+  }
+  .period-tab:hover {
+    background: linear-gradient(180deg, #f8fbff 0%, #edf4ff 100%);
+    border-color: rgba(96, 165, 250, 0.42);
+  }
+  .period-tab-active {
+    border-color: rgba(96, 165, 250, 0.48);
+    background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+    color: #1d4ed8;
+    box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.16) inset;
+  }
+  .analysis-period-panels-stack {
+    display: grid;
     gap: 10px;
   }
   .analysis-period-panel {
     display: flex;
-    flex: 1 1 auto;
     flex-wrap: wrap;
     align-items: center;
     gap: 10px;
@@ -91,37 +102,44 @@
   .analysis-period-field input {
     min-height: 42px;
   }
-  .analysis-period-summary {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 42px;
-    min-width: 0;
-    max-width: 100%;
-    padding: 0 14px;
+  .analysis-period-field select,
+  .analysis-period-field input {
+    min-height: 44px;
+  }
+  .analysis-period-preview {
+    display: grid;
+    gap: 4px;
+    min-height: 44px;
+    padding: 12px 14px;
     border-radius: 14px;
     border: 1px solid rgba(217, 226, 236, 0.92);
     background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
     box-shadow: var(--shadow-soft);
     color: var(--muted);
   }
-  .analysis-period-summary strong {
+  .analysis-period-preview strong {
     color: var(--ink);
     font-size: 0.78rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    white-space: nowrap;
   }
-  .analysis-period-summary span {
-    min-width: 0;
-    overflow-wrap: anywhere;
+  .analysis-period-preview span {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .analysis-period-preview small {
+    color: var(--muted);
   }
   .analysis-period-actions {
-    margin-left: auto;
-    flex: 0 0 auto;
+    justify-content: flex-end;
+  }
+  .analysis-period-actions .button[disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+    box-shadow: none;
   }
   .analysis-toolbar-filters {
-    flex: 0 1 auto;
     min-width: 220px;
   }
   .analysis-filter-dropdown {
@@ -597,6 +615,38 @@
   .chart-shell-tall canvas {
     height: 340px !important;
   }
+  .chart-legend-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    align-items: center;
+  }
+  .chart-legend-checkbox-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 0 10px;
+    border: 1px solid rgba(217, 226, 236, 0.92);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--text);
+    box-shadow: var(--shadow-soft);
+  }
+  .chart-legend-checkbox-item input {
+    margin: 0;
+  }
+  .chart-legend-checkbox-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    flex: 0 0 auto;
+  }
+  .chart-legend-checkbox-text {
+    font-size: 0.86rem;
+    white-space: nowrap;
+  }
   .analysis-table-wrap {
     overflow-x: auto;
   }
@@ -611,6 +661,46 @@
     padding: 10px 8px;
     border-bottom: 1px solid var(--line);
     font-size: 0.92rem;
+  }
+  .analysis-sort-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .analysis-sort-button:hover {
+    color: #1d4ed8;
+  }
+  .analysis-sort-button-active {
+    color: #1d4ed8;
+  }
+  .analysis-sort-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 12px;
+    color: rgba(100, 116, 139, 0.92);
+    font-size: 0.82rem;
+  }
+  .analysis-sort-button-active .analysis-sort-indicator {
+    color: currentColor;
+  }
+  .analysis-sort-button[data-sort-direction="asc"] .analysis-sort-indicator::before {
+    content: "\2191";
+  }
+  .analysis-sort-button[data-sort-direction="desc"] .analysis-sort-indicator::before {
+    content: "\2193";
+  }
+  .analysis-sort-button:not([data-sort-direction]) .analysis-sort-indicator::before {
+    content: "\2195";
   }
   .analysis-list {
     display: grid;

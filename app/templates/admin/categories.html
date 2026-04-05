@@ -3,7 +3,7 @@
 {% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
 {% block content %}
 {% set analysis_page_title = "Categorias" %}
-{% set analysis_page_intro = "Subhome da leitura categorial: consumo do periodo, grafico de 12 meses, ranking clicavel e composicao do valor por categoria." %}
+{% set analysis_page_intro = "Subhome da leitura categorial: grafico empilhado de 12 meses, filtros por categoria e composicao operacional do valor." %}
 {% include "admin/partials/analysis_period_form.html" %}
 
 <section class="overview-stack">
@@ -11,9 +11,10 @@
     <div class="overview-chart-header">
       <div class="stack" style="gap:4px;">
         <strong>Grafico principal de 12 meses</strong>
-        <div class="subtle">Colunas empilhadas por categoria no contexto atual da página, mantendo os 12 meses visíveis mesmo quando algum mês fecha zerado.</div>
+        <div class="subtle">Colunas empilhadas por categoria no contexto atual da pagina, com total mensal visivel e filtros rapidos direto na legenda.</div>
       </div>
     </div>
+    <div id="categories-main-monthly-legend" class="chart-legend-checkboxes" aria-label="Categorias visiveis no grafico"></div>
     <div class="chart-shell chart-shell-tall">
       <canvas id="categories-main-monthly-chart" aria-label="Grafico principal de 12 meses"></canvas>
     </div>
@@ -54,21 +55,57 @@
       </div>
 
       <div class="analysis-table-wrap">
-        <table class="analysis-table responsive-stack">
+        <table class="analysis-table responsive-stack" id="category-composition-table">
           <thead>
             <tr>
-              <th>Data</th>
-              <th>Descricao</th>
-              <th>Categoria</th>
-              <th>Origem</th>
-              <th>Escopo</th>
-              <th>Valor</th>
+              <th aria-sort="none">
+                <button type="button" class="analysis-sort-button" data-sort-key="date" data-sort-type="date" data-default-direction="desc">
+                  <span>Data</span>
+                  <span class="analysis-sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th aria-sort="none">
+                <button type="button" class="analysis-sort-button" data-sort-key="description" data-sort-type="text" data-default-direction="asc">
+                  <span>Descricao</span>
+                  <span class="analysis-sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th aria-sort="none">
+                <button type="button" class="analysis-sort-button" data-sort-key="category" data-sort-type="text" data-default-direction="asc">
+                  <span>Categoria</span>
+                  <span class="analysis-sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th aria-sort="none">
+                <button type="button" class="analysis-sort-button" data-sort-key="source" data-sort-type="text" data-default-direction="asc">
+                  <span>Origem</span>
+                  <span class="analysis-sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th aria-sort="none">
+                <button type="button" class="analysis-sort-button" data-sort-key="scope" data-sort-type="text" data-default-direction="asc">
+                  <span>Escopo</span>
+                  <span class="analysis-sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th aria-sort="descending">
+                <button type="button" class="analysis-sort-button analysis-sort-button-active" data-sort-key="amount" data-sort-type="number" data-default-direction="desc" data-sort-direction="desc">
+                  <span>Valor</span>
+                  <span class="analysis-sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
               <th>Ação</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="category-composition-body">
             {% for row in category_composition.rows %}
-              <tr>
+              <tr
+                data-sort-date="{{ row.date.isoformat() }}"
+                data-sort-description="{{ row.description|lower }}"
+                data-sort-category="{{ row.category_name|lower }}"
+                data-sort-source="{{ row.source_label|lower }}"
+                data-sort-scope="{{ row.scope_label|lower }}"
+                data-sort-amount="{{ '%.2f'|format(row.amount) }}">
                 <td data-label="Data">{{ row.date_display }}</td>
                 <td data-label="Descricao">
                   <div>{{ row.description }}</div>
@@ -101,85 +138,94 @@
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% include "admin/partials/category_stacked_chart_script.html" %}
 <script>
   (() => {
-    const compactCurrency = new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      maximumFractionDigits: 0,
-    });
-    const tooltipCurrency = new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
+    const monthlyData = {{ consumption_chart|tojson }};
+    window.mountAdminStackedCategoryChart(
+      'categories-main-monthly-chart',
+      monthlyData,
+      { legendId: 'categories-main-monthly-legend' }
+    );
+
+    const table = document.getElementById('category-composition-table');
+    const tbody = document.getElementById('category-composition-body');
+    if (!table || !tbody) {
+      return;
+    }
+
+    const sortButtons = Array.from(table.querySelectorAll('.analysis-sort-button'));
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    function updateSortState(activeButton, direction) {
+      sortButtons.forEach((button) => {
+        const header = button.closest('th');
+        const isActive = button === activeButton;
+        button.classList.toggle('analysis-sort-button-active', isActive);
+        if (isActive) {
+          button.dataset.sortDirection = direction;
+          header?.setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
+        } else {
+          delete button.dataset.sortDirection;
+          header?.setAttribute('aria-sort', 'none');
+        }
+      });
+    }
+
+    function compareValues(left, right, type, direction) {
+      if (type === 'number') {
+        const leftNumber = Number(left || 0);
+        const rightNumber = Number(right || 0);
+        return direction === 'asc' ? leftNumber - rightNumber : rightNumber - leftNumber;
+      }
+      if (type === 'date') {
+        const leftTime = Date.parse(left || '') || 0;
+        const rightTime = Date.parse(right || '') || 0;
+        return direction === 'asc' ? leftTime - rightTime : rightTime - leftTime;
+      }
+      const comparison = String(left || '').localeCompare(String(right || ''), 'pt-BR', {
+        sensitivity: 'base',
+        numeric: true,
+      });
+      return direction === 'asc' ? comparison : -comparison;
+    }
+
+    function sortRows(button, direction) {
+      const key = button.dataset.sortKey;
+      const type = button.dataset.sortType || 'text';
+      const sortedRows = [...rows].sort((leftRow, rightRow) => {
+        const result = compareValues(
+          leftRow.dataset[`sort${key.charAt(0).toUpperCase()}${key.slice(1)}`],
+          rightRow.dataset[`sort${key.charAt(0).toUpperCase()}${key.slice(1)}`],
+          type,
+          direction,
+        );
+        if (result !== 0) {
+          return result;
+        }
+        const leftDate = leftRow.dataset.sortDate || '';
+        const rightDate = rightRow.dataset.sortDate || '';
+        return Date.parse(rightDate || '') - Date.parse(leftDate || '');
+      });
+
+      sortedRows.forEach((row) => tbody.appendChild(row));
+      updateSortState(button, direction);
+    }
+
+    sortButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const isActive = button.classList.contains('analysis-sort-button-active');
+        const defaultDirection = button.dataset.defaultDirection || 'asc';
+        const nextDirection = isActive
+          ? (button.dataset.sortDirection === 'asc' ? 'desc' : 'asc')
+          : defaultDirection;
+        sortRows(button, nextDirection);
+      });
     });
 
-    const monthlyCanvas = document.getElementById('categories-main-monthly-chart');
-    if (monthlyCanvas) {
-      const monthlyData = {{ consumption_chart|tojson }};
-      const palette = [
-        { fill: 'rgba(37, 99, 235, 0.82)', stroke: 'rgb(37, 99, 235)' },
-        { fill: 'rgba(15, 118, 110, 0.82)', stroke: 'rgb(15, 118, 110)' },
-        { fill: 'rgba(245, 158, 11, 0.82)', stroke: 'rgb(245, 158, 11)' },
-        { fill: 'rgba(220, 38, 38, 0.82)', stroke: 'rgb(220, 38, 38)' },
-        { fill: 'rgba(124, 58, 237, 0.82)', stroke: 'rgb(124, 58, 237)' },
-        { fill: 'rgba(8, 145, 178, 0.82)', stroke: 'rgb(8, 145, 178)' },
-        { fill: 'rgba(234, 88, 12, 0.82)', stroke: 'rgb(234, 88, 12)' },
-        { fill: 'rgba(99, 102, 241, 0.82)', stroke: 'rgb(99, 102, 241)' },
-      ];
-      new Chart(monthlyCanvas, {
-        type: 'bar',
-        data: {
-          labels: monthlyData.labels,
-          datasets: monthlyData.datasets.map((dataset, index) => ({
-            label: dataset.label,
-            data: dataset.values,
-            backgroundColor: palette[index % palette.length].fill,
-            borderColor: palette[index % palette.length].stroke,
-            borderWidth: 1,
-            borderRadius: 6,
-            borderSkipped: false,
-            maxBarThickness: 42,
-            stack: 'categories',
-          })),
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          plugins: {
-            legend: {
-              position: 'top',
-              labels: {
-                usePointStyle: true,
-                boxWidth: 10,
-              },
-            },
-            tooltip: {
-              callbacks: {
-                label(context) {
-                  return `${context.dataset.label}: ${tooltipCurrency.format(context.parsed.y || 0)}`;
-                },
-                footer(items) {
-                  const total = items.reduce((sum, item) => sum + (item.parsed.y || 0), 0);
-                  return `Total do mes: ${tooltipCurrency.format(total)}`;
-                },
-              },
-            },
-          },
-          scales: {
-            x: { stacked: true, grid: { display: false } },
-            y: {
-              stacked: true,
-              beginAtZero: true,
-              ticks: {
-                callback(value) {
-                  return compactCurrency.format(value || 0);
-                },
-              },
-            },
-          },
-        },
-      });
+    const defaultButton = table.querySelector('.analysis-sort-button-active') || sortButtons[0];
+    if (defaultButton) {
+      sortRows(defaultButton, defaultButton.dataset.sortDirection || defaultButton.dataset.defaultDirection || 'asc');
     }
   })();
 </script>

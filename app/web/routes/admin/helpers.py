@@ -19,7 +19,18 @@ ADMIN_NAV_SECTIONS = [
         "items": [
             {"key": "overview", "label": "Visão Geral", "href": "/admin"},
             {"key": "conciliated", "label": "Visão conciliada", "href": "/admin/analysis"},
-            {"key": "statement", "label": "Visão de Extrato", "href": "/admin/conference"},
+            {
+                "key": "statement",
+                "label": "Visão de Extrato",
+                "href": "/admin/conference",
+                "children": [
+                    {
+                        "key": "statement_manage",
+                        "label": "Administrar extratos",
+                        "href": "/admin/conference/manage",
+                    }
+                ],
+            },
             {
                 "key": "invoice_view",
                 "label": "Visão de Faturas",
@@ -64,6 +75,8 @@ ADMIN_NAV_SECTIONS = [
 
 
 def _active_nav_key(path: str) -> str:
+    if path.startswith("/admin/conference/manage"):
+        return "statement_manage"
     if path.startswith("/admin/credit-card-invoices/manage"):
         return "invoice_manage"
     if path.startswith("/admin/categories/manage"):

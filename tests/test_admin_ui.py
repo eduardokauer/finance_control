@@ -215,7 +215,8 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert 'data-context-chip="lens"' not in home.text
     assert "Controles globais da página" in home.text
     assert 'class="analysis-period-bar"' in home.text
-    assert 'data-period-summary="closed"' in home.text
+    assert "Último mês fechado disponível" in home.text
+    assert 'id="analysis-apply-button"' in home.text
     assert "Receitas conciliadas" in home.text
     assert "Despesa liquida conciliada" in home.text
     assert "Saldo conciliado" in home.text
@@ -538,12 +539,17 @@ def test_admin_categories_page_filters_by_multiple_selected_categories(client, d
     assert "Editar lançamento" in response.text
     assert "/admin/transactions/" in response.text
     assert 'data-context-chip="selected_categories"' in response.text
+    assert 'data-sort-key="amount"' in response.text
+    assert 'data-sort-direction="desc"' in response.text
+    assert 'id="categories-main-monthly-legend"' in response.text
+    assert "mountAdminStackedCategoryChart" in response.text
     assert "Grafico de categorias" not in response.text
     assert 'data-category-row="Moradia"' not in response.text
     assert 'data-category-row="Supermercado"' not in response.text
     assert "ALUGUEL MAR" in response.text
     assert "MERCADO MAR" in response.text
     assert "UBER MAR" not in response.text
+    assert response.text.index("ALUGUEL MAR") < response.text.index("MERCADO MAR")
     monthly_chart_match = re.search(r"const monthlyData = (\{.*?\});", response.text, re.S)
     assert monthly_chart_match is not None
     monthly_chart_payload = json.loads(monthly_chart_match.group(1))
@@ -598,6 +604,7 @@ def test_admin_categories_page_treats_empty_selection_as_all_categories(client, 
     assert "ALUGUEL MAR TODAS" in response.text
     assert "MERCADO MAR TODAS" in response.text
     assert "UBER MAR TODAS" in response.text
+    assert response.text.index("ALUGUEL MAR TODAS") < response.text.index("MERCADO MAR TODAS") < response.text.index("UBER MAR TODAS")
     assert 'value="Moradia" checked' not in response.text
     assert 'value="Supermercado" checked' not in response.text
     assert 'value="Transporte" checked' not in response.text
@@ -738,11 +745,14 @@ def test_admin_summary_page_switches_home_lenses_and_hides_top_categories_in_cas
     assert "Receitas conciliadas" in cash_response.text
     assert "12 meses conciliado" in cash_response.text
     assert 'data-context-cta="categories"' in cash_response.text
+    assert 'id="overview-categories-legend"' in cash_response.text
+    assert "mountAdminStackedCategoryChart" in cash_response.text
 
     assert competence_response.status_code == 200
     assert "Receitas conciliadas" in competence_response.text
     assert "12 meses conciliado" in competence_response.text
     assert 'data-context-cta="categories"' in competence_response.text
+    assert 'id="overview-categories-legend"' in competence_response.text
     assert 'data-context-chip="lens"' not in competence_response.text
 
 
@@ -813,6 +823,40 @@ def test_admin_summary_page_shows_recent_movements_block(client, db_session, mon
     assert "Movimentações recentes" not in response.text
     assert "Alertas" in response.text
     assert "Gráfico de categorias" in response.text
+
+
+def test_admin_summary_page_uses_deferred_period_apply_controls(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR CONTROLES",
+        normalized="salario mar controles resumo",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Sal\u00e1rio",
+    )
+    _seed_credit_card_invoice(
+        db_session,
+        card_label="Ita\u00fa Visa final 2222",
+        card_final="2222",
+        billing_year=2026,
+        billing_month=2,
+        status="imported",
+    )
+    _login(client)
+
+    response = client.get("/admin")
+
+    assert response.status_code == 200
+    assert "Ver resumo" not in response.text
+    assert 'id="analysis-apply-button"' in response.text
+    assert "Aplicar" in response.text
+    assert "Último mês fechado disponível" in response.text
+    assert 'name="month"' in response.text
+    assert "marco de 2026" in response.text
+    assert "fevereiro de 2026" in response.text
 
 
 def test_admin_analysis_page_restores_summary_context_from_chart_navigation(client, db_session, monkeypatch):
@@ -974,6 +1018,61 @@ def test_admin_invoice_upload_form_is_available_only_on_invoice_page(client, db_
     assert "Importar fatura" in invoices_manage.text
     assert 'action="/admin/credit-card-bills/upload"' in invoices_manage.text
     assert "Arquivo CSV" in invoices_manage.text
+
+
+def test_admin_bank_statement_upload_form_is_available_only_on_statement_manage_page(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(db_session, description="EXTRATO MAR", normalized="extrato mar upload admin", amount=-25.0, transaction_kind="expense", category="Transporte")
+    _login(client)
+
+    operations = client.get("/admin/operations")
+    conference = client.get("/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
+    statement_manage = client.get("/admin/conference/manage")
+
+    assert operations.status_code == 200
+    assert 'action="/admin/bank-statements/upload"' not in operations.text
+    assert "Importar extrato" not in operations.text
+    assert conference.status_code == 200
+    assert 'action="/admin/bank-statements/upload"' not in conference.text
+    assert "Importar extrato" not in conference.text
+    assert "Administrar extratos" in conference.text
+    assert statement_manage.status_code == 200
+    assert "Administrar extratos" in statement_manage.text
+    assert "Importar extrato" in statement_manage.text
+    assert 'action="/admin/bank-statements/upload"' in statement_manage.text
+    assert "Arquivo OFX" in statement_manage.text
+
+
+def test_admin_can_upload_bank_statement(client, db_session, monkeypatch, sample_ofx_file):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _login(client)
+
+    with sample_ofx_file.open("rb") as handle:
+        upload = client.post(
+            "/admin/bank-statements/upload",
+            data={
+                "reference_id": "admin-ofx-mar-2026",
+                "return_to": "/admin/conference/manage",
+            },
+            files={"file": (sample_ofx_file.name, handle, "application/octet-stream")},
+            follow_redirects=False,
+        )
+
+    assert upload.status_code == 303
+    assert upload.headers["location"].startswith("/admin/conference?")
+    assert "period_start=2026-03-07" in upload.headers["location"]
+    assert "period_end=2026-03-07" in upload.headers["location"]
+
+    conference = client.get(upload.headers["location"])
+
+    assert conference.status_code == 200
+    assert "Visão de Extrato" in conference.text
+    assert "07/03/2026" in conference.text
+    assert db_session.scalar(select(SourceFile).where(SourceFile.source_type == "bank_statement")) is not None
+    assert db_session.scalar(select(Transaction).where(Transaction.source_type == "bank_statement")) is not None
+    assert db_session.scalar(select(AnalysisRun).where(AnalysisRun.period_start == date(2026, 3, 7))) is not None
 
 
 def test_admin_manual_edit_creates_audit_and_rule(client, db_session, monkeypatch):
@@ -1360,7 +1459,7 @@ def test_admin_analysis_page_shows_empty_state_and_navigation(client, db_session
     assert "Gerar nova análise" in response.text
     assert "Visão de consumo do mês-base" in response.text
     assert "data-loading-button" in response.text
-    assert "Carregando análise..." in response.text
+    assert "Aplicando..." in response.text
     assert "Gerando análise..." in response.text
 
 
@@ -2145,7 +2244,7 @@ def test_admin_loading_buttons_are_exposed_in_reapply_and_analysis(client, db_se
     analysis_page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert analysis_page.status_code == 200
     assert analysis_page.text.count("data-loading-button") >= 2
-    assert "Carregando análise..." in analysis_page.text
+    assert "Aplicando..." in analysis_page.text
     assert "Gerando análise..." in analysis_page.text
 
 
@@ -2562,3 +2661,4 @@ def test_admin_credit_card_invoice_detail_returns_404_for_missing_invoice(client
     response = client.get("/admin/credit-card-invoices/999999")
 
     assert response.status_code == 404
+
