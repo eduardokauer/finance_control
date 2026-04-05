@@ -17,39 +17,34 @@
         <div class="admin-sidebar-section-label">{{ section.label }}</div>
         <div class="admin-sidebar-links">
           {% for item in section["items"] %}
-            <a
-              href="{{ item.href }}"
-              class="admin-sidebar-link {% if item.is_active %}admin-sidebar-link-active{% endif %}"
-              {% if item.is_active %}aria-current="page"{% endif %}
-            >
-              <span class="admin-sidebar-link-dot" aria-hidden="true"></span>
-              <span>{{ item.label }}</span>
-            </a>
+            <div class="admin-sidebar-link-group">
+              <a
+                href="{{ item.href }}"
+                class="admin-sidebar-link {% if item.is_active %}admin-sidebar-link-active{% endif %}"
+                {% if item.is_current %}aria-current="page"{% endif %}
+              >
+                <span class="admin-sidebar-link-dot" aria-hidden="true"></span>
+                <span>{{ item.label }}</span>
+              </a>
+              {% if item.children %}
+                <div class="admin-sidebar-sublinks">
+                  {% for child in item.children %}
+                    <a
+                      href="{{ child.href }}"
+                      class="admin-sidebar-sublink {% if child.is_current %}admin-sidebar-sublink-active{% endif %}"
+                      {% if child.is_current %}aria-current="page"{% endif %}
+                    >
+                      <span class="admin-sidebar-sublink-dot" aria-hidden="true"></span>
+                      <span>{{ child.label }}</span>
+                    </a>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
           {% endfor %}
         </div>
       </div>
     {% endfor %}
   </div>
 
-  <div class="admin-sidebar-footer">
-    <div class="admin-sidebar-profile">
-      <div class="admin-sidebar-profile-mark" aria-hidden="true">FC</div>
-      <div class="admin-sidebar-profile-copy">
-        <strong>{{ admin_shell_profile_name }}</strong>
-        <span>{{ admin_shell_profile_subtitle }}</span>
-      </div>
-    </div>
-    <div class="admin-sidebar-session">
-      <div class="admin-sidebar-session-label">Contexto atual</div>
-      <div class="admin-sidebar-session-value">{{ active_nav_section_label }}</div>
-    </div>
-    <div class="admin-sidebar-quick-links">
-      {% for link in admin_shell_quick_links %}
-        <a href="{{ link.href }}" class="admin-sidebar-quick-link">{{ link.label }}</a>
-      {% endfor %}
-    </div>
-    <form method="post" action="/admin/logout">
-      <button type="submit" class="button button-ghost admin-sidebar-logout">Sair</button>
-    </form>
-  </div>
 </aside>

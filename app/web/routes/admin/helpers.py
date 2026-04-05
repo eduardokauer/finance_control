@@ -20,8 +20,30 @@ ADMIN_NAV_SECTIONS = [
             {"key": "overview", "label": "Visão Geral", "href": "/admin"},
             {"key": "conciliated", "label": "Visão conciliada", "href": "/admin/analysis"},
             {"key": "statement", "label": "Visão de Extrato", "href": "/admin/conference"},
-            {"key": "invoice_view", "label": "Visão de Faturas", "href": "/admin/credit-card-invoices"},
-            {"key": "categories", "label": "Categorias", "href": "/admin/categories"},
+            {
+                "key": "invoice_view",
+                "label": "Visão de Faturas",
+                "href": "/admin/credit-card-invoices",
+                "children": [
+                    {
+                        "key": "invoice_manage",
+                        "label": "Administrar faturas",
+                        "href": "/admin/credit-card-invoices/manage",
+                    }
+                ],
+            },
+            {
+                "key": "categories",
+                "label": "Categorias",
+                "href": "/admin/categories",
+                "children": [
+                    {
+                        "key": "categories_manage",
+                        "label": "Administrar categorias",
+                        "href": "/admin/categories/manage",
+                    }
+                ],
+            },
         ],
     },
     {
@@ -42,6 +64,10 @@ ADMIN_NAV_SECTIONS = [
 
 
 def _active_nav_key(path: str) -> str:
+    if path.startswith("/admin/credit-card-invoices/manage"):
+        return "invoice_manage"
+    if path.startswith("/admin/categories/manage"):
+        return "categories_manage"
     if path.startswith("/admin/analysis"):
         return "conciliated"
     if path.startswith("/admin/conference"):
@@ -70,8 +96,24 @@ def _build_shell_context(request: Request) -> dict:
     for section in ADMIN_NAV_SECTIONS:
         items = []
         for item in section["items"]:
-            enriched_item = {**item, "is_active": item["key"] == active_key}
-            if enriched_item["is_active"]:
+            children = []
+            active_child = None
+            for child in item.get("children", []):
+                enriched_child = {**child, "is_current": child["key"] == active_key}
+                if enriched_child["is_current"]:
+                    active_child = enriched_child
+                    active_item = enriched_child
+                    active_section = section["label"]
+                children.append(enriched_child)
+
+            item_is_current = item["key"] == active_key
+            enriched_item = {
+                **item,
+                "children": children,
+                "is_current": item_is_current,
+                "is_active": item_is_current or active_child is not None,
+            }
+            if item_is_current:
                 active_item = enriched_item
                 active_section = section["label"]
             items.append(enriched_item)
@@ -84,12 +126,6 @@ def _build_shell_context(request: Request) -> dict:
         "active_nav_section_label": active_section or "Principal",
         "admin_brand_name": "Finance Control Admin",
         "admin_brand_subtitle": "Gestão Financeira",
-        "admin_shell_profile_name": "Finance Control Admin",
-        "admin_shell_profile_subtitle": "Ambiente administrativo",
-        "admin_shell_quick_links": [
-            {"label": "Central operacional", "href": "/admin/operations"},
-            {"label": "Regras", "href": "/admin/rules"},
-        ],
     }
 
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -9,30 +9,30 @@ from sqlalchemy.orm import Session
 
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
-from app.services.admin import list_categories, list_recent_source_files, resolve_analysis_period, upsert_category
-from app.services.analysis import build_analysis_snapshot, build_category_composition_for_period
+from app.services.admin import list_categories, resolve_analysis_period, upsert_category
+from app.services.analysis import (
+    build_analysis_snapshot,
+    build_category_composition_for_period,
+    build_category_consumption_monthly_series,
+)
 
 from .helpers import render_admin
 
 router = APIRouter()
 
 
-def _category_focus_href(
-    *,
-    selection_mode: str,
-    month_value: str | None,
-    period_start: date,
-    period_end: date,
-    category_name: str,
-) -> str:
-    params: list[str] = [f"selection_mode={selection_mode}"]
-    if selection_mode == "month" and month_value:
-        params.append(f"month={month_value}")
-    else:
-        params.append(f"period_start={period_start.isoformat()}")
-        params.append(f"period_end={period_end.isoformat()}")
-    params.append(f"focus_category={category_name}")
-    return "/admin/categories?" + "&".join(params) + "#category-composition-section"
+def _normalize_focus_category(value: str | None) -> str:
+    return " ".join((value or "").split()).casefold()
+
+
+def _summarize_selected_categories(category_names: list[str]) -> str:
+    if not category_names:
+        return "Todas as categorias"
+    if len(category_names) == 1:
+        return category_names[0]
+    if len(category_names) == 2:
+        return f"{category_names[0]} + {category_names[1]}"
+    return f"{category_names[0]} +{len(category_names) - 1}"
 
 
 def _categories_page_context(
@@ -43,6 +43,7 @@ def _categories_page_context(
     period_start: date | None,
     period_end: date | None,
     focus_category: str | None,
+    selected_categories: list[str] | None,
 ) -> dict:
     latest_closed_start, latest_closed_end = resolve_analysis_period(
         db,
@@ -61,13 +62,15 @@ def _categories_page_context(
 
     if selected_mode == "month":
         resolved_start, resolved_end = month_preview_start, month_preview_end
-    elif selected_mode == "custom" and period_start and period_end:
+    elif period_start and period_end:
         resolved_start, resolved_end = resolve_analysis_period(
             db,
             month=None,
             period_start=period_start,
             period_end=period_end,
         )
+        if selected_mode == "closed" and (resolved_start != latest_closed_start or resolved_end != latest_closed_end):
+            selected_mode = "custom"
     else:
         resolved_start, resolved_end = latest_closed_start, latest_closed_end
 
@@ -77,6 +80,13 @@ def _categories_page_context(
         period_end=resolved_end,
     )
     all_categories = list_categories(db)
+    available_categories = [
+        category
+        for category in all_categories
+        if category.transaction_kind == "expense" and category.is_active
+    ]
+    available_category_names = [category.name for category in available_categories]
+
     ranking_rows = [
         row
         for row in analysis_data["category_breakdown"]["rows"]
@@ -84,36 +94,62 @@ def _categories_page_context(
     ]
     ranking_rows.sort(key=lambda item: item["expense_total"], reverse=True)
 
-    valid_focus = focus_category if any(row["name"] == focus_category for row in ranking_rows) else None
+    explicit_selected_category_keys = {
+        _normalize_focus_category(category_name)
+        for category_name in (selected_categories or [])
+        if category_name
+    }
+    selected_category_keys = set(explicit_selected_category_keys)
+    if not selected_category_keys and focus_category:
+        selected_category_keys.add(_normalize_focus_category(focus_category))
+
+    selected_category_names = [
+        category_name
+        for category_name in available_category_names
+        if _normalize_focus_category(category_name) in selected_category_keys
+    ]
+    filtered_ranking_rows = [
+        row
+        for row in ranking_rows
+        if not selected_category_names or row["name"] in selected_category_names
+    ]
+
+    normalized_focus = _normalize_focus_category(focus_category)
+    valid_focus = next(
+        (row["name"] for row in filtered_ranking_rows if _normalize_focus_category(row["name"]) == normalized_focus),
+        None,
+    )
+    composition_categories = selected_category_names or ([valid_focus] if valid_focus else None)
     composition = (
         build_category_composition_for_period(
             db,
             period_start=resolved_start,
             period_end=resolved_end,
-            category_name=valid_focus,
+            category_names=composition_categories,
         )
-        if valid_focus
+        if composition_categories or available_category_names
         else None
     )
-    recent_loads = list_recent_source_files(db, source_types=["bank_statement", "credit_card_bill"], limit=10)
 
-    category_rows = []
-    for row in ranking_rows:
-        category_rows.append(
-            {
-                **row,
-                "href": _category_focus_href(
-                    selection_mode=selected_mode,
-                    month_value=month_value if selected_mode == "month" else None,
-                    period_start=resolved_start,
-                    period_end=resolved_end,
-                    category_name=row["name"],
-                ),
-            }
-        )
-
-    breakdown = analysis_data["category_breakdown"]
-    top_category = breakdown["top_expense_categories"][0] if breakdown["top_expense_categories"] else None
+    category_filter_options = [
+        {
+            "value": category.name,
+            "label": category.name,
+            "is_selected": category.name in selected_category_names,
+        }
+        for category in available_categories
+    ]
+    filtered_consumption_chart = build_category_consumption_monthly_series(
+        db,
+        anchor_month=resolved_end,
+        category_names=selected_category_names or None,
+    )
+    all_categories_selected = bool(available_category_names) and len(selected_category_names) == len(available_category_names)
+    selected_categories_summary = (
+        "Todas as categorias"
+        if all_categories_selected or not selected_category_names
+        else _summarize_selected_categories(selected_category_names)
+    )
 
     return {
         "selection_mode": selected_mode,
@@ -133,6 +169,11 @@ def _categories_page_context(
                 if valid_focus
                 else []
             ),
+            {
+                "key": "selected_categories",
+                "label": "Categorias",
+                "value": selected_categories_summary,
+            },
         ],
         "analysis_focus_banner": (
             {
@@ -153,21 +194,41 @@ def _categories_page_context(
         "analysis_show_generate": False,
         "analysis_global_tabs": [],
         "analysis_controls_intro": (
-            "Categorias vira uma area propria: o filtro define o periodo da leitura, do grafico principal, "
-            "do ranking e da composicao clicavel."
+            "Categorias vira uma area propria: o filtro define o periodo da leitura, do grafico principal "
+            "e da composicao clicavel."
         ),
+        "analysis_toolbar_filters": [
+            {
+                "kind": "multi_select_dropdown",
+                "name": "selected_category",
+                "label": "Selecionar categorias",
+                "summary": selected_categories_summary,
+                "options": category_filter_options,
+                "actions": [
+                    {"key": "select_all", "label": "Selecionar todas"},
+                    {"key": "clear_all", "label": "Limpar selecao"},
+                ],
+            }
+        ],
         "analysis_extra_hidden_fields": [
-            {"name": "focus_category", "value": valid_focus},
+            {"name": "focus_category", "value": valid_focus, "clear_on_empty": True},
         ],
         "categories": all_categories,
-        "category_rows": category_rows,
-        "category_breakdown": breakdown,
+        "category_breakdown": analysis_data["category_breakdown"],
         "category_composition": composition,
-        "recent_loads": recent_loads,
-        "top_category": top_category,
-        "consumption_chart": analysis_data["charts"]["consumption_monthly"],
-        "category_chart": analysis_data["charts"]["categories"],
-        "active_categories_count": len([category for category in all_categories if category.is_active]),
+        "consumption_chart": filtered_consumption_chart,
+    }
+
+
+def _categories_management_context(
+    db: Session,
+    *,
+    request_url: str,
+) -> dict:
+    all_categories = list_categories(db)
+    return {
+        "categories": all_categories,
+        "management_return_to": request_url,
     }
 
 
@@ -182,16 +243,52 @@ def admin_categories(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
+    selected_categories = request.query_params.getlist("selected_category")
+    context = _categories_page_context(
+        db,
+        selection_mode=selection_mode,
+        month=month,
+        period_start=period_start,
+        period_end=period_end,
+        focus_category=focus_category,
+        selected_categories=selected_categories,
+    )
+    current_relative_url = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+    encoded_return_to = quote(current_relative_url, safe="")
+    composition = context.get("category_composition")
+    if composition:
+        for row in composition.get("rows", []):
+            if row.get("edit_kind") == "transaction" and row.get("transaction_id"):
+                row["edit_href"] = f"/admin/transactions/{row['transaction_id']}?return_to={encoded_return_to}"
+                row["edit_label"] = "Editar lançamento"
+            elif row.get("edit_kind") == "invoice_item" and row.get("invoice_id") and row.get("item_id"):
+                row["edit_href"] = (
+                    f"/admin/credit-card-invoices/{row['invoice_id']}/items/{row['item_id']}/category"
+                    f"?return_to={encoded_return_to}"
+                )
+                row["edit_label"] = "Editar categoria"
+            else:
+                row["edit_href"] = None
+                row["edit_label"] = None
     return render_admin(
         request,
         "admin/categories.html",
-        _categories_page_context(
+        context,
+    )
+
+
+@router.get("/categories/manage", response_class=HTMLResponse)
+def admin_categories_manage(
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    return render_admin(
+        request,
+        "admin/categories_manage.html",
+        _categories_management_context(
             db,
-            selection_mode=selection_mode,
-            month=month,
-            period_start=period_start,
-            period_end=period_end,
-            focus_category=focus_category,
+            request_url=str(request.url),
         ),
     )
 
@@ -208,7 +305,7 @@ def admin_create_category(
 ):
     upsert_category(db, category_id=None, name=name, transaction_kind=transaction_kind, is_active=is_active)
     request.session["flash"] = "Categoria salva."
-    return RedirectResponse(url=unquote(return_to or "/admin/categories"), status_code=303)
+    return RedirectResponse(url=unquote(return_to or "/admin/categories/manage"), status_code=303)
 
 
 @router.post("/categories/{category_id}/update")
@@ -224,4 +321,4 @@ def admin_update_category(
 ):
     upsert_category(db, category_id=category_id, name=name, transaction_kind=transaction_kind, is_active=is_active)
     request.session["flash"] = "Categoria atualizada."
-    return RedirectResponse(url=unquote(return_to or "/admin/categories"), status_code=303)
+    return RedirectResponse(url=unquote(return_to or "/admin/categories/manage"), status_code=303)

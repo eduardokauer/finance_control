@@ -38,6 +38,12 @@ def _extract_return_summary_href(page_html: str) -> str:
     return html_lib.unescape(match.group(1))
 
 
+def _extract_category_row_href(page_html: str, category_name: str) -> str:
+    match = re.search(rf'href="([^"]+)"[^>]*data-category-row="{re.escape(category_name)}"', page_html)
+    assert match is not None
+    return html_lib.unescape(match.group(1))
+
+
 def _seed_categories(db_session):
     for name, kind in [
         ("N\u00e3o Categorizado", "expense"),
@@ -243,6 +249,34 @@ def test_admin_login_page_uses_shell_auth_header(client, monkeypatch):
     assert "A nova shell tamb" in response.text
 
 
+def test_admin_sidebar_exposes_categories_submenu(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _login(client)
+
+    response = client.get("/admin/categories/manage")
+
+    assert response.status_code == 200
+    assert "Categorias" in response.text
+    assert "Administrar categorias" in response.text
+    assert 'href="/admin/categories/manage"' in response.text
+    assert "admin-sidebar-sublink-active" in response.text
+
+
+def test_admin_sidebar_exposes_invoice_submenu(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _login(client)
+
+    response = client.get("/admin/credit-card-invoices/manage")
+
+    assert response.status_code == 200
+    assert "Visão de Faturas" in response.text
+    assert "Administrar faturas" in response.text
+    assert 'href="/admin/credit-card-invoices/manage"' in response.text
+    assert "admin-sidebar-sublink-active" in response.text
+
+
 def test_admin_summary_page_exposes_contextual_ctas_with_preserved_state(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
@@ -404,6 +438,265 @@ def test_admin_summary_page_shows_home_category_comparison_block(client, db_sess
         < response.text.index('data-category-row="Educação"')
     )
     assert "Saúde" not in response.text
+
+
+def test_admin_summary_category_row_opens_categories_with_same_period_and_focus(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR",
+        normalized="salario mar category focus",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Sal\u00e1rio",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR",
+        normalized="aluguel mar category focus",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_transaction(
+        db_session,
+        description="MERCADO MAR",
+        normalized="mercado mar category focus",
+        transaction_date=date(2026, 3, 12),
+        amount=-900.0,
+        transaction_kind="expense",
+        category="Supermercado",
+    )
+    _login(client)
+
+    summary = client.get("/admin?selection_mode=month&month=2026-03")
+
+    assert summary.status_code == 200
+    moradia_href = _extract_category_row_href(summary.text, "Moradia")
+    assert moradia_href.startswith("/admin/categories?")
+    assert "selection_mode=month" in moradia_href
+    assert "month=2026-03" in moradia_href
+    assert "focus_category=Moradia" in moradia_href
+
+    categories = client.get(moradia_href)
+
+    assert categories.status_code == 200
+    assert "Categoria em foco" in categories.text
+    assert "Moradia" in categories.text
+    assert "01/03/2026" in categories.text
+    assert "31/03/2026" in categories.text
+    assert "Composicao da categoria" in categories.text
+    assert "ALUGUEL MAR" in categories.text
+
+
+def test_admin_categories_page_filters_by_multiple_selected_categories(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR",
+        normalized="aluguel mar multi category filter",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_transaction(
+        db_session,
+        description="MERCADO MAR",
+        normalized="mercado mar multi category filter",
+        transaction_date=date(2026, 3, 12),
+        amount=-900.0,
+        transaction_kind="expense",
+        category="Supermercado",
+    )
+    _seed_transaction(
+        db_session,
+        description="UBER MAR",
+        normalized="uber mar multi category filter",
+        transaction_date=date(2026, 3, 18),
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Transporte",
+    )
+    _login(client)
+
+    response = client.get(
+        "/admin/categories?selection_mode=month&month=2026-03"
+        "&selected_category=Moradia&selected_category=Supermercado"
+    )
+
+    assert response.status_code == 200
+    assert "Selecionar categorias" in response.text
+    assert 'name="selected_category"' in response.text
+    assert 'value="Moradia"' in response.text
+    assert 'value="Supermercado"' in response.text
+    assert "Categoria" in response.text
+    assert "Editar lançamento" in response.text
+    assert "/admin/transactions/" in response.text
+    assert 'data-context-chip="selected_categories"' in response.text
+    assert "Grafico de categorias" not in response.text
+    assert 'data-category-row="Moradia"' not in response.text
+    assert 'data-category-row="Supermercado"' not in response.text
+    assert "ALUGUEL MAR" in response.text
+    assert "MERCADO MAR" in response.text
+    assert "UBER MAR" not in response.text
+    monthly_chart_match = re.search(r"const monthlyData = (\{.*?\});", response.text, re.S)
+    assert monthly_chart_match is not None
+    monthly_chart_payload = json.loads(monthly_chart_match.group(1))
+    assert len(monthly_chart_payload["labels"]) == 12
+    assert [dataset["label"] for dataset in monthly_chart_payload["datasets"]] == [
+        "Moradia",
+        "Supermercado",
+    ]
+    assert monthly_chart_payload["datasets"][0]["values"][-1] == 1800.0
+    assert monthly_chart_payload["datasets"][1]["values"][-1] == 900.0
+
+
+def test_admin_categories_page_treats_empty_selection_as_all_categories(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR TODAS",
+        normalized="aluguel mar todas categorias",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_transaction(
+        db_session,
+        description="MERCADO MAR TODAS",
+        normalized="mercado mar todas categorias",
+        transaction_date=date(2026, 3, 12),
+        amount=-900.0,
+        transaction_kind="expense",
+        category="Supermercado",
+    )
+    _seed_transaction(
+        db_session,
+        description="UBER MAR TODAS",
+        normalized="uber mar todas categorias",
+        transaction_date=date(2026, 3, 18),
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Transporte",
+    )
+    _login(client)
+
+    response = client.get("/admin/categories?selection_mode=month&month=2026-03")
+
+    assert response.status_code == 200
+    assert "Selecionar todas" in response.text
+    assert "Limpar selecao" in response.text
+    assert 'data-context-chip="selected_categories"' in response.text
+    assert "Todas as categorias" in response.text
+    assert "ALUGUEL MAR TODAS" in response.text
+    assert "MERCADO MAR TODAS" in response.text
+    assert "UBER MAR TODAS" in response.text
+    assert 'value="Moradia" checked' not in response.text
+    assert 'value="Supermercado" checked' not in response.text
+    assert 'value="Transporte" checked' not in response.text
+    monthly_chart_match = re.search(r"const monthlyData = (\{.*?\});", response.text, re.S)
+    assert monthly_chart_match is not None
+    monthly_chart_payload = json.loads(monthly_chart_match.group(1))
+    assert len(monthly_chart_payload["datasets"]) >= 3
+    assert {dataset["label"] for dataset in monthly_chart_payload["datasets"]} >= {
+        "Moradia",
+        "Supermercado",
+        "Transporte",
+    }
+
+
+def test_admin_categories_composition_exposes_invoice_item_category_edit_link(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    payment = _seed_transaction(
+        db_session,
+        description="PAGAMENTO FATURA MAR",
+        normalized="pagamento fatura mar categoria",
+        transaction_date=date(2026, 3, 20),
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Pagamento de Fatura",
+    )
+    invoice = _seed_credit_card_invoice(
+        db_session,
+        card_label="Itaú Visa final 3333",
+        card_final="3333",
+        billing_year=2026,
+        billing_month=3,
+        total_amount="120.00",
+        status="imported",
+        item_specs=[("SUPERMERCADO FATURA", "120.00", date(2026, 3, 10))],
+    )
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == invoice.id, CreditCardInvoiceItem.description_raw == "SUPERMERCADO FATURA")
+    )
+    item.category = "Supermercado"
+    item.categorization_method = "manual"
+    item.categorization_confidence = 1.0
+    db_session.add(
+        CreditCardInvoiceConciliation(
+            invoice_id=invoice.id,
+            status="conciliated",
+            gross_amount_brl="120.00",
+            invoice_credit_total_brl="0.00",
+            bank_payment_total_brl="120.00",
+            conciliated_total_brl="120.00",
+            remaining_balance_brl="0.00",
+        )
+    )
+    db_session.commit()
+    _login(client)
+
+    response = client.get("/admin/categories?selection_mode=month&month=2026-03&selected_category=Supermercado")
+
+    assert response.status_code == 200
+    assert "SUPERMERCADO FATURA" in response.text
+    assert "Editar categoria" in response.text
+    assert f'/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category?return_to=' in response.text
+
+
+def test_admin_categories_composition_keeps_all_selected_categories_even_with_focus(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR COMPOSICAO",
+        normalized="aluguel mar composicao categorias",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_transaction(
+        db_session,
+        description="MERCADO MAR COMPOSICAO",
+        normalized="mercado mar composicao categorias",
+        transaction_date=date(2026, 3, 12),
+        amount=-900.0,
+        transaction_kind="expense",
+        category="Supermercado",
+    )
+    _login(client)
+
+    response = client.get(
+        "/admin/categories?selection_mode=month&month=2026-03"
+        "&selected_category=Moradia&selected_category=Supermercado"
+        "&focus_category=Moradia"
+    )
+
+    assert response.status_code == 200
+    assert "Composicao das categorias selecionadas" in response.text
+    assert "Moradia, Supermercado" in response.text
+    assert "ALUGUEL MAR COMPOSICAO" in response.text
+    assert "MERCADO MAR COMPOSICAO" in response.text
 
 
 def test_admin_summary_page_switches_home_lenses_and_hides_top_categories_in_cash_view(client, db_session, monkeypatch):
@@ -634,6 +927,7 @@ def test_admin_can_create_credit_card_and_upload_invoice(client, db_session, mon
                 "total_amount_brl": "130,45",
                 "closing_date": "2026-03-12",
                 "notes": "Upload admin",
+                "return_to": "/admin/credit-card-invoices/manage",
             },
             files={"file": (sample_credit_card_csv_file.name, handle, "text/csv")},
             follow_redirects=True,
@@ -665,14 +959,21 @@ def test_admin_invoice_upload_form_is_available_only_on_invoice_page(client, db_
 
     operations = client.get("/admin/operations")
     invoices = client.get("/admin/credit-card-invoices")
+    invoices_manage = client.get("/admin/credit-card-invoices/manage")
+    invoices_manage = client.get("/admin/credit-card-invoices/manage")
 
     assert operations.status_code == 200
     assert 'action="/admin/credit-card-bills/upload"' not in operations.text
     assert "Importar fatura" not in operations.text
     assert invoices.status_code == 200
-    assert "Importar fatura" in invoices.text
-    assert 'action="/admin/credit-card-bills/upload"' in invoices.text
-    assert "Arquivo CSV" in invoices.text
+    assert "Importar fatura" not in invoices.text
+    assert 'action="/admin/credit-card-bills/upload"' not in invoices.text
+    assert "Arquivo CSV" not in invoices.text
+    assert invoices_manage.status_code == 200
+    assert "Administrar faturas" in invoices_manage.text
+    assert "Importar fatura" in invoices_manage.text
+    assert 'action="/admin/credit-card-bills/upload"' in invoices_manage.text
+    assert "Arquivo CSV" in invoices_manage.text
 
 
 def test_admin_manual_edit_creates_audit_and_rule(client, db_session, monkeypatch):
@@ -1987,8 +2288,10 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
     operations = client.get("/admin/operations")
     transactions = client.get("/admin/transactions")
     invoices = client.get("/admin/credit-card-invoices")
+    invoices_manage = client.get("/admin/credit-card-invoices/manage")
     rules = client.get("/admin/rules")
     categories = client.get("/admin/categories")
+    categories_manage = client.get("/admin/categories/manage")
     reapply = client.get("/admin/reapply")
 
     assert operations.status_code == 200
@@ -2001,16 +2304,29 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
     assert "Ações em lote" in transactions.text
 
     assert invoices.status_code == 200
-    assert "Painel principal das faturas" in invoices.text
-    assert "Atalhos de trabalho" in invoices.text
+    assert "Painel principal das faturas" not in invoices.text
+    assert "Atalhos de trabalho" not in invoices.text
+    assert "Lista operacional das faturas" in invoices.text
+    assert "Importar fatura" not in invoices.text
+
+    assert invoices_manage.status_code == 200
+    assert "Administrar faturas" in invoices_manage.text
+    assert "Importar fatura" in invoices_manage.text
+    assert "Cargas feitas" in invoices_manage.text
 
     assert rules.status_code == 200
     assert "Painel de configuração das regras" in rules.text
     assert "Adicionar regra" in rules.text
 
     assert categories.status_code == 200
-    assert "Painel de configuracao das categorias" in categories.text
-    assert "Criar categoria" in categories.text
+    assert "Composicao da categoria" in categories.text
+    assert "Painel de configuracao das categorias" not in categories.text
+    assert "Criar categoria" not in categories.text
+
+    assert categories_manage.status_code == 200
+    assert "Administrar categorias" in categories_manage.text
+    assert "Painel de configuracao das categorias" in categories_manage.text
+    assert "Criar categoria" in categories_manage.text
 
     assert reapply.status_code == 200
     assert "Painel de reaplicação" in reapply.text

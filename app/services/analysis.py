@@ -1857,13 +1857,112 @@ def _build_consumption_signal_context(*, category_breakdown: dict, category_hist
     }
 
 
+def build_category_consumption_monthly_series(
+    db: Session,
+    *,
+    anchor_month: date,
+    category_names: list[str] | None = None,
+) -> dict:
+    selected_names: list[str] = []
+    seen_names: set[str] = set()
+    for raw_name in category_names or []:
+        normalized_name = _analysis_category_name(raw_name)
+        normalized_key = normalized_name.casefold()
+        if normalized_key in seen_names:
+            continue
+        seen_names.add(normalized_key)
+        selected_names.append(normalized_name)
+
+    series_start = add_months(month_start(anchor_month), -11)
+    month_snapshots: list[dict] = []
+    category_order: list[str] = []
+    category_seen: set[str] = set()
+    for offset in range(12):
+        current_month = add_months(series_start, offset)
+        snapshot = _build_conciliated_category_month_snapshot(db, anchor_month=current_month)
+        month_snapshots.append(snapshot)
+        for row in snapshot["breakdown"]["rows"]:
+            if row["expense_total"] <= 0 or row["is_technical"]:
+                continue
+            category_key = row["name"].casefold()
+            if category_key in category_seen:
+                continue
+            category_seen.add(category_key)
+            category_order.append(row["name"])
+
+    resolved_names = selected_names or category_order
+    labels = [snapshot["label"] for snapshot in month_snapshots]
+    datasets = [{"label": name, "values": []} for name in resolved_names]
+    for snapshot in month_snapshots:
+        row_lookup = {
+            row["name"].casefold(): row
+            for row in snapshot["breakdown"]["rows"]
+            if row["expense_total"] > 0 and not row["is_technical"]
+        }
+        for dataset in datasets:
+            row = row_lookup.get(dataset["label"].casefold())
+            dataset["values"].append(round(row["expense_total"], 2) if row else 0.0)
+    return {
+        "labels": labels,
+        "datasets": datasets,
+    }
+
+
+def build_category_consumption_total_for_selection(
+    db: Session,
+    *,
+    anchor_month: date,
+    category_names: list[str] | None = None,
+) -> list[dict]:
+    selected_categories = {
+        _analysis_category_name(name).casefold()
+        for name in (category_names or [])
+        if name
+    }
+    series_start = add_months(month_start(anchor_month), -11)
+    items: list[dict] = []
+    for offset in range(12):
+        current_month = add_months(series_start, offset)
+        snapshot = _build_conciliated_category_month_snapshot(db, anchor_month=current_month)
+        rows = [
+            row
+            for row in snapshot["breakdown"]["rows"]
+            if row["expense_total"] > 0 and not row["is_technical"]
+        ]
+        if selected_categories:
+            rows = [row for row in rows if row["name"].casefold() in selected_categories]
+        consumption_total = sum(row["expense_total"] for row in rows)
+        items.append(
+            {
+                "month": snapshot["month"],
+                "label": snapshot["label"],
+                "consumption_total": consumption_total,
+                "consumption_display": format_currency_br(consumption_total),
+                "category_count": len(rows),
+            }
+        )
+    return items
+
+
 def build_category_composition_for_period(
     db: Session,
     *,
     period_start: date,
     period_end: date,
-    category_name: str,
+    category_name: str | None = None,
+    category_names: list[str] | None = None,
 ) -> dict:
+    selected_names: list[str] = []
+    seen_names: set[str] = set()
+    for raw_name in [*(category_names or []), *( [category_name] if category_name else [])]:
+        normalized_name = _analysis_category_name(raw_name)
+        normalized_key = normalized_name.casefold()
+        if normalized_key in seen_names:
+            continue
+        seen_names.add(normalized_key)
+        selected_names.append(normalized_name)
+
+    selected_name_keys = {name.casefold() for name in selected_names}
     current_txs = _load_transactions_for_period(db, period_start=period_start, period_end=period_end)
     signal_map = map_conciliated_bank_payment_signals(db, transaction_ids=[tx.id for tx in current_txs])
     excluded_payment_ids = {
@@ -1874,7 +1973,8 @@ def build_category_composition_for_period(
 
     rows: list[dict] = []
     for tx in current_txs:
-        if tx.id in excluded_payment_ids or tx.category != category_name:
+        tx_category_name = _analysis_category_name(tx.category)
+        if tx.id in excluded_payment_ids or (selected_name_keys and tx_category_name.casefold() not in selected_name_keys):
             continue
         expense_amount = _expense_amount(tx)
         income_amount = _income_amount(tx)
@@ -1886,11 +1986,14 @@ def build_category_composition_for_period(
                 "date": tx.transaction_date,
                 "date_display": format_date_br(tx.transaction_date),
                 "description": tx.description_raw,
+                "category_name": tx_category_name,
                 "source_label": "Extrato",
                 "scope_label": "Conta",
                 "amount": considered_amount,
                 "amount_display": format_currency_br(considered_amount),
                 "detail": tx.transaction_kind,
+                "edit_kind": "transaction",
+                "transaction_id": tx.id,
             }
         )
 
@@ -1900,30 +2003,47 @@ def build_category_composition_for_period(
         period_end=period_end,
     )
     for item, invoice_id in invoice_item_rows:
-        if classify_credit_card_invoice_item(item) != "charge" or item.category != category_name:
+        item_category_name = _analysis_category_name(item.category)
+        if classify_credit_card_invoice_item(item) != "charge" or (
+            selected_name_keys and item_category_name.casefold() not in selected_name_keys
+        ):
             continue
         rows.append(
             {
                 "date": item.purchase_date,
                 "date_display": format_date_br(item.purchase_date),
                 "description": item.description_raw,
+                "category_name": item_category_name,
                 "source_label": "Fatura",
                 "scope_label": f"Fatura #{invoice_id}",
                 "amount": float(item.amount_brl),
                 "amount_display": format_currency_br(float(item.amount_brl)),
                 "detail": "charge conciliado",
+                "edit_kind": "invoice_item",
+                "invoice_id": invoice_id,
+                "item_id": item.id,
             }
         )
 
     rows.sort(key=lambda item: (item["date"], item["amount"], item["description"]), reverse=True)
     total = sum(item["amount"] for item in rows)
+    selection_label = "Categoria" if len(selected_names) == 1 else "Categorias"
+    if not selected_names:
+        selection_display = "Todas as categorias"
+    elif len(selected_names) == 1:
+        selection_display = selected_names[0]
+    else:
+        selection_display = ", ".join(selected_names)
     return {
-        "category_name": category_name,
+        "category_name": selection_display,
+        "selection_label": selection_label,
+        "selection_display": selection_display,
+        "selected_categories": selected_names,
         "rows": rows,
         "total": total,
         "total_display": format_currency_br(total),
         "note": (
-            "Composicao do valor da categoria no periodo selecionado, combinando conta por data da transacao "
+            "Composicao do valor no periodo selecionado, combinando conta por data da transacao "
             "e itens charge de faturas conciliadas por data da compra."
         ),
     }

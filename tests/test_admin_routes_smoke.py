@@ -218,7 +218,9 @@ def test_admin_main_routes_smoke(client, db_session, monkeypatch):
         "/admin/reapply",
         "/admin/rules",
         "/admin/categories",
+        "/admin/categories/manage",
         "/admin/credit-card-invoices",
+        "/admin/credit-card-invoices/manage",
         f"/admin/credit-card-invoices/{invoice.id}",
     ]
 
