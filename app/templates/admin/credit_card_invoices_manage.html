@@ -8,7 +8,7 @@
   <section class="card stack">
     <div class="ops-panel-header">
       <strong>Importar fatura</strong>
-      <div class="subtle">Upload manual do CSV oficial da fatura com os metadados necessários.</div>
+      <div class="help-copy">Upload manual do CSV oficial da fatura com os metadados necessários.</div>
     </div>
     {% if invoice_upload_error %}
       <div class="flash" style="background: var(--danger-soft); color: var(--danger); border-color: #f7b4ae; margin-bottom: 0;">{{ invoice_upload_error }}</div>
@@ -46,7 +46,7 @@
   <section class="card stack">
     <div class="ops-panel-header">
       <strong>Cargas feitas</strong>
-      <div class="subtle">Lista curta das cargas de fatura que alimentam esta área operacional.</div>
+      <div class="help-copy">Lista curta das cargas de fatura que alimentam esta área operacional.</div>
     </div>
     {% if recent_loads %}
       <div class="list-stack">

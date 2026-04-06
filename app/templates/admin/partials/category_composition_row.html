@@ -1,0 +1,89 @@
+<tr
+  id="{{ row.row_dom_id }}"
+  data-sort-date="{{ row.sort_date }}"
+  data-sort-description="{{ row.sort_description }}"
+  data-sort-category="{{ row.sort_category }}"
+  data-sort-source="{{ row.sort_source }}"
+  data-sort-scope="{{ row.sort_scope }}"
+  data-sort-amount="{{ row.sort_amount }}">
+  <td data-label="Data">{{ row.date_display }}</td>
+  <td data-label="Descricao">
+    <div>{{ row.description }}</div>
+    <div class="subtle">{{ row.detail }}</div>
+  </td>
+  <td data-label="Categoria">
+    {% if row.inline_editing and row.inline_edit_supported %}
+      <form
+        class="analysis-inline-category-editor"
+        data-inline-category-editor
+        method="post"
+        hx-post="{{ row.inline_apply_href }}"
+        hx-target="#{{ row.row_dom_id }}"
+        hx-swap="outerHTML">
+        <div class="analysis-inline-category-meta subtle">{{ row.inline_help_text }}</div>
+        {% if row.inline_form_error %}
+          <div class="analysis-inline-category-error">{{ row.inline_form_error }}</div>
+        {% endif %}
+        <input
+          type="search"
+          class="analysis-inline-category-search"
+          data-inline-category-search
+          placeholder="Buscar categoria"
+          autocomplete="off">
+        <select
+          name="category"
+          class="analysis-inline-category-select"
+          data-inline-category-select
+          data-initial-value="{{ row.category_name }}"
+          required>
+          {% for option in row.inline_category_options %}
+            <option value="{{ option.value }}" {% if option.is_selected %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+        <input type="hidden" name="return_to" value="{{ row.return_to }}">
+        <div class="analysis-inline-category-actions">
+          <button
+            type="submit"
+            class="button button-primary analysis-inline-category-save"
+            data-inline-save-button
+            disabled
+            title="Salvar categoria">
+            <span aria-hidden="true">&#128190;</span>
+          </button>
+          <button
+            type="button"
+            class="button button-ghost analysis-inline-category-cancel"
+            hx-get="{{ row.inline_cancel_href }}"
+            hx-target="#{{ row.row_dom_id }}"
+            hx-swap="outerHTML">Cancelar</button>
+        </div>
+      </form>
+    {% else %}
+      <div class="analysis-inline-category-display">
+        <span>{{ row.category_name }}</span>
+        {% if row.inline_edit_supported %}
+          <button
+            type="button"
+            class="button button-ghost analysis-inline-category-trigger"
+            data-inline-category-edit
+            aria-label="Editar categoria de {{ row.description }}"
+            hx-get="{{ row.inline_edit_href }}"
+            hx-target="#{{ row.row_dom_id }}"
+            hx-swap="outerHTML">
+            <span aria-hidden="true">&#9998;</span>
+          </button>
+        {% endif %}
+      </div>
+    {% endif %}
+  </td>
+  <td data-label="Origem">{{ row.source_label }}</td>
+  <td data-label="Escopo">{{ row.scope_label }}</td>
+  <td data-label="Valor">{{ row.amount_display }}</td>
+  <td data-label="Ação">
+    {% if row.edit_href %}
+      <a class="button button-ghost" href="{{ row.edit_href }}">{{ row.edit_label or "Editar" }}</a>
+    {% else %}
+      <span class="subtle">Sem ação</span>
+    {% endif %}
+  </td>
+</tr>

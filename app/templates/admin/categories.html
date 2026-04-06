@@ -99,30 +99,7 @@
           </thead>
           <tbody id="category-composition-body">
             {% for row in category_composition.rows %}
-              <tr
-                data-sort-date="{{ row.date.isoformat() }}"
-                data-sort-description="{{ row.description|lower }}"
-                data-sort-category="{{ row.category_name|lower }}"
-                data-sort-source="{{ row.source_label|lower }}"
-                data-sort-scope="{{ row.scope_label|lower }}"
-                data-sort-amount="{{ '%.2f'|format(row.amount) }}">
-                <td data-label="Data">{{ row.date_display }}</td>
-                <td data-label="Descricao">
-                  <div>{{ row.description }}</div>
-                  <div class="subtle">{{ row.detail }}</div>
-                </td>
-                <td data-label="Categoria">{{ row.category_name }}</td>
-                <td data-label="Origem">{{ row.source_label }}</td>
-                <td data-label="Escopo">{{ row.scope_label }}</td>
-                <td data-label="Valor">{{ row.amount_display }}</td>
-                <td data-label="Ação">
-                  {% if row.edit_href %}
-                    <a class="button button-ghost" href="{{ row.edit_href }}">{{ row.edit_label or "Editar" }}</a>
-                  {% else %}
-                    <span class="subtle">Sem ação</span>
-                  {% endif %}
-                </td>
-              </tr>
+              {% include "admin/partials/category_composition_row.html" %}
             {% endfor %}
           </tbody>
         </table>
@@ -155,7 +132,10 @@
     }
 
     const sortButtons = Array.from(table.querySelectorAll('.analysis-sort-button'));
-    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    function currentRows() {
+      return Array.from(tbody.querySelectorAll('tr'));
+    }
 
     function updateSortState(activeButton, direction) {
       sortButtons.forEach((button) => {
@@ -193,7 +173,7 @@
     function sortRows(button, direction) {
       const key = button.dataset.sortKey;
       const type = button.dataset.sortType || 'text';
-      const sortedRows = [...rows].sort((leftRow, rightRow) => {
+      const sortedRows = currentRows().sort((leftRow, rightRow) => {
         const result = compareValues(
           leftRow.dataset[`sort${key.charAt(0).toUpperCase()}${key.slice(1)}`],
           rightRow.dataset[`sort${key.charAt(0).toUpperCase()}${key.slice(1)}`],
@@ -212,6 +192,45 @@
       updateSortState(button, direction);
     }
 
+    function normalizeText(value) {
+      return String(value || '')
+        .toLocaleLowerCase('pt-BR')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function syncInlineEditor(editor) {
+      const select = editor.querySelector('[data-inline-category-select]');
+      const saveButton = editor.querySelector('[data-inline-save-button]');
+      if (!select || !saveButton) {
+        return;
+      }
+      const initialValue = select.dataset.initialValue || '';
+      saveButton.disabled = !select.value || select.value === initialValue;
+    }
+
+    function filterInlineEditorOptions(searchInput) {
+      const editor = searchInput.closest('[data-inline-category-editor]');
+      const select = editor?.querySelector('[data-inline-category-select]');
+      if (!editor || !select) {
+        return;
+      }
+      const query = normalizeText(searchInput.value);
+      const options = Array.from(select.options);
+      let firstVisibleOption = null;
+      options.forEach((option) => {
+        const matches = !query || normalizeText(option.textContent).includes(query);
+        option.hidden = !matches;
+        if (matches && !firstVisibleOption) {
+          firstVisibleOption = option;
+        }
+      });
+      if (select.selectedOptions.length && select.selectedOptions[0].hidden && firstVisibleOption) {
+        select.value = firstVisibleOption.value;
+      }
+      syncInlineEditor(editor);
+    }
+
     sortButtons.forEach((button) => {
       button.addEventListener('click', () => {
         const isActive = button.classList.contains('analysis-sort-button-active');
@@ -223,10 +242,49 @@
       });
     });
 
-    const defaultButton = table.querySelector('.analysis-sort-button-active') || sortButtons[0];
+    function activeSortButton() {
+      return table.querySelector('.analysis-sort-button-active') || sortButtons[0];
+    }
+
+    const defaultButton = activeSortButton();
     if (defaultButton) {
       sortRows(defaultButton, defaultButton.dataset.sortDirection || defaultButton.dataset.defaultDirection || 'asc');
     }
+
+    document.addEventListener('input', (event) => {
+      if (event.target.matches('[data-inline-category-search]')) {
+        filterInlineEditorOptions(event.target);
+      }
+    });
+
+    document.addEventListener('change', (event) => {
+      if (event.target.matches('[data-inline-category-select]')) {
+        const editor = event.target.closest('[data-inline-category-editor]');
+        if (editor) {
+          syncInlineEditor(editor);
+        }
+      }
+    });
+
+    document.body.addEventListener('htmx:afterSwap', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const editor = target.querySelector('[data-inline-category-editor]');
+      if (editor) {
+        syncInlineEditor(editor);
+        const searchInput = editor.querySelector('[data-inline-category-search]');
+        searchInput?.focus();
+      }
+      const currentButton = activeSortButton();
+      if (target.id && target.id.startsWith('category-composition-row-') && currentButton) {
+        sortRows(
+          currentButton,
+          currentButton.dataset.sortDirection || currentButton.dataset.defaultDirection || 'asc',
+        );
+      }
+    });
   })();
 </script>
 {% include "admin/partials/analysis_period_form_script.html" %}

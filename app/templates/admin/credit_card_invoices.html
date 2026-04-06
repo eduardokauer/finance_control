@@ -21,7 +21,7 @@
     <section class="card stack">
       <div class="ops-panel-header">
         <strong>Valor total das faturas importadas por mês, separado por ano</strong>
-        <div class="subtle">Eixo fixo de 12 meses. Cada barra representa um ano com dados, mantendo a mesma cor ao longo do gráfico.</div>
+        <div class="help-copy">Eixo fixo de 12 meses. Cada barra representa um ano com dados, mantendo a mesma cor ao longo do gráfico.</div>
       </div>
       <div class="invoice-chart-shell"><canvas id="invoice-imports-chart"></canvas></div>
     </section>
@@ -30,7 +30,7 @@
   <section class="card stack">
     <div class="ops-panel-header">
       <strong>Gráfico de categorias das faturas</strong>
-      <div class="subtle">Top categorias reconhecidas na visão de faturas do período-base {{ invoice_period_label }}.</div>
+      <div class="help-copy">Top categorias reconhecidas na visão de faturas do período-base {{ invoice_period_label }}.</div>
     </div>
     <div class="invoice-chart-shell"><canvas id="invoice-categories-chart"></canvas></div>
   </section>
@@ -39,7 +39,7 @@
     <section class="card stack">
       <div class="ops-panel-header">
         <strong>Lista operacional das faturas</strong>
-        <div class="subtle">A tabela mantém a navegação completa no desktop e vira leitura empilhada no mobile.</div>
+        <div class="help-copy">A tabela mantém a navegação completa no desktop e vira leitura empilhada no mobile.</div>
       </div>
       <div class="table-wrap">
         <table class="responsive-stack">
@@ -48,11 +48,13 @@
               <th>ID</th>
               <th>Cartão</th>
               <th>Competência</th>
+              <th>Data da fatura</th>
               <th>Vencimento</th>
               <th>Valor total</th>
-              <th>Status</th>
-              <th>Itens</th>
               <th>Importação</th>
+              <th>Conciliação</th>
+              <th>Itens</th>
+              <th>Importada em</th>
               <th></th>
             </tr>
           </thead>
@@ -62,11 +64,27 @@
                 <td data-label="ID">#{{ entry.invoice.id }}</td>
                 <td data-label="Cartão">{{ entry.card.card_label }}</td>
                 <td data-label="Competência">{{ "%02d/%04d"|format(entry.invoice.billing_month, entry.invoice.billing_year) }}</td>
-                <td data-label="Vencimento">{{ entry.invoice.due_date }}</td>
-                <td data-label="Valor total">R$ {{ "%.2f"|format(entry.invoice.total_amount_brl) }}</td>
-                <td data-label="Status"><span class="badge {{ status_variant(entry.invoice.import_status) }}">{{ entry.invoice.import_status }}</span></td>
+                <td data-label="Data da fatura">{{ format_date_br(entry.invoice.closing_date) if entry.invoice.closing_date else '-' }}</td>
+                <td data-label="Vencimento">{{ format_date_br(entry.invoice.due_date) }}</td>
+                <td data-label="Valor total">{{ format_currency_br(entry.invoice.total_amount_brl) }}</td>
+                <td data-label="Importação"><span class="badge {{ status_variant(entry.invoice.import_status) }}">{{ entry.invoice.import_status }}</span></td>
+                <td data-label="Conciliação">
+                  <span class="badge {{ status_variant(entry.conciliation_status) }}">{{ entry.conciliation_status }}</span>
+                  <div class="subtle">
+                    {% if entry.conciliation_status == 'conciliated' %}
+                      {{ format_currency_br(entry.conciliated_total_brl) }} já conciliado
+                    {% elif entry.conciliated_total_brl > 0 %}
+                      {{ format_currency_br(entry.conciliated_total_brl) }} conciliado · saldo {{ format_currency_br(entry.remaining_balance_brl) }}
+                    {% else %}
+                      saldo pendente {{ format_currency_br(entry.remaining_balance_brl) }}
+                    {% endif %}
+                  </div>
+                  {% if entry.conciliation_status != 'conciliated' %}
+                    <div><a class="text-link" href="/admin/credit-card-invoices/{{ entry.invoice.id }}#invoice-conciliation-section">Ir para conciliar</a></div>
+                  {% endif %}
+                </td>
                 <td data-label="Itens">{{ entry.item_count }} lançamento(s)</td>
-                <td data-label="Importação">{{ entry.invoice.imported_at.strftime('%Y-%m-%d %H:%M') if entry.invoice.imported_at else '-' }}</td>
+                <td data-label="Importada em">{{ entry.invoice.imported_at.strftime('%d/%m/%Y %H:%M') if entry.invoice.imported_at else '-' }}</td>
                 <td data-label="Ação"><a class="text-link" href="/admin/credit-card-invoices/{{ entry.invoice.id }}">Ver detalhe</a></td>
               </tr>
             {% endfor %}

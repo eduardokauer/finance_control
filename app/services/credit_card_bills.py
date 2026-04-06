@@ -76,6 +76,9 @@ class CreditCardInvoiceListEntry:
     invoice: CreditCardInvoice
     card: CreditCard
     item_count: int
+    conciliation_status: str
+    conciliated_total_brl: Decimal
+    remaining_balance_brl: Decimal
 
 
 @dataclass
@@ -530,9 +533,13 @@ def list_credit_card_invoices(db: Session) -> list[CreditCardInvoiceListEntry]:
             CreditCardInvoice,
             CreditCard,
             func.coalesce(item_counts.c.item_count, 0),
+            CreditCardInvoiceConciliation.status,
+            CreditCardInvoiceConciliation.conciliated_total_brl,
+            CreditCardInvoiceConciliation.remaining_balance_brl,
         )
         .join(CreditCard, CreditCard.id == CreditCardInvoice.card_id)
         .outerjoin(item_counts, item_counts.c.invoice_id == CreditCardInvoice.id)
+        .outerjoin(CreditCardInvoiceConciliation, CreditCardInvoiceConciliation.invoice_id == CreditCardInvoice.id)
         .order_by(
             CreditCardInvoice.billing_year.desc(),
             CreditCardInvoice.billing_month.desc(),
@@ -541,8 +548,17 @@ def list_credit_card_invoices(db: Session) -> list[CreditCardInvoiceListEntry]:
         )
     ).all()
     return [
-        CreditCardInvoiceListEntry(invoice=invoice, card=card, item_count=int(item_count or 0))
-        for invoice, card, item_count in rows
+        CreditCardInvoiceListEntry(
+            invoice=invoice,
+            card=card,
+            item_count=int(item_count or 0),
+            conciliation_status=conciliation_status or "pending_review",
+            conciliated_total_brl=_quantize(conciliated_total_brl or Decimal("0.00")),
+            remaining_balance_brl=_quantize(
+                remaining_balance_brl if remaining_balance_brl is not None else invoice.total_amount_brl
+            ),
+        )
+        for invoice, card, item_count, conciliation_status, conciliated_total_brl, remaining_balance_brl in rows
     ]
 
 

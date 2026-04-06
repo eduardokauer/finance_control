@@ -35,15 +35,11 @@
   .analysis-page-header {
     padding-top: 0;
   }
-  .analysis-global-toolbar {
-    gap: 14px;
-    padding: 18px 20px;
+  .analysis-global-toolbar.top-filter-accordion {
+    gap: 0;
+    padding: 0;
   }
-  .analysis-toolbar-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: space-between;
+  .analysis-global-toolbar .top-filter-body {
     gap: 14px;
   }
   .analysis-period-form {
@@ -701,6 +697,55 @@
   }
   .analysis-sort-button:not([data-sort-direction]) .analysis-sort-indicator::before {
     content: "\2195";
+  }
+  .analysis-inline-category-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .analysis-inline-category-display span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .analysis-inline-category-trigger {
+    min-width: 38px;
+    min-height: 38px;
+    padding: 0 10px;
+  }
+  .analysis-inline-category-editor {
+    display: grid;
+    gap: 8px;
+    min-width: min(280px, 100%);
+  }
+  .analysis-inline-category-meta {
+    font-size: 0.78rem;
+  }
+  .analysis-inline-category-error {
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(239, 68, 68, 0.22);
+    background: rgba(254, 242, 242, 0.96);
+    color: var(--danger);
+    font-size: 0.82rem;
+  }
+  .analysis-inline-category-search,
+  .analysis-inline-category-select {
+    min-height: 40px;
+  }
+  .analysis-inline-category-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .analysis-inline-category-save {
+    min-width: 42px;
+    min-height: 40px;
+    padding: 0 12px;
+  }
+  .analysis-inline-category-cancel {
+    min-height: 40px;
   }
   .analysis-list {
     display: grid;

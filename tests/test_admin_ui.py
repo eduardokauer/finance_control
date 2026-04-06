@@ -38,12 +38,6 @@ def _extract_return_summary_href(page_html: str) -> str:
     return html_lib.unescape(match.group(1))
 
 
-def _extract_category_row_href(page_html: str, category_name: str) -> str:
-    match = re.search(rf'href="([^"]+)"[^>]*data-category-row="{re.escape(category_name)}"', page_html)
-    assert match is not None
-    return html_lib.unescape(match.group(1))
-
-
 def _seed_categories(db_session):
     for name, kind in [
         ("N\u00e3o Categorizado", "expense"),
@@ -333,7 +327,7 @@ def test_admin_summary_page_exposes_contextual_ctas_with_preserved_state(client,
     assert categories_href.startswith("/admin/categories")
 
 
-def test_admin_summary_page_shows_home_category_comparison_block(client, db_session, monkeypatch):
+def test_admin_summary_page_shows_overview_categories_chart_without_redundant_list(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
     _seed_transaction(
@@ -432,16 +426,28 @@ def test_admin_summary_page_shows_home_category_comparison_block(client, db_sess
 
     assert response.status_code == 200
     assert "Gráfico de categorias" in response.text
-    assert "Ver composição" in response.text
-    assert (
-        response.text.index('data-category-row="Moradia"')
-        < response.text.index('data-category-row="Supermercado"')
-        < response.text.index('data-category-row="Educação"')
+    assert "Ver composição" not in response.text
+    assert 'data-category-row="' not in response.text
+    assert 'id="overview-categories-legend"' in response.text
+    assert "mountAdminStackedCategoryChart" in response.text
+
+    chart_match = re.search(
+        r"window\.mountAdminStackedCategoryChart\(\s*.*?,\s*(\{.*?\}),\s*\{ legendId: 'overview-categories-legend' \}\s*\);",
+        response.text,
+        re.S,
     )
-    assert "Saúde" not in response.text
+    assert chart_match is not None
+    chart_payload = json.loads(chart_match.group(1))
+    assert [dataset["label"] for dataset in chart_payload["datasets"]] == [
+        "Moradia",
+        "Supermercado",
+        "Educação",
+        "Transporte",
+        "Outros",
+    ]
 
 
-def test_admin_summary_category_row_opens_categories_with_same_period_and_focus(client, db_session, monkeypatch):
+def test_admin_summary_categories_cta_opens_categories_with_same_period(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
     _seed_transaction(
@@ -476,16 +482,15 @@ def test_admin_summary_category_row_opens_categories_with_same_period_and_focus(
     summary = client.get("/admin?selection_mode=month&month=2026-03")
 
     assert summary.status_code == 200
-    moradia_href = _extract_category_row_href(summary.text, "Moradia")
-    assert moradia_href.startswith("/admin/categories?")
-    assert "selection_mode=month" in moradia_href
-    assert "month=2026-03" in moradia_href
-    assert "focus_category=Moradia" in moradia_href
+    categories_href = _extract_href_by_data_attr(summary.text, "data-context-cta", "categories")
+    assert categories_href.startswith("/admin/categories?")
+    assert "selection_mode=month" in categories_href
+    assert "month=2026-03" in categories_href
 
-    categories = client.get(moradia_href)
+    categories = client.get(categories_href)
 
     assert categories.status_code == 200
-    assert "Categoria em foco" in categories.text
+    assert "Categoria em foco" not in categories.text
     assert "Moradia" in categories.text
     assert "01/03/2026" in categories.text
     assert "31/03/2026" in categories.text
@@ -668,6 +673,140 @@ def test_admin_categories_composition_exposes_invoice_item_category_edit_link(cl
     assert "SUPERMERCADO FATURA" in response.text
     assert "Editar categoria" in response.text
     assert f'/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category?return_to=' in response.text
+
+
+def test_admin_categories_composition_supports_inline_transaction_category_edit(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(
+        db_session,
+        description="ALUGUEL INLINE",
+        normalized="aluguel inline categoria",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _login(client)
+
+    page = client.get("/admin/categories?selection_mode=month&month=2026-03&selected_category=Moradia")
+
+    assert page.status_code == 200
+    assert f"/admin/categories/composition/transactions/{tx.id}/edit" in page.text
+    assert "data-inline-category-edit" in page.text
+
+    editor = client.get(
+        f"/admin/categories/composition/transactions/{tx.id}/edit",
+        params={"return_to": "/admin/categories?selection_mode=month&month=2026-03&selected_category=Moradia"},
+    )
+
+    assert editor.status_code == 200
+    assert "Buscar categoria" in editor.text
+    assert "data-inline-category-editor" in editor.text
+    assert "data-inline-save-button" in editor.text
+    assert "disabled" in editor.text
+    assert "Moradia" in editor.text
+    assert "Supermercado" in editor.text
+    assert "Salário" not in editor.text
+
+    applied = client.post(
+        f"/admin/categories/composition/transactions/{tx.id}/edit",
+        data={
+            "category": "Supermercado",
+            "return_to": "/admin/categories?selection_mode=month&month=2026-03&selected_category=Moradia",
+        },
+    )
+
+    assert applied.status_code == 200
+    assert applied.text == ""
+
+    db_session.expire_all()
+    refreshed = db_session.get(Transaction, tx.id)
+    assert refreshed is not None
+    assert refreshed.category == "Supermercado"
+    assert refreshed.categorization_method == "manual"
+    assert refreshed.transaction_kind == "expense"
+
+
+def test_admin_categories_composition_supports_inline_invoice_item_category_edit(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    payment = _seed_transaction(
+        db_session,
+        description="PAGAMENTO FATURA INLINE",
+        normalized="pagamento fatura inline categoria",
+        transaction_date=date(2026, 3, 20),
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Pagamento de Fatura",
+    )
+    invoice = _seed_credit_card_invoice(
+        db_session,
+        card_label="Itaú Visa final 4444",
+        card_final="4444",
+        billing_year=2026,
+        billing_month=3,
+        total_amount="120.00",
+        status="imported",
+        item_specs=[("SUPERMERCADO INLINE FATURA", "120.00", date(2026, 3, 10))],
+    )
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem)
+        .where(
+            CreditCardInvoiceItem.invoice_id == invoice.id,
+            CreditCardInvoiceItem.description_raw == "SUPERMERCADO INLINE FATURA",
+        )
+    )
+    assert item is not None
+    item.category = "Supermercado"
+    item.categorization_method = "manual"
+    item.categorization_confidence = 1.0
+    db_session.add(
+        CreditCardInvoiceConciliation(
+            invoice_id=invoice.id,
+            status="conciliated",
+            gross_amount_brl="120.00",
+            invoice_credit_total_brl="0.00",
+            bank_payment_total_brl="120.00",
+            conciliated_total_brl="120.00",
+            remaining_balance_brl="0.00",
+        )
+    )
+    db_session.commit()
+    _login(client)
+
+    page = client.get("/admin/categories?selection_mode=month&month=2026-03&selected_category=Supermercado")
+
+    assert page.status_code == 200
+    assert f"/admin/categories/composition/invoice-items/{item.id}/edit" in page.text
+
+    editor = client.get(
+        f"/admin/categories/composition/invoice-items/{item.id}/edit",
+        params={"return_to": "/admin/categories?selection_mode=month&month=2026-03&selected_category=Supermercado"},
+    )
+
+    assert editor.status_code == 200
+    assert "Buscar categoria" in editor.text
+    assert "data-inline-category-editor" in editor.text
+    assert "Outros" in editor.text
+    assert "Transferências" not in editor.text
+
+    applied = client.post(
+        f"/admin/categories/composition/invoice-items/{item.id}/edit",
+        data={
+            "category": "Outros",
+            "return_to": "/admin/categories?selection_mode=month&month=2026-03&selected_category=Supermercado",
+        },
+    )
+
+    assert applied.status_code == 200
+    assert applied.text == ""
+
+    db_session.expire_all()
+    refreshed = db_session.get(CreditCardInvoiceItem, item.id)
+    assert refreshed is not None
+    assert refreshed.category == "Outros"
+    assert refreshed.categorization_method == "manual"
 
 
 def test_admin_categories_composition_keeps_all_selected_categories_even_with_focus(client, db_session, monkeypatch):
@@ -2338,8 +2477,19 @@ def _seed_credit_card_invoice(
 def test_admin_credit_card_invoice_list_shows_imported_invoices(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
-    _seed_credit_card_invoice(db_session, card_label="Ita\u00fa Visa final 1234", card_final="1234", status="imported")
-    _seed_credit_card_invoice(db_session, card_label="Ita\u00fa Mastercard final 5678", card_final="5678", billing_month=1, status="conflict")
+    conciliated_invoice = _seed_credit_card_invoice(
+        db_session,
+        card_label="Ita\u00fa Visa final 1234",
+        card_final="1234",
+        status="imported",
+    )
+    pending_invoice = _seed_credit_card_invoice(
+        db_session,
+        card_label="Ita\u00fa Mastercard final 5678",
+        card_final="5678",
+        billing_month=1,
+        status="conflict",
+    )
     _seed_credit_card_invoice(
         db_session,
         card_label="Ita\u00fa Visa final 9990",
@@ -2349,6 +2499,18 @@ def test_admin_credit_card_invoice_list_shows_imported_invoices(client, db_sessi
         total_amount="200.00",
         status="imported",
     )
+    db_session.add(
+        CreditCardInvoiceConciliation(
+            invoice_id=conciliated_invoice.id,
+            status="conciliated",
+            gross_amount_brl="130.45",
+            invoice_credit_total_brl="0.00",
+            bank_payment_total_brl="130.45",
+            conciliated_total_brl="130.45",
+            remaining_balance_brl="0.00",
+        )
+    )
+    db_session.commit()
     _login(client)
 
     response = client.get("/admin/credit-card-invoices")
@@ -2363,10 +2525,17 @@ def test_admin_credit_card_invoice_list_shows_imported_invoices(client, db_sessi
     assert '"year": 2025' in response.text
     assert '"year": 2026' in response.text
     assert "Ita\u00fa Visa final 1234" in response.text
-    assert "130.45" in response.text
+    assert "Data da fatura" in response.text
+    assert "Concilia" in response.text
+    assert "R$ 130,45" in response.text
     assert "03/2026" in response.text
+    assert "12/03/2026" in response.text
+    assert "20/03/2026" in response.text
     assert "imported" in response.text
+    assert "pending_review" in response.text
+    assert "conciliated" in response.text
     assert "conflict" in response.text
+    assert f'/admin/credit-card-invoices/{pending_invoice.id}#invoice-conciliation-section' in response.text
 
 
 def test_admin_operation_and_configuration_pages_show_shared_archetype(client, db_session, monkeypatch):
@@ -2401,6 +2570,7 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
     assert "Base operacional de lançamentos" in transactions.text
     assert "Atalhos da operação" in transactions.text
     assert "Ações em lote" in transactions.text
+    assert "Como ler esta página" not in transactions.text
 
     assert invoices.status_code == 200
     assert "Painel principal das faturas" not in invoices.text
@@ -2430,6 +2600,7 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
     assert reapply.status_code == 200
     assert "Painel de reaplicação" in reapply.text
     assert "Escopo de reaplicação" in reapply.text
+    assert "Como usar" not in reapply.text
 
 
 def test_admin_credit_card_invoice_detail_shows_items_and_summary(client, db_session, monkeypatch):
@@ -2661,4 +2832,3 @@ def test_admin_credit_card_invoice_detail_returns_404_for_missing_invoice(client
     response = client.get("/admin/credit-card-invoices/999999")
 
     assert response.status_code == 404
-
