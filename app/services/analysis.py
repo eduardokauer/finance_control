@@ -2303,7 +2303,7 @@ def build_analysis_snapshot(
     category_consumption_monthly_series = build_category_consumption_monthly_series(
         db,
         anchor_month=anchor_month,
-        category_names=[item["name"] for item in top_expense_categories[:8]],
+        category_names=None,
     )
     return {
         "period": {

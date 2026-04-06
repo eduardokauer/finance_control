@@ -43,7 +43,7 @@
 <section class="overview-stack">
   <section class="card stack overview-chart-card">
     <div class="overview-chart-header">
-      <div class="stack" style="gap:4px;">
+      <div class="stack" style="gap: 4px;">
         <strong>{{ overview_charts.conciliated.title }}</strong>
         <div class="subtle">{{ overview_charts.conciliated.note }}</div>
       </div>
@@ -56,7 +56,7 @@
 
   <section class="card stack overview-chart-card">
     <div class="overview-chart-header">
-      <div class="stack" style="gap:4px;">
+      <div class="stack" style="gap: 4px;">
         <strong>{{ overview_charts.statement.title }}</strong>
         <div class="subtle">{{ overview_charts.statement.note }}</div>
       </div>
@@ -69,7 +69,7 @@
 
   <section class="card stack overview-chart-card">
     <div class="overview-chart-header">
-      <div class="stack" style="gap:4px;">
+      <div class="stack" style="gap: 4px;">
         <strong>{{ overview_charts.invoice.title }}</strong>
         <div class="subtle">{{ overview_charts.invoice.note }}</div>
       </div>
@@ -83,62 +83,45 @@
   <section class="overview-category-grid">
     <div class="card stack overview-chart-card">
       <div class="overview-chart-header">
-        <div class="stack" style="gap:4px;">
+        <div class="stack" style="gap: 4px;">
           <strong>{{ overview_charts.categories.title }}</strong>
           <div class="subtle">{{ overview_charts.categories.note }}</div>
         </div>
         <a class="button button-ghost" href="{{ analysis_urls.categories_view }}" data-context-cta="categories">Abrir categorias</a>
       </div>
-      <div id="overview-categories-legend" class="chart-legend-checkboxes" aria-label="Categorias visiveis na overview"></div>
+      <div id="overview-categories-legend" class="chart-legend-checkboxes" aria-label="Categorias visíveis na overview"></div>
       <div class="chart-shell chart-shell-tall">
         <canvas id="{{ overview_charts.categories.canvas_id }}" aria-label="{{ overview_charts.categories.title }}"></canvas>
       </div>
-      <div class="overview-link-list">
-        {% for category in overview_category_rows %}
-          <a class="overview-link-row" href="{{ category.href }}" data-category-row="{{ category.name }}">
-            <div class="overview-link-copy">
-              <strong>{{ category.name }}</strong>
-              <span>{{ category.expense_display }}{% if category.share_of_expense_display != 'n/a' %} | {{ category.share_of_expense_display }}{% endif %}</span>
-            </div>
-            <span class="text-link">Ver composição</span>
-          </a>
-        {% else %}
-          <div class="empty-state">
-            <strong>Sem categorias no período</strong>
-            <div class="subtle">Quando houver consumo categorizado, as categorias principais aparecem aqui com acesso direto à composição.</div>
-          </div>
-        {% endfor %}
-      </div>
     </div>
-
   </section>
 
   <section class="card stack overview-alerts-card">
-      <div class="overview-chart-header">
-        <div class="stack" style="gap:4px;">
-          <strong>Alertas</strong>
-          <div class="subtle">Todo alerta leva para alguma listagem útil, para a leitura da overview terminar sempre em ação clara.</div>
+    <div class="overview-chart-header">
+      <div class="stack" style="gap: 4px;">
+        <strong>Alertas</strong>
+        <div class="subtle">Todo alerta leva para alguma listagem útil, para a leitura da overview terminar sempre em ação clara.</div>
+      </div>
+    </div>
+    <div class="analysis-list overview-alert-list">
+      {% for alert in overview_alerts %}
+        <div class="analysis-item home-alert-item">
+          <div class="analysis-item-title">
+            <strong>{{ alert.title }}</strong>
+            <span class="badge {% if alert.level == 'danger' %}danger{% elif alert.level == 'warn' %}warn{% endif %}">{{ alert.level }}</span>
+          </div>
+          <p>{{ alert.body }}</p>
+          <div class="actions">
+            <a class="button button-ghost" href="{{ alert.href }}" data-context-cta="alerts">{{ alert.link_label }}</a>
+          </div>
         </div>
-      </div>
-      <div class="analysis-list overview-alert-list">
-        {% for alert in overview_alerts %}
-          <div class="analysis-item home-alert-item">
-            <div class="analysis-item-title">
-              <strong>{{ alert.title }}</strong>
-              <span class="badge {% if alert.level == 'danger' %}danger{% elif alert.level == 'warn' %}warn{% endif %}">{{ alert.level }}</span>
-            </div>
-            <p>{{ alert.body }}</p>
-            <div class="actions">
-              <a class="button button-ghost" href="{{ alert.href }}" data-context-cta="alerts">{{ alert.link_label }}</a>
-            </div>
-          </div>
-        {% else %}
-          <div class="empty-state">
-            <strong>Nenhum alerta prioritário</strong>
-            <div class="subtle">O período não trouxe sinal crítico acima da linha de base da leitura atual.</div>
-          </div>
-        {% endfor %}
-      </div>
+      {% else %}
+        <div class="empty-state">
+          <strong>Nenhum alerta prioritário</strong>
+          <div class="subtle">O período não trouxe sinal crítico acima da linha de base da leitura atual.</div>
+        </div>
+      {% endfor %}
+    </div>
   </section>
 </section>
 
@@ -295,58 +278,6 @@
               callbacks: {
                 label(context) {
                   return `${context.dataset.label}: ${tooltipCurrency.format(context.parsed.y || 0)}`;
-                },
-              },
-            },
-          },
-        },
-      });
-    }
-
-    function mountCategoryChart(canvasId, data) {
-      const canvas = document.getElementById(canvasId);
-      if (!canvas) return;
-      new Chart(canvas, {
-        type: 'bar',
-        data: {
-          labels: data.labels,
-          datasets: [
-            {
-              label: 'Categorias do período',
-              data: data.values,
-              backgroundColor: data.technical.map((isTechnical) => (
-                isTechnical ? 'rgba(181, 71, 8, 0.72)' : 'rgba(37, 99, 235, 0.72)'
-              )),
-              borderColor: data.technical.map((isTechnical) => (
-                isTechnical ? 'rgba(181, 71, 8, 0.92)' : 'rgba(37, 99, 235, 0.92)'
-              )),
-              borderRadius: 8,
-              borderSkipped: false,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          indexAxis: 'y',
-          scales: {
-            x: {
-              ticks: {
-                callback(value) {
-                  return compactCurrency.format(value || 0);
-                },
-              },
-            },
-            y: {
-              grid: { display: false },
-            },
-          },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label(context) {
-                  return tooltipCurrency.format(context.parsed.x || 0);
                 },
               },
             },

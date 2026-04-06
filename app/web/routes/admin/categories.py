@@ -1,22 +1,31 @@
 from __future__ import annotations
 
 from datetime import date
-from urllib.parse import quote, unquote
+from urllib.parse import parse_qs, quote, unquote, urlsplit
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
+from app.repositories.models import CreditCardInvoiceItem, Transaction
 from app.services.admin import list_available_analysis_months, list_categories, resolve_analysis_period, upsert_category
 from app.services.analysis import (
+    _analysis_category_name,
     build_analysis_snapshot,
     build_category_composition_for_period,
     build_category_consumption_monthly_series,
+    format_currency_br,
+    format_date_br,
+)
+from app.services.credit_card_bills import (
+    CreditCardInvoiceCategoryEditError,
+    apply_manual_credit_card_invoice_item_category_change,
+    get_credit_card_invoice_item_category_editor,
 )
 
-from .helpers import render_admin
+from .helpers import render_admin, templates
 
 router = APIRouter()
 
@@ -33,6 +42,251 @@ def _summarize_selected_categories(category_names: list[str]) -> str:
     if len(category_names) == 2:
         return f"{category_names[0]} + {category_names[1]}"
     return f"{category_names[0]} +{len(category_names) - 1}"
+
+
+def _transaction_category_scope(transaction_kind: str | None) -> str:
+    if transaction_kind == "income":
+        return "income"
+    if transaction_kind == "transfer":
+        return "transfer"
+    return "expense"
+
+
+def _inline_transaction_category_options(db: Session, *, transaction_kind: str | None) -> list[dict]:
+    compatible_kind = _transaction_category_scope(transaction_kind)
+    return [
+        {
+            "value": category.name,
+            "label": category.name,
+        }
+        for category in list_categories(db)
+        if category.is_active and category.transaction_kind == compatible_kind
+    ]
+
+
+def _build_inline_row_common_context(
+    *,
+    row_dom_id: str,
+    date_value: date,
+    description: str,
+    category_name: str,
+    source_label: str,
+    scope_label: str,
+    amount: float,
+    amount_display: str,
+    detail: str,
+) -> dict:
+    return {
+        "row_dom_id": row_dom_id,
+        "date": date_value,
+        "date_display": format_date_br(date_value),
+        "description": description,
+        "category_name": category_name,
+        "source_label": source_label,
+        "scope_label": scope_label,
+        "amount": amount,
+        "amount_display": amount_display,
+        "detail": detail,
+        "sort_date": date_value.isoformat(),
+        "sort_description": description.casefold(),
+        "sort_category": category_name.casefold(),
+        "sort_source": source_label.casefold(),
+        "sort_scope": scope_label.casefold(),
+        "sort_amount": f"{amount:.2f}",
+    }
+
+
+def _build_transaction_row_context(
+    db: Session,
+    tx: Transaction,
+    *,
+    return_to: str,
+    editing: bool = False,
+    form_error: str | None = None,
+    selected_category: str | None = None,
+) -> dict:
+    current_category_name = _analysis_category_name(tx.category)
+    amount = abs(float(tx.amount)) if float(tx.amount) < 0 else float(tx.amount)
+    options = _inline_transaction_category_options(db, transaction_kind=tx.transaction_kind)
+    selected_value = (selected_category or current_category_name).strip()
+    encoded_return_to = quote(return_to, safe="")
+    row = _build_inline_row_common_context(
+        row_dom_id=f"category-composition-row-transaction-{tx.id}",
+        date_value=tx.transaction_date,
+        description=tx.description_raw,
+        category_name=current_category_name,
+        source_label="Extrato",
+        scope_label="Conta",
+        amount=amount,
+        amount_display=format_currency_br(amount),
+        detail=tx.transaction_kind,
+    )
+    row.update(
+        {
+            "edit_href": f"/admin/transactions/{tx.id}?return_to={encoded_return_to}",
+            "edit_label": "Editar lançamento",
+            "inline_edit_supported": bool(options),
+            "inline_edit_href": (
+                f"/admin/categories/composition/transactions/{tx.id}/edit?return_to={encoded_return_to}"
+            ),
+            "inline_cancel_href": (
+                f"/admin/categories/composition/transactions/{tx.id}/row?return_to={encoded_return_to}"
+            ),
+            "inline_apply_href": f"/admin/categories/composition/transactions/{tx.id}/edit",
+            "inline_editing": editing,
+            "inline_form_error": form_error,
+            "inline_selected_category": selected_value,
+            "inline_category_options": [
+                {
+                    **option,
+                    "is_selected": option["value"] == selected_value,
+                }
+                for option in options
+            ],
+            "inline_help_text": (
+                f"Tipo fixo nesta edicao: {tx.transaction_kind}. "
+                "Para mudar tipo ou regra, use Editar lancamento."
+            ),
+            "return_to": return_to,
+        }
+    )
+    return row
+
+
+def _build_invoice_item_row_context(
+    db: Session,
+    *,
+    invoice_id: int,
+    item_id: int,
+    return_to: str,
+    editing: bool = False,
+    form_error: str | None = None,
+    selected_category: str | None = None,
+) -> dict:
+    editor = get_credit_card_invoice_item_category_editor(db, invoice_id=invoice_id, item_id=item_id)
+    if editor is None:
+        raise HTTPException(status_code=404, detail="Invoice item not found")
+    item = editor.item
+    current_category_name = _analysis_category_name(item.category)
+    amount = float(item.amount_brl)
+    encoded_return_to = quote(return_to, safe="")
+    row = _build_inline_row_common_context(
+        row_dom_id=f"category-composition-row-invoice-item-{item.id}",
+        date_value=item.purchase_date,
+        description=item.description_raw,
+        category_name=current_category_name,
+        source_label="Fatura",
+        scope_label=f"Fatura #{editor.invoice.id}",
+        amount=amount,
+        amount_display=format_currency_br(amount),
+        detail="charge conciliado",
+    )
+    selected_value = (selected_category or current_category_name).strip()
+    inline_edit_supported = editor.item_type == "charge" and bool(editor.available_categories)
+    row.update(
+        {
+            "edit_href": (
+                f"/admin/credit-card-invoices/{editor.invoice.id}/items/{item.id}/category"
+                f"?return_to={encoded_return_to}"
+            ),
+            "edit_label": "Editar categoria",
+            "inline_edit_supported": inline_edit_supported,
+            "inline_edit_href": (
+                f"/admin/categories/composition/invoice-items/{item.id}/edit?return_to={encoded_return_to}"
+            ),
+            "inline_cancel_href": (
+                f"/admin/categories/composition/invoice-items/{item.id}/row?return_to={encoded_return_to}"
+            ),
+            "inline_apply_href": f"/admin/categories/composition/invoice-items/{item.id}/edit",
+            "inline_editing": editing,
+            "inline_form_error": form_error,
+            "inline_selected_category": selected_value,
+            "inline_category_options": [
+                {
+                    "value": category.name,
+                    "label": category.name,
+                    "is_selected": category.name == selected_value,
+                }
+                for category in editor.available_categories
+            ],
+            "inline_help_text": (
+                "Ajuste pontual somente deste item. "
+                "Para aplicar na base com regra, use Editar categoria."
+            ),
+            "return_to": return_to,
+        }
+    )
+    return row
+
+
+def _render_category_composition_row(request: Request, row: dict, *, status_code: int = 200) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/category_composition_row.html",
+        {
+            "request": request,
+            "row": row,
+        },
+        status_code=status_code,
+    )
+
+
+def _resolve_invoice_item_editor(db: Session, *, item_id: int):
+    item = db.get(CreditCardInvoiceItem, item_id)
+    if item is None:
+        return None
+    return get_credit_card_invoice_item_category_editor(db, invoice_id=item.invoice_id, item_id=item_id)
+
+
+def _enrich_category_composition_rows(db: Session, rows: list[dict], *, return_to: str) -> None:
+    for row in rows:
+        if row.get("edit_kind") == "transaction" and row.get("transaction_id"):
+            tx = db.get(Transaction, row["transaction_id"])
+            if tx is None:
+                continue
+            enriched = _build_transaction_row_context(
+                db,
+                tx,
+                return_to=return_to,
+            )
+        elif row.get("edit_kind") == "invoice_item" and row.get("invoice_id") and row.get("item_id"):
+            enriched = _build_invoice_item_row_context(
+                db,
+                invoice_id=row["invoice_id"],
+                item_id=row["item_id"],
+                return_to=return_to,
+            )
+        else:
+            row["edit_href"] = None
+            row["edit_label"] = None
+            row["inline_edit_supported"] = False
+            continue
+        row.update(enriched)
+
+
+def _validate_inline_transaction_category(
+    db: Session,
+    *,
+    tx: Transaction,
+    category_name: str,
+) -> str:
+    normalized_name = (category_name or "").strip()
+    valid_names = {
+        option["value"]
+        for option in _inline_transaction_category_options(db, transaction_kind=tx.transaction_kind)
+    }
+    if normalized_name not in valid_names:
+        raise ValueError("Categoria invalida para este lancamento.")
+    return normalized_name
+
+
+def _category_still_matches_current_context(*, category_name: str, return_to: str) -> bool:
+    query = parse_qs(urlsplit(return_to).query)
+    selected_names = query.get("selected_category") or query.get("focus_category") or []
+    if not selected_names:
+        return True
+    selected_keys = {_normalize_focus_category(name) for name in selected_names if name}
+    return _normalize_focus_category(category_name) in selected_keys
 
 
 def _categories_page_context(
@@ -279,10 +533,213 @@ def admin_categories(
             else:
                 row["edit_href"] = None
                 row["edit_label"] = None
+    if composition:
+        _enrich_category_composition_rows(
+            db,
+            composition.get("rows", []),
+            return_to=current_relative_url,
+        )
     return render_admin(
         request,
         "admin/categories.html",
         context,
+    )
+
+
+@router.get("/categories/composition/transactions/{transaction_id}/row", response_class=HTMLResponse)
+def admin_category_composition_transaction_row(
+    transaction_id: int,
+    request: Request,
+    return_to: str | None = None,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    tx = db.get(Transaction, transaction_id)
+    if tx is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return _render_category_composition_row(
+        request,
+        _build_transaction_row_context(
+            db,
+            tx,
+            return_to=unquote(return_to or "/admin/categories"),
+        ),
+    )
+
+
+@router.get("/categories/composition/transactions/{transaction_id}/edit", response_class=HTMLResponse)
+def admin_category_composition_transaction_row_edit(
+    transaction_id: int,
+    request: Request,
+    return_to: str | None = None,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    tx = db.get(Transaction, transaction_id)
+    if tx is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return _render_category_composition_row(
+        request,
+        _build_transaction_row_context(
+            db,
+            tx,
+            return_to=unquote(return_to or "/admin/categories"),
+            editing=True,
+        ),
+    )
+
+
+@router.post("/categories/composition/transactions/{transaction_id}/edit", response_class=HTMLResponse)
+def admin_category_composition_transaction_row_apply(
+    transaction_id: int,
+    request: Request,
+    category: str = Form(...),
+    return_to: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    tx = db.get(Transaction, transaction_id)
+    if tx is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    resolved_return_to = unquote(return_to or "/admin/categories")
+    try:
+        selected_category = _validate_inline_transaction_category(
+            db,
+            tx=tx,
+            category_name=category,
+        )
+    except ValueError as exc:
+        return _render_category_composition_row(
+            request,
+            _build_transaction_row_context(
+                db,
+                tx,
+                return_to=resolved_return_to,
+                editing=True,
+                form_error=str(exc),
+                selected_category=category,
+            ),
+            status_code=422,
+        )
+
+    from app.services.admin import reclassify_transactions_manual
+
+    reclassify_transactions_manual(
+        db,
+        [tx],
+        category=selected_category,
+        transaction_kind=tx.transaction_kind,
+        notes="Edicao inline na composicao de categorias.",
+        origin="category_composition_inline",
+    )
+    db.refresh(tx)
+    if not _category_still_matches_current_context(category_name=tx.category or "", return_to=resolved_return_to):
+        return HTMLResponse("")
+    return _render_category_composition_row(
+        request,
+        _build_transaction_row_context(
+            db,
+            tx,
+            return_to=resolved_return_to,
+        ),
+    )
+
+
+@router.get("/categories/composition/invoice-items/{item_id}/row", response_class=HTMLResponse)
+def admin_category_composition_invoice_item_row(
+    item_id: int,
+    request: Request,
+    return_to: str | None = None,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    editor = _resolve_invoice_item_editor(db, item_id=item_id)
+    if editor is None:
+        raise HTTPException(status_code=404, detail="Invoice item not found")
+    return _render_category_composition_row(
+        request,
+        _build_invoice_item_row_context(
+            db,
+            invoice_id=editor.invoice.id,
+            item_id=item_id,
+            return_to=unquote(return_to or "/admin/categories"),
+        ),
+    )
+
+
+@router.get("/categories/composition/invoice-items/{item_id}/edit", response_class=HTMLResponse)
+def admin_category_composition_invoice_item_row_edit(
+    item_id: int,
+    request: Request,
+    return_to: str | None = None,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    editor = _resolve_invoice_item_editor(db, item_id=item_id)
+    if editor is None:
+        raise HTTPException(status_code=404, detail="Invoice item not found")
+    return _render_category_composition_row(
+        request,
+        _build_invoice_item_row_context(
+            db,
+            invoice_id=editor.invoice.id,
+            item_id=item_id,
+            return_to=unquote(return_to or "/admin/categories"),
+            editing=True,
+        ),
+    )
+
+
+@router.post("/categories/composition/invoice-items/{item_id}/edit", response_class=HTMLResponse)
+def admin_category_composition_invoice_item_row_apply(
+    item_id: int,
+    request: Request,
+    category: str = Form(...),
+    return_to: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    editor = _resolve_invoice_item_editor(db, item_id=item_id)
+    if editor is None:
+        raise HTTPException(status_code=404, detail="Invoice item not found")
+    resolved_return_to = unquote(return_to or "/admin/categories")
+    try:
+        apply_manual_credit_card_invoice_item_category_change(
+            db,
+            invoice_id=editor.invoice.id,
+            item_id=item_id,
+            category_name=category,
+        )
+    except CreditCardInvoiceCategoryEditError as exc:
+        return _render_category_composition_row(
+            request,
+            _build_invoice_item_row_context(
+                db,
+                invoice_id=editor.invoice.id,
+                item_id=item_id,
+                return_to=resolved_return_to,
+                editing=True,
+                form_error=str(exc),
+                selected_category=category,
+            ),
+            status_code=exc.status_code,
+        )
+    refreshed_editor = _resolve_invoice_item_editor(db, item_id=item_id)
+    if refreshed_editor is None:
+        raise HTTPException(status_code=404, detail="Invoice item not found")
+    if not _category_still_matches_current_context(
+        category_name=refreshed_editor.item.category or "",
+        return_to=resolved_return_to,
+    ):
+        return HTMLResponse("")
+    return _render_category_composition_row(
+        request,
+        _build_invoice_item_row_context(
+            db,
+            invoice_id=refreshed_editor.invoice.id,
+            item_id=item_id,
+            return_to=resolved_return_to,
+        ),
     )
 
 

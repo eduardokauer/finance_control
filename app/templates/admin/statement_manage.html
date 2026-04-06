@@ -8,7 +8,7 @@
   <section class="card stack">
     <div class="ops-panel-header">
       <strong>Importar extrato</strong>
-      <div class="subtle">Upload manual do OFX oficial do banco para abastecer a leitura bruta e a conferência do período.</div>
+      <div class="help-copy">Upload manual do OFX oficial do banco para abastecer a leitura bruta e a conferência do período.</div>
     </div>
     {% if statement_upload_error %}
       <div class="flash" style="background: var(--danger-soft); color: var(--danger); border-color: #f7b4ae; margin-bottom: 0;">{{ statement_upload_error }}</div>
@@ -28,7 +28,7 @@
   <section class="card stack">
     <div class="ops-panel-header">
       <strong>Cargas feitas</strong>
-      <div class="subtle">Lista curta das cargas de extrato que alimentam a visão bruta desta área.</div>
+      <div class="help-copy">Lista curta das cargas de extrato que alimentam a visão bruta desta área.</div>
     </div>
     {% if recent_loads %}
       <div class="list-stack">

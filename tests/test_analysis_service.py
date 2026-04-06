@@ -532,6 +532,51 @@ def test_analysis_snapshot_builds_home_category_comparison_empty_state_without_c
     assert "Top 5 categorias de consumo do mês-base" in comparison["note"]
 
 
+def test_analysis_snapshot_builds_overview_category_chart_with_all_visible_categories(db_session):
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Sal\u00e1rio", transaction_kind="income")
+    for index, category in enumerate(
+        [
+            "Moradia",
+            "Supermercado",
+            "Educa\u00e7\u00e3o",
+            "Transporte",
+            "Sa\u00fade",
+            "Compras",
+            "Farm\u00e1cia",
+            "Servi\u00e7os da Casa",
+            "Lazer",
+            "Casa",
+        ],
+        start=1,
+    ):
+        _add_tx(
+            db_session,
+            tx_date=date(2026, 3, min(index + 5, 28)),
+            description=f"{category} MAR",
+            amount=-(100.0 + index),
+            category=category,
+            transaction_kind="expense",
+        )
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    chart = snapshot["charts"]["categories_monthly"]
+
+    assert len(chart["datasets"]) == 10
+    assert [dataset["label"] for dataset in chart["datasets"]] == [
+        "Casa",
+        "Lazer",
+        "Servi\u00e7os da Casa",
+        "Farm\u00e1cia",
+        "Compras",
+        "Sa\u00fade",
+        "Transporte",
+        "Educa\u00e7\u00e3o",
+        "Supermercado",
+        "Moradia",
+    ]
+
+
 def test_analysis_snapshot_builds_home_dashboard_for_cash_and_competence_lenses(db_session):
     _add_tx(db_session, tx_date=date(2026, 2, 5), description="SALARIO FEV", amount=4500.0, category="Salário", transaction_kind="income")
     _add_tx(db_session, tx_date=date(2026, 2, 8), description="ALUGUEL FEV", amount=-1500.0, category="Moradia", transaction_kind="expense")
@@ -1390,4 +1435,5 @@ def test_analysis_snapshot_only_includes_fully_conciliated_invoices_in_conciliat
     assert snapshot["primary_summary"]["included_invoice_count"] == 1
     assert snapshot["primary_summary"]["outside_invoice_count"] == 3
     assert snapshot["primary_summary"]["expense_total"] == 650.0
+
 

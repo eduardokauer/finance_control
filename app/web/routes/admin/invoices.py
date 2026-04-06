@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
 from app.services.admin import list_recent_source_files, resolve_analysis_period
-from app.services.analysis import build_analysis_snapshot
+from app.services.analysis import build_analysis_snapshot, format_currency_br, format_date_br
 from app.services.credit_card_bills import (
     build_credit_card_invoice_import_chart,
     CreditCardInvoiceCategoryEditError,
@@ -123,6 +123,8 @@ def admin_credit_card_invoice_list(
             "chart_data": chart_payload,
             "invoice_category_chart": analysis_snapshot["charts"]["invoice_categories"],
             "invoice_period_label": analysis_snapshot["period"]["month_reference_label"],
+            "format_currency_br": format_currency_br,
+            "format_date_br": format_date_br,
             "status_variant": _status_variant,
         },
     )

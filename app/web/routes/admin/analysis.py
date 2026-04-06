@@ -127,28 +127,6 @@ def _build_alerts_with_links(alerts: list[dict], state: dict[str, str | int | No
     return linked_alerts
 
 
-def _build_category_links(rows: list[dict], state: dict[str, str | int | None]) -> list[dict]:
-    linked_rows = []
-    for row in rows:
-        linked_rows.append(
-            {
-                **row,
-                "href": _url_with_query(
-                    "/admin/categories",
-                    {
-                        "selection_mode": state.get("selection_mode"),
-                        "month": state.get("month"),
-                        "period_start": state.get("period_start"),
-                        "period_end": state.get("period_end"),
-                        "focus_category": row["name"],
-                    },
-                )
-                + "#category-composition-section",
-            }
-        )
-    return linked_rows
-
-
 def _build_overview_charts(analysis_data: dict) -> dict[str, dict]:
     period_label = analysis_data["period"]["month_reference_label"]
     return {
@@ -426,7 +404,6 @@ def _analysis_page_context(
     priority_alerts_source = home_dashboard.get("alerts") if base_path == "/admin" else None
     priority_actions_source = home_dashboard.get("actions") if base_path == "/admin" else None
     overview_alerts = _build_alerts_with_links((priority_alerts_source or analysis_data.get("alerts", []))[:4], overview_state)
-    overview_category_rows = _build_category_links(analysis_data["category_breakdown"]["top_expense_categories"][:8], overview_state)
     overview_cards = _build_overview_cards(analysis_data)
     overview_charts = _build_overview_charts(analysis_data)
     analysis_urls = {
@@ -499,7 +476,6 @@ def _analysis_page_context(
         "priority_actions": (priority_actions_source or analysis_data.get("actions", []))[:2],
         "overview_cards": overview_cards,
         "overview_alerts": overview_alerts,
-        "overview_category_rows": overview_category_rows,
         "overview_charts": overview_charts,
         "analysis_extra_hidden_fields": (
             []

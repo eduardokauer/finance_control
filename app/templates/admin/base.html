@@ -409,6 +409,86 @@
       overflow-wrap: anywhere;
     }
 
+    .heading-with-help {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .field-label-heading {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .inline-help {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      flex: 0 0 auto;
+    }
+
+    .inline-help-trigger {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.44);
+      background: linear-gradient(180deg, #ffffff 0%, #eef4ff 100%);
+      color: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 800;
+      line-height: 1;
+      cursor: pointer;
+      box-shadow: var(--shadow-soft);
+      padding: 0;
+    }
+
+    .inline-help-trigger:hover,
+    .inline-help-trigger:focus-visible {
+      border-color: rgba(37, 99, 235, 0.45);
+      background: linear-gradient(180deg, #f8fbff 0%, #e0edff 100%);
+      outline: none;
+    }
+
+    .inline-help-bubble {
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 50%;
+      transform: translate(-50%, -6px);
+      min-width: 220px;
+      max-width: min(320px, 76vw);
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(217, 226, 236, 0.92);
+      background: rgba(15, 23, 42, 0.96);
+      color: #f8fafc;
+      font-size: 0.86rem;
+      line-height: 1.45;
+      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.28);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease;
+      z-index: 30;
+      text-align: left;
+      overflow-wrap: anywhere;
+    }
+
+    .inline-help:hover .inline-help-bubble,
+    .inline-help:focus-within .inline-help-bubble,
+    .inline-help.is-open .inline-help-bubble {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translate(-50%, 0);
+    }
+
     .page-intro {
       margin: 0;
       color: var(--muted-strong);
@@ -497,6 +577,109 @@
       border: 1px solid rgba(217, 226, 236, 0.92);
       background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
       box-shadow: var(--shadow-soft);
+    }
+
+    .top-filter-accordion {
+      gap: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .top-filter-accordion > summary {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 20px;
+      list-style: none;
+      cursor: pointer;
+    }
+
+    .top-filter-accordion > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .top-filter-accordion > summary::after {
+      content: "+";
+      width: 34px;
+      height: 34px;
+      border-radius: 14px;
+      border: 1px solid rgba(217, 226, 236, 0.92);
+      background: var(--surface);
+      box-shadow: var(--shadow-soft);
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      font-size: 1.15rem;
+      line-height: 1;
+    }
+
+    .top-filter-accordion[open] > summary {
+      border-bottom: 1px solid rgba(217, 226, 236, 0.92);
+    }
+
+    .top-filter-accordion[open] > summary::after {
+      content: "-";
+    }
+
+    .top-filter-summary-copy {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .top-filter-summary-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .top-filter-summary-title strong {
+      font-size: 1rem;
+      line-height: 1.25;
+    }
+
+    .top-filter-summary-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .top-filter-summary-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      max-width: 100%;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(217, 226, 236, 0.92);
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--muted-strong);
+      box-shadow: var(--shadow-soft);
+      font-size: 0.84rem;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .top-filter-summary-chip strong {
+      color: var(--ink);
+      font-size: 0.76rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-right: 8px;
+    }
+
+    .top-filter-body {
+      display: grid;
+      gap: 16px;
+      padding: 18px 20px 20px;
     }
 
     .toolbar-grid {
@@ -918,6 +1101,19 @@
       gap: 4px;
     }
 
+    .page-intro,
+    .help-copy,
+    .section-intro,
+    .analysis-section-header > .subtle,
+    .overview-chart-header .stack > .subtle,
+    .analysis-toolbar-header .stack > .subtle,
+    .home-kpi-subtitle,
+    .analysis-focus-banner .stack > .subtle,
+    .summary-shortcut > .subtle,
+    label > .subtle {
+      display: none !important;
+    }
+
     .ops-stat-grid {
       display: grid;
       gap: 12px;
@@ -1134,6 +1330,16 @@
         padding: 18px;
       }
 
+      .top-filter-accordion {
+        padding: 0;
+      }
+
+      .top-filter-accordion > summary,
+      .top-filter-body {
+        padding-left: 18px;
+        padding-right: 18px;
+      }
+
       .grid-2,
       .grid-3 {
         grid-template-columns: 1fr;
@@ -1343,8 +1549,134 @@
         }
       }
 
+      function buildInlineHelp(helpText, label) {
+        const wrapper = document.createElement("span");
+        wrapper.className = "inline-help";
+        wrapper.setAttribute("data-inline-help", "true");
+
+        const trigger = document.createElement("button");
+        trigger.type = "button";
+        trigger.className = "inline-help-trigger";
+        trigger.setAttribute("aria-label", label || "Ajuda");
+        trigger.setAttribute("aria-expanded", "false");
+        trigger.setAttribute("data-inline-help-trigger", "true");
+        trigger.textContent = "?";
+
+        const bubble = document.createElement("span");
+        bubble.className = "inline-help-bubble";
+        bubble.setAttribute("role", "tooltip");
+        bubble.textContent = helpText;
+
+        wrapper.appendChild(trigger);
+        wrapper.appendChild(bubble);
+        return wrapper;
+      }
+
+      function ensureLabelHeading(label) {
+        if (!label) return null;
+        const existing = label.querySelector(":scope > .field-label-heading");
+        if (existing) return existing;
+
+        const textNode = Array.from(label.childNodes).find(
+          (node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim(),
+        );
+        if (!textNode) return null;
+
+        const heading = document.createElement("span");
+        heading.className = "field-label-heading";
+        heading.textContent = textNode.textContent.trim();
+        textNode.textContent = "";
+        label.insertBefore(heading, label.firstElementChild || null);
+        return heading;
+      }
+
+      function resolveHelpTarget(source) {
+        if (!source) return null;
+        if (source.matches(".page-intro")) {
+          return source.closest(".page-header")?.querySelector(".page-title");
+        }
+        if (source.matches(".home-kpi-subtitle")) {
+          return source.closest(".home-kpi-card")?.querySelector(".home-kpi-title");
+        }
+        if (source.closest(".summary-shortcut")) {
+          return source.closest(".summary-shortcut")?.querySelector("strong");
+        }
+        if (source.closest("label")) {
+          return ensureLabelHeading(source.closest("label"));
+        }
+        const parent = source.parentElement;
+        if (!parent) return null;
+        return parent.querySelector(":scope > .page-title, :scope > strong, :scope > h1, :scope > h2, :scope > h3, :scope > .section-title");
+      }
+
+      function attachInlineHelp(source) {
+        if (!source || source.dataset.helpAttached === "true") return;
+        const helpText = source.textContent.trim();
+        if (!helpText) return;
+
+        const target = resolveHelpTarget(source);
+        if (!target) return;
+
+        let wrapper = target.closest(".heading-with-help");
+        if (!wrapper) {
+          wrapper = document.createElement("span");
+          wrapper.className = "heading-with-help";
+          target.parentNode.insertBefore(wrapper, target);
+          wrapper.appendChild(target);
+        }
+        if (!wrapper.querySelector(":scope > .inline-help")) {
+          wrapper.appendChild(buildInlineHelp(helpText, `Ajuda: ${target.textContent.trim()}`));
+        }
+        source.dataset.helpAttached = "true";
+      }
+
+      function initializeInlineHelp(root = document) {
+        root.querySelectorAll(
+          ".page-intro, .help-copy, .section-intro, .analysis-section-header > .subtle, .overview-chart-header .stack > .subtle, .analysis-toolbar-header .stack > .subtle, .home-kpi-subtitle, .analysis-focus-banner .stack > .subtle, .summary-shortcut > .subtle, label > .subtle",
+        ).forEach(attachInlineHelp);
+      }
+
+      initializeInlineHelp();
+
+      function closeInlineHelp(except) {
+        document.querySelectorAll(".inline-help.is-open").forEach((wrapper) => {
+          if (except && wrapper === except) return;
+          wrapper.classList.remove("is-open");
+          const trigger = wrapper.querySelector(".inline-help-trigger");
+          trigger?.setAttribute("aria-expanded", "false");
+        });
+      }
+
+      document.addEventListener("click", (event) => {
+        const trigger = event.target.closest("[data-inline-help-trigger]");
+        if (!trigger) {
+          if (!event.target.closest(".inline-help")) {
+            closeInlineHelp();
+          }
+          return;
+        }
+        if (trigger.closest("summary")) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        const wrapper = trigger.closest(".inline-help");
+        if (!wrapper) return;
+        const willOpen = !wrapper.classList.contains("is-open");
+        closeInlineHelp(wrapper);
+        wrapper.classList.toggle("is-open", willOpen);
+        trigger.setAttribute("aria-expanded", willOpen ? "true" : "false");
+      });
+
       document.body.addEventListener("htmx:afterRequest", clearHtmxLoading);
       document.body.addEventListener("htmx:responseError", clearHtmxLoading);
+      document.body.addEventListener("htmx:afterSwap", (event) => {
+        initializeInlineHelp(event.target instanceof Element ? event.target : document);
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeInlineHelp();
+        }
+      });
     })();
   </script>
 </body>

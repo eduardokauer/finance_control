@@ -9,7 +9,7 @@
           <span aria-current="page">{{ item.label }}</span>
         {% endif %}
         {% if not loop.last %}
-          <span class="analysis-breadcrumb-separator" aria-hidden="true">›</span>
+          <span class="analysis-breadcrumb-separator" aria-hidden="true">&rsaquo;</span>
         {% endif %}
       {% endfor %}
     </nav>
@@ -29,12 +29,17 @@
     {% endif %}
   {% endcall %}
 
-  <section class="toolbar-card analysis-global-toolbar">
-    <div class="analysis-toolbar-header">
-      <div class="stack" style="gap:4px;">
-        <strong>Controles globais da página</strong>
-        <div class="subtle">{{ analysis_controls_intro }}</div>
-      </div>
+  <details class="toolbar-card analysis-global-toolbar top-filter-accordion" data-top-filter-accordion>
+    <summary class="top-filter-summary">
+      <span class="top-filter-summary-copy">
+        <span class="top-filter-summary-title">
+          <strong>Controles globais da página</strong>
+          <span class="help-copy">{{ analysis_controls_intro }}</span>
+        </span>
+      </span>
+    </summary>
+
+    <div class="top-filter-body">
       {% if analysis_global_tabs %}
         <div class="home-view-tabs" role="tablist" aria-label="Controle global da página">
           {% for tab in analysis_global_tabs %}
@@ -42,104 +47,104 @@
           {% endfor %}
         </div>
       {% endif %}
-    </div>
 
-    <form method="get" action="{{ analysis_form_action }}" class="analysis-period-form" id="analysis-period-form">
-      <input type="hidden" name="selection_mode" id="selection-mode-input" value="{{ selection_mode }}">
-      {% for field in analysis_extra_hidden_fields or [] %}
-        {% if field.value is not none %}
-          <input
-            type="hidden"
-            name="{{ field.name }}"
-            value="{{ field.value }}"
-            {% if field.clear_on_empty %}data-clear-on-empty="true"{% endif %}>
-        {% endif %}
-      {% endfor %}
+      <form method="get" action="{{ analysis_form_action }}" class="analysis-period-form" id="analysis-period-form">
+        <input type="hidden" name="selection_mode" id="selection-mode-input" value="{{ selection_mode }}">
+        {% for field in analysis_extra_hidden_fields or [] %}
+          {% if field.value is not none %}
+            <input
+              type="hidden"
+              name="{{ field.name }}"
+              value="{{ field.value }}"
+              {% if field.clear_on_empty %}data-clear-on-empty="true"{% endif %}>
+          {% endif %}
+        {% endfor %}
 
-      <div class="analysis-period-bar">
-        <div class="analysis-period-mode-group chip-row">
-          <button type="button" class="button period-tab {% if selection_mode == 'closed' %}period-tab-active{% endif %}" data-mode="closed">Último mês fechado</button>
-          <button type="button" class="button period-tab {% if selection_mode == 'month' %}period-tab-active{% endif %}" data-mode="month">Mês</button>
-          <button type="button" class="button period-tab {% if selection_mode == 'custom' %}period-tab-active{% endif %}" data-mode="custom">Intervalo</button>
-        </div>
+        <div class="analysis-period-bar">
+          <div class="analysis-period-mode-group chip-row">
+            <button type="button" class="button period-tab {% if selection_mode == 'closed' %}period-tab-active{% endif %}" data-mode="closed">Último mês fechado</button>
+            <button type="button" class="button period-tab {% if selection_mode == 'month' %}period-tab-active{% endif %}" data-mode="month">Mês</button>
+            <button type="button" class="button period-tab {% if selection_mode == 'custom' %}period-tab-active{% endif %}" data-mode="custom">Intervalo</button>
+          </div>
 
-        <div class="analysis-period-panels-stack">
-          <div id="panel-closed" class="period-panel analysis-period-panel" {% if selection_mode != 'closed' %}style="display:none;"{% endif %}>
-            <div class="analysis-period-preview">
-              <strong>Último mês fechado disponível</strong>
-              <span id="closed-month-label">{{ latest_closed_label }}</span>
-              <small>{{ latest_closed_start.strftime('%d/%m/%Y') }} a {{ latest_closed_end.strftime('%d/%m/%Y') }}</small>
+          <div class="analysis-period-panels-stack">
+            <div id="panel-closed" class="period-panel analysis-period-panel" {% if selection_mode != 'closed' %}style="display:none;"{% endif %}>
+              <div class="analysis-period-preview">
+                <strong>Último mês fechado disponível</strong>
+                <span id="closed-month-label">{{ latest_closed_label }}</span>
+                <small>{{ latest_closed_start.strftime('%d/%m/%Y') }} a {{ latest_closed_end.strftime('%d/%m/%Y') }}</small>
+              </div>
+            </div>
+
+            <div id="panel-month" class="period-panel analysis-period-panel" {% if selection_mode != 'month' %}style="display:none;"{% endif %}>
+              <label class="analysis-period-field">Mês
+                <select name="month" id="analysis-month-input" {% if selection_mode != 'month' %}disabled{% endif %}>
+                  {% for option in analysis_month_options or [] %}
+                    <option value="{{ option.value }}" {% if option.value == month_value %}selected{% endif %}>{{ option.label }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
+
+            <div id="panel-custom" class="period-panel analysis-period-panel analysis-period-panel-range" {% if selection_mode != 'custom' %}style="display:none;"{% endif %}>
+              <label class="analysis-period-field">Data inicial
+                <input type="date" name="period_start" value="{{ period_start }}" {% if selection_mode != 'custom' %}disabled{% endif %}>
+              </label>
+              <label class="analysis-period-field">Data final
+                <input type="date" name="period_end" value="{{ period_end }}" {% if selection_mode != 'custom' %}disabled{% endif %}>
+              </label>
             </div>
           </div>
 
-          <div id="panel-month" class="period-panel analysis-period-panel" {% if selection_mode != 'month' %}style="display:none;"{% endif %}>
-            <label class="analysis-period-field">Mês
-              <select name="month" id="analysis-month-input" {% if selection_mode != 'month' %}disabled{% endif %}>
-                {% for option in analysis_month_options or [] %}
-                  <option value="{{ option.value }}" {% if option.value == month_value %}selected{% endif %}>{{ option.label }}</option>
-                {% endfor %}
-              </select>
-            </label>
-          </div>
+          {% if analysis_toolbar_filters %}
+            <div class="analysis-toolbar-filters">
+              {% for control in analysis_toolbar_filters %}
+                {% if control.kind == "multi_select_dropdown" %}
+                  <details class="analysis-filter-dropdown">
+                    <summary class="analysis-filter-dropdown-summary">
+                      <span class="analysis-filter-dropdown-label">{{ control.label }}</span>
+                      <strong>{{ control.summary }}</strong>
+                    </summary>
+                    <div class="analysis-filter-dropdown-panel">
+                      {% if control.actions %}
+                        <div class="analysis-filter-dropdown-actions">
+                          {% for action in control.actions %}
+                            <button
+                              type="button"
+                              class="button button-ghost"
+                              data-dropdown-action="{{ action.key }}"
+                              data-dropdown-target="{{ control.name }}">
+                              {{ action.label }}
+                            </button>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
+                      {% for option in control.options %}
+                        <label class="analysis-filter-option">
+                          <input type="checkbox" name="{{ control.name }}" value="{{ option.value }}" {% if option.is_selected %}checked{% endif %}>
+                          <span>{{ option.label }}</span>
+                        </label>
+                      {% endfor %}
+                    </div>
+                  </details>
+                {% endif %}
+              {% endfor %}
+            </div>
+          {% endif %}
 
-          <div id="panel-custom" class="period-panel analysis-period-panel analysis-period-panel-range" {% if selection_mode != 'custom' %}style="display:none;"{% endif %}>
-            <label class="analysis-period-field">Data inicial
-              <input type="date" name="period_start" value="{{ period_start }}" {% if selection_mode != 'custom' %}disabled{% endif %}>
-            </label>
-            <label class="analysis-period-field">Data final
-              <input type="date" name="period_end" value="{{ period_end }}" {% if selection_mode != 'custom' %}disabled{% endif %}>
-            </label>
+          <div class="toolbar-actions analysis-period-actions">
+            <button
+              type="submit"
+              class="button button-primary"
+              id="analysis-apply-button"
+              data-loading-button
+              data-loading-label="Aplicando..."
+              disabled>Aplicar</button>
           </div>
         </div>
-
-        {% if analysis_toolbar_filters %}
-          <div class="analysis-toolbar-filters">
-            {% for control in analysis_toolbar_filters %}
-              {% if control.kind == "multi_select_dropdown" %}
-                <details class="analysis-filter-dropdown">
-                  <summary class="analysis-filter-dropdown-summary">
-                    <span class="analysis-filter-dropdown-label">{{ control.label }}</span>
-                    <strong>{{ control.summary }}</strong>
-                  </summary>
-                  <div class="analysis-filter-dropdown-panel">
-                    {% if control.actions %}
-                      <div class="analysis-filter-dropdown-actions">
-                        {% for action in control.actions %}
-                          <button
-                            type="button"
-                            class="button button-ghost"
-                            data-dropdown-action="{{ action.key }}"
-                            data-dropdown-target="{{ control.name }}">
-                            {{ action.label }}
-                          </button>
-                        {% endfor %}
-                      </div>
-                    {% endif %}
-                    {% for option in control.options %}
-                      <label class="analysis-filter-option">
-                        <input type="checkbox" name="{{ control.name }}" value="{{ option.value }}" {% if option.is_selected %}checked{% endif %}>
-                        <span>{{ option.label }}</span>
-                      </label>
-                    {% endfor %}
-                  </div>
-                </details>
-              {% endif %}
-            {% endfor %}
-          </div>
-        {% endif %}
-
-        <div class="toolbar-actions analysis-period-actions">
-          <button
-            type="submit"
-            class="button button-primary"
-            id="analysis-apply-button"
-            data-loading-button
-            data-loading-label="Aplicando..."
-            disabled>Aplicar</button>
-        </div>
-      </div>
-    </form>
-  </section>
+      </form>
+    </div>
+  </details>
 
   {% if analysis_context_chips %}
     <div class="analysis-context-chips" aria-label="Contexto atual da leitura">
