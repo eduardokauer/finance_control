@@ -7,7 +7,7 @@ import json
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.repositories.models import AnalysisRun, CreditCardInvoice, CreditCardInvoiceConciliation, CreditCardInvoiceItem, Transaction
+from app.repositories.models import AnalysisRun, CreditCard, CreditCardInvoice, CreditCardInvoiceConciliation, CreditCardInvoiceItem, Transaction
 from app.services.credit_card_bills import build_conciliation_analytics_snapshot, classify_credit_card_invoice_item, map_conciliated_bank_payment_signals
 from app.utils.normalization import normalize_description
 
@@ -1118,7 +1118,7 @@ def _build_statement_category_breakdown(*, current_txs: list[Transaction]) -> di
         "rows": rows,
         "top_expense_categories": top_expense_categories,
         "note": (
-            "Visao de Extrato: considera apenas as transacoes da conta pela data da transacao, "
+            "Visão de Extrato: considera apenas as transações da conta pela data da transação, "
             "sem incorporar compras de fatura nem ajustar pagamentos conciliados."
         ),
     }
@@ -1170,8 +1170,8 @@ def _build_invoice_category_breakdown(items: list[CreditCardInvoiceItem]) -> dic
         "payment_total": payment_total,
         "payment_display": format_currency_br(payment_total),
         "note": (
-            "Visao de Faturas: o ranking de categorias considera apenas itens charge das faturas com vencimento no periodo. "
-            "Creditos e pagamentos tecnicos permanecem fora do grafico categorial principal."
+            "Visão de Faturas: o ranking de categorias considera apenas itens charge das faturas com vencimento no período. "
+            "Créditos e pagamentos técnicos permanecem fora do gráfico categorial principal."
         ),
     }
 
@@ -1218,8 +1218,8 @@ def _build_invoice_month_snapshot(
         "status_counts": status_counts,
         "category_breakdown": category_breakdown,
         "note": (
-            "A visao de faturas acompanha os vencimentos dentro do periodo selecionado e separa "
-            "compras, creditos tecnicos e pagamentos tecnicos."
+            "A visão de faturas acompanha os vencimentos dentro do período selecionado e separa "
+            "compras, créditos técnicos e pagamentos técnicos."
         ),
     }
 
@@ -1246,6 +1246,135 @@ def _build_invoice_monthly_series(db: Session, *, anchor_month: date) -> list[di
             }
         )
     return items
+
+
+def build_statement_category_monthly_series(
+    db: Session,
+    *,
+    anchor_month: date,
+    category_names: list[str] | None = None,
+) -> dict:
+    selected_names: list[str] = []
+    seen_names: set[str] = set()
+    for raw_name in category_names or []:
+        normalized_name = _analysis_category_name(raw_name)
+        normalized_key = normalized_name.casefold()
+        if normalized_key in seen_names:
+            continue
+        seen_names.add(normalized_key)
+        selected_names.append(normalized_name)
+
+    series_start = add_months(month_start(anchor_month), -11)
+    month_snapshots: list[dict] = []
+    category_totals: dict[str, float] = defaultdict(float)
+    category_labels: dict[str, str] = {}
+    for offset in range(12):
+        current_month = add_months(series_start, offset)
+        current_txs = _load_transactions_for_period(
+            db,
+            period_start=month_start(current_month),
+            period_end=month_end(current_month),
+        )
+        snapshot = _build_statement_category_breakdown(current_txs=current_txs)
+        month_snapshots.append(
+            {
+                "label": format_month_label(month_start(current_month)),
+                "rows": snapshot["rows"],
+            }
+        )
+        for row in snapshot["rows"]:
+            if row["expense_total"] <= 0 or row["is_technical"]:
+                continue
+            category_key = row["name"].casefold()
+            category_labels[category_key] = row["name"]
+            category_totals[category_key] += row["expense_total"]
+
+    resolved_names = selected_names or [
+        category_labels[key]
+        for key, _total in sorted(
+            category_totals.items(),
+            key=lambda item: (-item[1], category_labels[item[0]].casefold()),
+        )
+    ]
+    labels = [snapshot["label"] for snapshot in month_snapshots]
+    datasets = [{"label": name, "values": []} for name in resolved_names]
+    for snapshot in month_snapshots:
+        row_lookup = {
+            row["name"].casefold(): row
+            for row in snapshot["rows"]
+            if row["expense_total"] > 0 and not row["is_technical"]
+        }
+        for dataset in datasets:
+            row = row_lookup.get(dataset["label"].casefold())
+            dataset["values"].append(round(row["expense_total"], 2) if row else 0.0)
+    return {
+        "labels": labels,
+        "datasets": datasets,
+    }
+
+
+def build_invoice_category_monthly_series(
+    db: Session,
+    *,
+    anchor_month: date,
+    category_names: list[str] | None = None,
+) -> dict:
+    selected_names: list[str] = []
+    seen_names: set[str] = set()
+    for raw_name in category_names or []:
+        normalized_name = _analysis_category_name(raw_name)
+        normalized_key = normalized_name.casefold()
+        if normalized_key in seen_names:
+            continue
+        seen_names.add(normalized_key)
+        selected_names.append(normalized_name)
+
+    series_start = add_months(month_start(anchor_month), -11)
+    month_snapshots: list[dict] = []
+    category_totals: dict[str, float] = defaultdict(float)
+    category_labels: dict[str, str] = {}
+    for offset in range(12):
+        current_month = add_months(series_start, offset)
+        snapshot = _build_invoice_month_snapshot(
+            db,
+            period_start=month_start(current_month),
+            period_end=month_end(current_month),
+        )
+        month_snapshots.append(
+            {
+                "label": format_month_label(month_start(current_month)),
+                "rows": snapshot["category_breakdown"]["rows"],
+            }
+        )
+        for row in snapshot["category_breakdown"]["rows"]:
+            if row["expense_total"] <= 0 or row["is_technical"]:
+                continue
+            category_key = row["name"].casefold()
+            category_labels[category_key] = row["name"]
+            category_totals[category_key] += row["expense_total"]
+
+    resolved_names = selected_names or [
+        category_labels[key]
+        for key, _total in sorted(
+            category_totals.items(),
+            key=lambda item: (-item[1], category_labels[item[0]].casefold()),
+        )
+    ]
+    labels = [snapshot["label"] for snapshot in month_snapshots]
+    datasets = [{"label": name, "values": []} for name in resolved_names]
+    for snapshot in month_snapshots:
+        row_lookup = {
+            row["name"].casefold(): row
+            for row in snapshot["rows"]
+            if row["expense_total"] > 0 and not row["is_technical"]
+        }
+        for dataset in datasets:
+            row = row_lookup.get(dataset["label"].casefold())
+            dataset["values"].append(round(row["expense_total"], 2) if row else 0.0)
+    return {
+        "labels": labels,
+        "datasets": datasets,
+    }
 
 
 def _build_conciliated_monthly_series(db: Session, *, anchor_month: date) -> list[dict]:
@@ -2097,9 +2226,271 @@ def build_category_composition_for_period(
         "total": total,
         "total_display": format_currency_br(total),
         "note": (
-            "Composicao do valor no periodo selecionado, combinando conta por data da transacao "
+            "Composição do valor no período selecionado, combinando conta por data da transação "
             "e itens charge de faturas conciliadas por data da compra."
         ),
+    }
+
+
+def build_statement_operational_snapshot(
+    db: Session,
+    *,
+    period_start: date,
+    period_end: date,
+    conciliated_view: bool = False,
+) -> dict:
+    current_txs = _load_transactions_for_period(db, period_start=period_start, period_end=period_end)
+    signal_map = map_conciliated_bank_payment_signals(db, transaction_ids=[tx.id for tx in current_txs])
+    included_invoice_ids: set[int] = set()
+    if conciliated_view:
+        included_invoice_ids = {
+            invoice.id
+            for invoice, _conciliation in db.execute(
+                select(CreditCardInvoice, CreditCardInvoiceConciliation)
+                .join(CreditCardInvoiceConciliation, CreditCardInvoiceConciliation.invoice_id == CreditCardInvoice.id)
+                .where(
+                    CreditCardInvoice.due_date >= period_start,
+                    CreditCardInvoice.due_date <= period_end,
+                    CreditCardInvoiceConciliation.status == "conciliated",
+                )
+            ).all()
+        }
+
+    rows: list[dict] = []
+    for tx in current_txs:
+        signal = signal_map.get(tx.id)
+        is_transfer = _is_transfer_technical(tx)
+        is_excluded_payment = bool(
+            conciliated_view
+            and signal is not None
+            and signal.conciliation_status == "conciliated"
+            and signal.invoice_id in included_invoice_ids
+        )
+        is_included = not is_transfer and not is_excluded_payment if conciliated_view else True
+        if conciliated_view:
+            if is_excluded_payment:
+                inclusion_label = "Fora da leitura"
+                inclusion_reason = "Pagamento bancário substituído pela fatura conciliada."
+            elif is_transfer:
+                inclusion_label = "Fora da leitura"
+                inclusion_reason = "Transferência técnica removida da leitura real."
+            else:
+                inclusion_label = "Dentro da leitura"
+                inclusion_reason = "Lançamento considerado na leitura conciliada."
+        else:
+            if signal is not None:
+                inclusion_label = "Vinculado"
+                inclusion_reason = (
+                    f"{signal.card_label} · "
+                    f"{signal.billing_month:02d}/{signal.billing_year} · "
+                    f"status {signal.conciliation_status}"
+                )
+            else:
+                inclusion_label = "Sem vínculo"
+                inclusion_reason = "Nenhuma conciliação encontrada para este lançamento."
+
+        rows.append(
+            {
+                "id": tx.id,
+                "transaction_date": tx.transaction_date,
+                "transaction_date_display": format_date_br(tx.transaction_date),
+                "description": tx.description_raw,
+                "description_normalized": tx.description_normalized,
+                "category": _analysis_category_name(tx.category),
+                "transaction_kind": tx.transaction_kind,
+                "source_type": tx.source_type,
+                "amount": float(tx.amount),
+                "amount_display": format_currency_br(abs(float(tx.amount))),
+                "direction": tx.direction,
+                "is_transfer_technical": is_transfer,
+                "is_conciliated_bank_payment": signal is not None,
+                "conciliation_status": signal.conciliation_status if signal is not None else None,
+                "conciliation_label": inclusion_label,
+                "conciliation_reason": inclusion_reason,
+                "is_included": is_included,
+                "invoice_id": signal.invoice_id if signal is not None else None,
+                "invoice_reference": (
+                    f"{signal.card_label} · {signal.billing_month:02d}/{signal.billing_year}"
+                    if signal is not None
+                    else None
+                ),
+            }
+        )
+
+    rows.sort(
+        key=lambda row: (
+            row["transaction_date"],
+            abs(row["amount"]),
+            row["description"].casefold(),
+            row["id"],
+        ),
+        reverse=True,
+    )
+    return {
+        "rows": rows,
+        "transaction_count": len(rows),
+        "included_count": sum(1 for row in rows if row["is_included"]),
+        "excluded_count": sum(1 for row in rows if not row["is_included"]),
+    }
+
+
+def build_invoice_operational_snapshot(
+    db: Session,
+    *,
+    period_start: date,
+    period_end: date,
+    conciliated_only: bool = False,
+) -> dict:
+    rows = db.execute(
+        select(
+            CreditCardInvoiceItem,
+            CreditCardInvoice,
+            CreditCard,
+            CreditCardInvoiceConciliation.status,
+        )
+        .join(CreditCardInvoice, CreditCardInvoice.id == CreditCardInvoiceItem.invoice_id)
+        .join(CreditCard, CreditCard.id == CreditCardInvoice.card_id)
+        .outerjoin(CreditCardInvoiceConciliation, CreditCardInvoiceConciliation.invoice_id == CreditCardInvoice.id)
+        .where(
+            CreditCardInvoice.due_date >= period_start,
+            CreditCardInvoice.due_date <= period_end,
+        )
+        .order_by(
+            CreditCardInvoiceItem.purchase_date.desc(),
+            CreditCardInvoiceItem.id.desc(),
+        )
+    ).all()
+
+    item_rows: list[dict] = []
+    for item, invoice, card, conciliation_status in rows:
+        resolved_status = conciliation_status or "pending_review"
+        item_type = classify_credit_card_invoice_item(item)
+        is_visible_in_conciliated = resolved_status == "conciliated" and item_type in {"charge", "credit"}
+        if conciliated_only and not is_visible_in_conciliated:
+            continue
+        if is_visible_in_conciliated:
+            visibility_label = "Dentro da leitura"
+            visibility_reason = "Item de fatura considerado na leitura conciliada."
+        elif item_type == "payment":
+            visibility_label = "Técnico"
+            visibility_reason = "Pagamento técnico de fatura; não entra como consumo."
+        elif item_type == "credit":
+            visibility_label = "Fora da leitura"
+            visibility_reason = "Crédito técnico fora da leitura principal enquanto a fatura não estiver conciliada."
+        else:
+            visibility_label = "Fora da leitura"
+            visibility_reason = (
+                "Item de compra so entra na leitura conciliada quando a fatura estiver com status conciliated."
+            )
+
+        item_rows.append(
+            {
+                "id": item.id,
+                "invoice_id": invoice.id,
+                "card_label": card.card_label,
+                "purchase_date": item.purchase_date,
+                "purchase_date_display": format_date_br(item.purchase_date),
+                "due_date": invoice.due_date,
+                "due_date_display": format_date_br(invoice.due_date),
+                "closing_date_display": format_date_br(invoice.closing_date) if invoice.closing_date else "-",
+                "description": item.description_raw,
+                "description_normalized": item.description_normalized or "",
+                "category": _analysis_category_name(item.category),
+                "item_type": item_type,
+                "conciliation_status": resolved_status,
+                "amount": float(item.amount_brl),
+                "amount_display": format_currency_br(abs(float(item.amount_brl))),
+                "is_visible_in_conciliated": is_visible_in_conciliated,
+                "visibility_label": visibility_label,
+                "visibility_reason": visibility_reason,
+            }
+        )
+
+    return {
+        "rows": item_rows,
+        "item_count": len(item_rows),
+        "visible_count": sum(1 for row in item_rows if row["is_visible_in_conciliated"]),
+    }
+
+
+def build_conciliated_composition_snapshot(
+    db: Session,
+    *,
+    period_start: date,
+    period_end: date,
+) -> dict:
+    current_txs = _load_transactions_for_period(db, period_start=period_start, period_end=period_end)
+    conciliated_month = _build_conciliated_month_snapshot(
+        db,
+        period_start=period_start,
+        period_end=period_end,
+        current_txs=current_txs,
+    )
+    rows = [
+        {
+            "key": "bank_income_total",
+            "label": "Entradas totais da conta",
+            "value": conciliated_month["bank_income_total"],
+            "value_display": conciliated_month["bank_income_display"],
+        },
+        {
+            "key": "transfer_income_total",
+            "label": "Transferências de entrada removidas",
+            "value": conciliated_month["transfer_income_total"],
+            "value_display": conciliated_month["transfer_income_display"],
+        },
+        {
+            "key": "real_bank_income_total",
+            "label": "Receitas reais conciliadas",
+            "value": conciliated_month["real_bank_income_total"],
+            "value_display": conciliated_month["real_bank_income_display"],
+        },
+        {
+            "key": "total_bank_outflow_total",
+            "label": "Saídas totais da conta",
+            "value": conciliated_month["total_bank_outflow_total"],
+            "value_display": conciliated_month["total_bank_outflow_display"],
+        },
+        {
+            "key": "transfer_expense_total",
+            "label": "Transferências de saída removidas",
+            "value": conciliated_month["transfer_expense_total"],
+            "value_display": conciliated_month["transfer_expense_display"],
+        },
+        {
+            "key": "excluded_conciliated_bank_payment_total",
+            "label": "Pagamentos bancários conciliados removidos",
+            "value": conciliated_month["excluded_conciliated_bank_payment_total"],
+            "value_display": conciliated_month["excluded_conciliated_bank_payment_display"],
+        },
+        {
+            "key": "conciliated_card_charge_total",
+            "label": "Charges de fatura conciliadas",
+            "value": conciliated_month["conciliated_card_charge_total"],
+            "value_display": conciliated_month["conciliated_card_charge_display"],
+        },
+        {
+            "key": "conciliated_invoice_credit_total",
+            "label": "Créditos de fatura",
+            "value": conciliated_month["conciliated_invoice_credit_total"],
+            "value_display": conciliated_month["conciliated_invoice_credit_display"],
+        },
+        {
+            "key": "real_conciliated_expense_total",
+            "label": "Despesas reais conciliadas",
+            "value": conciliated_month["real_conciliated_expense_total"],
+            "value_display": conciliated_month["real_conciliated_expense_display"],
+        },
+        {
+            "key": "real_conciliated_balance_total",
+            "label": "Saldo real conciliado",
+            "value": conciliated_month["real_conciliated_balance_total"],
+            "value_display": conciliated_month["real_conciliated_balance_display"],
+        },
+    ]
+    return {
+        "rows": rows,
+        "summary": conciliated_month,
     }
 
 
@@ -2342,6 +2733,14 @@ def build_analysis_snapshot(
     )
     invoice_monthly_series = _build_invoice_monthly_series(db, anchor_month=anchor_month)
     consumption_monthly_series = _build_consumption_monthly_series(db, anchor_month=anchor_month)
+    statement_category_monthly_series = build_statement_category_monthly_series(
+        db,
+        anchor_month=anchor_month,
+    )
+    invoice_category_monthly_series = build_invoice_category_monthly_series(
+        db,
+        anchor_month=anchor_month,
+    )
     top_expense_categories = category_breakdown["top_expense_categories"]
     category_consumption_monthly_series = build_category_consumption_monthly_series(
         db,
@@ -2416,11 +2815,13 @@ def build_analysis_snapshot(
                 "technical": [item["is_technical"] for item in top_expense_categories],
             },
             "categories_monthly": category_consumption_monthly_series,
+            "statement_categories_monthly": statement_category_monthly_series,
             "statement_categories": {
                 "labels": [item["name"] for item in statement_category_breakdown["top_expense_categories"]],
                 "values": [round(item["expense_total"], 2) for item in statement_category_breakdown["top_expense_categories"]],
                 "technical": [item["is_technical"] for item in statement_category_breakdown["top_expense_categories"]],
             },
+            "invoice_categories_monthly": invoice_category_monthly_series,
             "invoice_categories": {
                 "labels": [item["name"] for item in invoice_month_snapshot["category_breakdown"]["top_expense_categories"]],
                 "values": [round(item["expense_total"], 2) for item in invoice_month_snapshot["category_breakdown"]["top_expense_categories"]],

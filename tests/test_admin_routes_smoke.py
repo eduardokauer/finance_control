@@ -212,9 +212,11 @@ def test_admin_main_routes_smoke(client, db_session, monkeypatch):
         "/admin",
         "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31",
         "/admin/conference?period_start=2026-03-01&period_end=2026-03-31",
+        "/admin/conference/technical?period_start=2026-03-01&period_end=2026-03-31",
         "/admin/conference/manage",
         "/admin/operations",
         "/admin/transactions",
+        "/admin/transactions/bulk",
         f"/admin/transactions/{tx.id}",
         "/admin/reapply",
         "/admin/rules",
@@ -244,13 +246,16 @@ def test_admin_analysis_and_conference_routes_support_legacy_saved_payload(clien
 
     analysis_response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     conference_response = client.get("/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
+    technical_response = client.get("/admin/conference/technical?period_start=2026-03-01&period_end=2026-03-31")
 
     _assert_route_ok(analysis_response, "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     _assert_route_ok(conference_response, "/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
-    assert "Visão de consumo do mês-base" in analysis_response.text
-    assert "Visão bruta de apoio" not in analysis_response.text
-    assert "Visão bruta de apoio" in conference_response.text
-    assert "legacy html" in conference_response.text
+    _assert_route_ok(technical_response, "/admin/conference/technical?period_start=2026-03-01&period_end=2026-03-31")
+    assert "Composição da leitura" in analysis_response.text
+    assert "Conta no recorte" in analysis_response.text
+    assert "Itens do extrato" in conference_response.text
+    assert "Auditoria técnica" in conference_response.text
+    assert "legacy html" in technical_response.text
 
 
 def test_admin_archetype_routes_expose_layout_contracts(client, db_session, monkeypatch):
@@ -264,6 +269,7 @@ def test_admin_archetype_routes_expose_layout_contracts(client, db_session, monk
     summary_response = client.get("/admin")
     analysis_response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     conference_response = client.get("/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
+    technical_response = client.get("/admin/conference/technical?period_start=2026-03-01&period_end=2026-03-31")
     operations_response = client.get("/admin/operations")
     transactions_response = client.get("/admin/transactions")
     invoice_detail_response = client.get(f"/admin/credit-card-invoices/{invoice.id}")
@@ -274,6 +280,7 @@ def test_admin_archetype_routes_expose_layout_contracts(client, db_session, monk
         (summary_response, "/admin"),
         (analysis_response, "/admin/analysis"),
         (conference_response, "/admin/conference"),
+        (technical_response, "/admin/conference/technical"),
         (operations_response, "/admin/operations"),
         (transactions_response, "/admin/transactions"),
         (invoice_detail_response, f"/admin/credit-card-invoices/{invoice.id}"),
@@ -285,9 +292,10 @@ def test_admin_archetype_routes_expose_layout_contracts(client, db_session, monk
     assert "home-kpi-strip" in summary_response.text
     assert "home-dashboard-grid" in summary_response.text
     assert "analysis-context-stack" in analysis_response.text
-    assert "analysis-shell-grid analysis-shell-grid-hero" in analysis_response.text
+    assert "analysis-page-stack" in analysis_response.text
     assert "analysis-context-stack" in conference_response.text
-    assert "analysis-shell-grid analysis-shell-grid-main" in conference_response.text
+    assert "analysis-page-stack" in conference_response.text
+    assert "analysis-page-stack" in technical_response.text
     assert "ops-shell-grid" in operations_response.text
     assert "summary-shortcuts" in operations_response.text
     assert "ops-shell-grid" in transactions_response.text

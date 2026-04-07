@@ -78,7 +78,7 @@ class CategoryManagementSummary:
         if is_reserved_category_name(self.category.name):
             return "Categoria protegida pelo sistema."
         if self.usage.total_references > 0:
-            return "Mova lancamentos, itens de fatura e regras antes de excluir."
+            return "Mova lançamentos, itens de fatura e regras antes de excluir."
         return None
 
 
@@ -500,9 +500,9 @@ def delete_category_if_unused(
 ) -> Category:
     category = db.get(Category, category_id)
     if category is None:
-        raise ValueError("Categoria invalida.")
+        raise ValueError("Categoria inválida.")
     if is_reserved_category_name(category.name):
-        raise ValueError("A categoria base do sistema nao pode ser excluida.")
+        raise ValueError("A categoria base do sistema não pode ser excluída.")
 
     summary = next(
         (summary for summary in list_category_management_summaries(db) if summary.category.id == category_id),
@@ -510,7 +510,7 @@ def delete_category_if_unused(
     )
     usage = summary.usage if summary is not None else CategoryUsageCounts()
     if usage.total_references > 0:
-        raise ValueError("Mova lancamentos, itens de fatura e regras antes de excluir a categoria.")
+        raise ValueError("Mova lançamentos, itens de fatura e regras antes de excluir a categoria.")
 
     db.delete(category)
     db.commit()

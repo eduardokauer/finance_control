@@ -1,13 +1,20 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from datetime import date
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
-from app.services.admin import list_recent_source_files, resolve_analysis_period
-from app.services.analysis import build_analysis_snapshot, format_currency_br, format_date_br
+from app.services.admin import list_available_analysis_months, list_recent_source_files, resolve_analysis_period
+from app.services.analysis import (
+    build_analysis_snapshot,
+    build_invoice_operational_snapshot,
+    format_currency_br,
+    format_date_br,
+)
 from app.services.credit_card_bills import (
     build_credit_card_invoice_import_chart,
     CreditCardInvoiceCategoryEditError,
@@ -37,6 +44,79 @@ def _status_variant(status: str) -> str:
         "conciliated": "ok",
         "conflict": "danger",
     }.get(status, "")
+
+
+def _invoice_period_context(
+    db: Session,
+    *,
+    request: Request,
+    selection_mode: str | None,
+    month: str | None,
+    period_start: date | None,
+    period_end: date | None,
+) -> dict:
+    latest_closed_start, latest_closed_end = resolve_analysis_period(
+        db,
+        month=None,
+        period_start=None,
+        period_end=None,
+    )
+    selected_mode = selection_mode or ("custom" if period_start and period_end else ("month" if month else "closed"))
+    month_value = month or f"{latest_closed_start.year:04d}-{latest_closed_start.month:02d}"
+    month_preview_start, month_preview_end = resolve_analysis_period(
+        db,
+        month=month_value,
+        period_start=None,
+        period_end=None,
+    )
+    if selected_mode == "month":
+        resolved_start, resolved_end = month_preview_start, month_preview_end
+    elif selected_mode == "custom" and period_start and period_end:
+        resolved_start, resolved_end = resolve_analysis_period(
+            db,
+            month=None,
+            period_start=period_start,
+            period_end=period_end,
+        )
+    else:
+        resolved_start, resolved_end = latest_closed_start, latest_closed_end
+
+    latest_closed_value = f"{latest_closed_start.year:04d}-{latest_closed_start.month:02d}"
+    analysis_month_options = list_available_analysis_months(db)
+    latest_closed_label = next(
+        (option["label"] for option in analysis_month_options if option["value"] == latest_closed_value),
+        latest_closed_value,
+    )
+    return {
+        "selection_mode": selected_mode,
+        "period_start": resolved_start,
+        "period_end": resolved_end,
+        "month_value": month_value,
+        "latest_closed_start": latest_closed_start,
+        "latest_closed_end": latest_closed_end,
+        "month_preview_start": month_preview_start,
+        "month_preview_end": month_preview_end,
+        "analysis_month_options": analysis_month_options,
+        "latest_closed_label": latest_closed_label,
+        "analysis_page_title": "Visão de Faturas",
+        "analysis_page_intro": "Itens e faturas do período.",
+        "analysis_form_action": "/admin/credit-card-invoices",
+        "analysis_show_generate": False,
+        "analysis_breadcrumb_items": [
+            {"label": "Resumo", "href": "/admin"},
+            {"label": "Visão de Faturas", "href": None},
+        ],
+        "analysis_back_href": "/admin",
+        "analysis_context_chips": [
+            {"key": "period", "label": "Período", "value": f"{format_date_br(resolved_start)} a {format_date_br(resolved_end)}"},
+        ],
+        "analysis_focus_banner": None,
+        "analysis_global_tabs": [],
+        "analysis_controls_intro": "Período global da página.",
+        "analysis_extra_hidden_fields": [],
+        "analysis_urls": {"return_to": str(request.url)},
+        "analysis_toolbar_filters": [],
+    }
 
 
 def _render_invoice_item_category_editor(
@@ -84,45 +164,105 @@ def _render_invoice_item_category_editor(
 @router.get("/credit-card-invoices", response_class=HTMLResponse)
 def admin_credit_card_invoice_list(
     request: Request,
+    selection_mode: str | None = None,
+    month: str | None = None,
+    period_start: date | None = None,
+    period_end: date | None = None,
+    card_label: str | None = None,
+    category: str | None = None,
+    item_type: str | None = None,
+    conciliation_status: str | None = None,
+    description: str | None = None,
+    sort: str | None = "recent",
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    entries = list_credit_card_invoices(db)
-    chart_data = build_credit_card_invoice_import_chart(db)
-    chart_payload = (
-        {
-            "month_labels": chart_data.month_labels,
-            "datasets": [
-                {
-                    "year": dataset.year,
-                    "color": dataset.color,
-                    "values": dataset.values,
-                }
-                for dataset in chart_data.datasets
-            ],
-        }
-        if chart_data
-        else None
-    )
-    period_start, period_end = resolve_analysis_period(
+    period_context = _invoice_period_context(
         db,
-        month=None,
-        period_start=None,
-        period_end=None,
-    )
-    analysis_snapshot = build_analysis_snapshot(
-        db,
+        request=request,
+        selection_mode=selection_mode,
+        month=month,
         period_start=period_start,
         period_end=period_end,
     )
+    entries = [
+        entry
+        for entry in list_credit_card_invoices(db)
+        if period_context["period_start"] <= entry.invoice.due_date <= period_context["period_end"]
+    ]
+    if conciliation_status:
+        entries = [entry for entry in entries if entry.conciliation_status == conciliation_status]
+    if card_label:
+        entries = [entry for entry in entries if entry.card.card_label == card_label]
+    analysis_snapshot = build_analysis_snapshot(
+        db,
+        period_start=period_context["period_start"],
+        period_end=period_context["period_end"],
+    )
+    all_invoice_rows = build_invoice_operational_snapshot(
+        db,
+        period_start=period_context["period_start"],
+        period_end=period_context["period_end"],
+    )["rows"]
+    invoice_rows = all_invoice_rows
+    if card_label:
+        invoice_rows = [row for row in invoice_rows if row["card_label"] == card_label]
+    if category:
+        invoice_rows = [row for row in invoice_rows if row["category"] == category]
+    if item_type:
+        invoice_rows = [row for row in invoice_rows if row["item_type"] == item_type]
+    if conciliation_status:
+        invoice_rows = [row for row in invoice_rows if row["conciliation_status"] == conciliation_status]
+    if description:
+        lowered_description = description.casefold()
+        invoice_rows = [
+            row
+            for row in invoice_rows
+            if lowered_description in row["description"].casefold()
+            or lowered_description in (row["description_normalized"] or "").casefold()
+        ]
+    if sort == "amount_desc":
+        invoice_rows = sorted(invoice_rows, key=lambda row: (abs(row["amount"]), row["purchase_date"], row["id"]), reverse=True)
+    elif sort == "amount_asc":
+        invoice_rows = sorted(invoice_rows, key=lambda row: (abs(row["amount"]), row["purchase_date"], row["id"]))
+    elif sort == "description":
+        invoice_rows = sorted(invoice_rows, key=lambda row: ((row["description_normalized"] or "").casefold(), row["purchase_date"], row["id"]))
+    else:
+        invoice_rows = sorted(invoice_rows, key=lambda row: (row["purchase_date"], row["id"]), reverse=True)
+
+    chart_data = {
+        "monthly": analysis_snapshot["charts"]["invoice_monthly"],
+        "categories_monthly": analysis_snapshot["charts"]["invoice_categories_monthly"],
+    }
     return render_admin(
         request,
         "admin/credit_card_invoices.html",
         {
+            **period_context,
             "entries": entries,
-            "chart_data": chart_payload,
-            "invoice_category_chart": analysis_snapshot["charts"]["invoice_categories"],
+            "invoice_rows": invoice_rows,
+            "chart_data": chart_data,
             "invoice_period_label": analysis_snapshot["period"]["month_reference_label"],
+            "invoice_snapshot": analysis_snapshot["invoice_month_snapshot"],
+            "invoice_filters": {
+                "card_label": card_label or "",
+                "category": category or "",
+                "item_type": item_type or "",
+                "conciliation_status": conciliation_status or "",
+                "description": description or "",
+                "sort": sort or "recent",
+            },
+            "invoice_filter_options": {
+                "card_labels": sorted({row["card_label"] for row in all_invoice_rows if row["card_label"]}),
+                "categories": sorted({row["category"] for row in all_invoice_rows if row["category"]}),
+                "item_types": sorted({row["item_type"] for row in all_invoice_rows if row["item_type"]}),
+                "conciliation_statuses": sorted({row["conciliation_status"] for row in all_invoice_rows if row["conciliation_status"]}),
+            },
+            "invoice_stats": {
+                "row_count": len(invoice_rows),
+                "full_row_count": len(all_invoice_rows),
+                "invoice_count": len(entries),
+            },
             "format_currency_br": format_currency_br,
             "format_date_br": format_date_br,
             "status_variant": _status_variant,

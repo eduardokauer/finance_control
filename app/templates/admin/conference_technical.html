@@ -1,0 +1,202 @@
+{% extends "admin/base.html" %}
+{% block title %}Auditoria técnica do extrato{% endblock %}
+{% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
+{% block content %}
+{% set analysis_page_title = "Auditoria técnica do extrato" %}
+{% set analysis_page_intro = "Auditoria técnica do período." %}
+{% set analysis_form_action = "/admin/conference/technical" %}
+{% set analysis_submit_label = "Aplicar" %}
+{% set analysis_show_generate = True %}
+{% include "admin/partials/analysis_period_form.html" %}
+
+<section class="analysis-page-stack">
+  <section class="analysis-metric-grid">
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">{{ analysis_data.period.month_reference_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Pagamentos conciliados</strong>
+        <span class="help-copy">Lançamentos bancários usados para quitar faturas conciliadas.</span>
+        <span class="home-kpi-icon home-kpi-icon-result" aria-hidden="true">&#9679;</span>
+      </div>
+      <div class="metric-value">{{ analysis_data.conciliation_signals.conciliated_bank_payment_count }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="{{ analysis_urls.conference }}">Voltar para extrato</a>
+      </div>
+    </article>
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">{{ analysis_data.period.month_reference_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Créditos de fatura</strong>
+        <span class="help-copy">Ajustes técnicos que entram na leitura conciliada como crédito.</span>
+        <span class="home-kpi-icon home-kpi-icon-net_flow" aria-hidden="true">&#9679;</span>
+      </div>
+      <div class="metric-value">{{ analysis_data.conciliation_signals.invoice_credit_display }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="{{ analysis_urls.detail }}#conciliated-composition">Ver leitura conciliada</a>
+      </div>
+    </article>
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">{{ analysis_data.period.month_reference_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Faturas fora</strong>
+        <span class="help-copy">Pendentes, parciais ou em conflito no recorte atual.</span>
+        <span class="home-kpi-icon home-kpi-icon-expense" aria-hidden="true">&darr;</span>
+      </div>
+      <div class="metric-value">{{ analysis_data.conciliated_month.outside_invoices_total }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="{{ analysis_urls.invoice_view }}">Abrir visão de faturas</a>
+      </div>
+    </article>
+  </section>
+
+  <section class="card analysis-section-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Sinais de conciliação</strong>
+        <div class="help-copy">Leitura auxiliar do período para explicar o que entrou ou saiu da visão conciliada.</div>
+      </div>
+    </div>
+    <div class="analysis-composition-list">
+      <article class="analysis-composition-row">
+        <div class="analysis-composition-copy">
+          <strong>Pagamentos bancários conciliados</strong>
+        </div>
+        <div class="analysis-composition-actions">
+          <span class="analysis-composition-value">{{ analysis_data.conciliation_signals.conciliated_bank_payment_display }}</span>
+          <span class="analysis-stat-chip">{{ analysis_data.conciliation_signals.conciliated_bank_payment_count }} lanç.</span>
+        </div>
+      </article>
+      <article class="analysis-composition-row">
+        <div class="analysis-composition-copy">
+          <strong>Créditos técnicos de fatura</strong>
+        </div>
+        <div class="analysis-composition-actions">
+          <span class="analysis-composition-value">{{ analysis_data.conciliation_signals.invoice_credit_display }}</span>
+        </div>
+      </article>
+      <article class="analysis-composition-row">
+        <div class="analysis-composition-copy">
+          <strong>Faturas no período</strong>
+        </div>
+        <div class="analysis-composition-actions">
+          <span class="analysis-stat-chip">total {{ analysis_data.conciliation_signals.invoices_total }}</span>
+          <span class="analysis-stat-chip">pendentes {{ analysis_data.conciliation_signals.invoices_by_status.pending_review }}</span>
+          <span class="analysis-stat-chip">parciais {{ analysis_data.conciliation_signals.invoices_by_status.partially_conciliated }}</span>
+          <span class="analysis-stat-chip">conciliadas {{ analysis_data.conciliation_signals.invoices_by_status.conciliated }}</span>
+          <span class="analysis-stat-chip">conflito {{ analysis_data.conciliation_signals.invoices_by_status.conflict }}</span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="card analysis-section-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Fora da leitura principal</strong>
+        <div class="help-copy">Resumo das faturas que ainda não entram no consolidado conciliado.</div>
+      </div>
+    </div>
+    <div class="analysis-stats-strip">
+      <span class="analysis-stat-chip">Pendentes {{ analysis_data.conciliated_month.outside_invoices_by_status.pending_review }}</span>
+      <span class="analysis-stat-chip">Parciais {{ analysis_data.conciliated_month.outside_invoices_by_status.partially_conciliated }}</span>
+      <span class="analysis-stat-chip">Conflito {{ analysis_data.conciliated_month.outside_invoices_by_status.conflict }}</span>
+      <span class="analysis-stat-chip">Pagamentos removidos {{ analysis_data.conciliated_month.excluded_conciliated_bank_payment_display }}</span>
+    </div>
+  </section>
+
+  {% if analysis_run %}
+    <section class="card analysis-section-card">
+      <div class="analysis-section-header-row">
+        <div class="analysis-section-header">
+          <strong>Consolidado mensal persistido</strong>
+          <div class="help-copy">Snapshot salvo pela análise determinística para comparação técnica.</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="responsive-stack">
+          <thead>
+            <tr>
+              <th>Mês</th>
+              <th>Receitas</th>
+              <th>Despesas</th>
+              <th>Saldo</th>
+              <th>Não categorizado</th>
+              <th>Transações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for month in analysis_data.monthly_series %}
+              <tr>
+                <td data-label="Mês">{{ month.label }}</td>
+                <td data-label="Receitas">{{ month.income_display }}</td>
+                <td data-label="Despesas">{{ month.expense_display }}</td>
+                <td data-label="Saldo">{{ month.balance_display }}</td>
+                <td data-label="Não categorizado">{{ month.uncategorized_display }}</td>
+                <td data-label="Transações">{{ month.transaction_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card analysis-section-card">
+      <div class="analysis-section-header-row">
+        <div class="analysis-section-header">
+          <strong>Análise renderizada</strong>
+          <div class="help-copy">Saída renderizada da rotina determinística salva para o período.</div>
+        </div>
+      </div>
+      <div>{{ analysis_html_fragment|safe }}</div>
+    </section>
+
+    <details class="accordion card analysis-section-card">
+      <summary>HTML bruto</summary>
+      <div class="accordion-body">
+        <textarea readonly style="min-height:260px; font-family:Consolas, monospace;">{{ analysis_run.html_output }}</textarea>
+      </div>
+    </details>
+  {% else %}
+    <div class="empty-state">
+        <strong>Nenhuma análise persistida para o recorte</strong>
+    </div>
+  {% endif %}
+
+  <section class="card analysis-section-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Cargas recentes</strong>
+        <div class="help-copy">Arquivos que alimentam a base do extrato para esta auditoria.</div>
+      </div>
+    </div>
+    {% if recent_loads %}
+      <div class="table-wrap">
+        <table class="responsive-stack">
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Arquivo</th>
+              <th>Status</th>
+              <th>Processado em</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for load in recent_loads %}
+              <tr>
+                <td data-label="Tipo">{{ load.source_type }}</td>
+                <td data-label="Arquivo">{{ load.file_name }}</td>
+                <td data-label="Status"><span class="badge {% if load.status == 'processed' %}ok{% elif load.status == 'error' %}danger{% else %}warn{% endif %}">{{ load.status }}</span></td>
+                <td data-label="Processado em">{{ load.processed_at.strftime('%d/%m/%Y %H:%M') if load.processed_at else '-' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <strong>Nenhuma carga recente</strong>
+      </div>
+    {% endif %}
+  </section>
+</section>
+{% endblock %}

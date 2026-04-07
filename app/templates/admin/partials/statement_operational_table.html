@@ -1,0 +1,65 @@
+{% macro statement_operational_table(rows, show_reading=True) -%}
+<div class="table-wrap">
+  <table class="responsive-stack">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Descrição</th>
+        <th>Categoria</th>
+        <th>Tipo</th>
+        {% if show_reading %}
+          <th>Leitura</th>
+        {% else %}
+          <th>Conciliação</th>
+        {% endif %}
+        <th>Fatura</th>
+        <th>Valor</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td data-label="Data">
+            <strong>{{ row.transaction_date_display }}</strong>
+          </td>
+          <td data-label="Descrição">
+            <div class="cell-stack">
+              <strong>{{ row.description }}</strong>
+              {% if row.conciliation_reason %}
+                <span class="subtle">{{ row.conciliation_reason }}</span>
+              {% endif %}
+            </div>
+          </td>
+          <td data-label="Categoria">{{ row.category }}</td>
+          <td data-label="Tipo"><span class="badge">{{ row.transaction_kind }}</span></td>
+          <td data-label="{{ 'Leitura' if show_reading else 'Conciliação' }}">
+            <div class="cell-stack">
+              <span class="badge {% if not row.is_included and show_reading %}warn{% elif row.is_conciliated_bank_payment %}ok{% endif %}">{{ row.conciliation_label }}</span>
+              {% if row.is_transfer_technical %}
+                <span class="subtle">transfer</span>
+              {% endif %}
+            </div>
+          </td>
+          <td data-label="Fatura">
+            {% if row.invoice_id %}
+              <div class="cell-stack">
+                <span>{{ row.invoice_reference }}</span>
+                <a class="text-link" href="/admin/credit-card-invoices/{{ row.invoice_id }}#invoice-conciliation-section">Abrir</a>
+              </div>
+            {% else %}
+              <span class="subtle">-</span>
+            {% endif %}
+          </td>
+          <td data-label="Valor" class="{% if row.amount < 0 %}amount-negative{% else %}amount-positive{% endif %}">
+            {{ row.amount_display }}
+          </td>
+          <td data-label="Ação">
+            <a class="text-link" href="/admin/transactions/{{ row.id }}">Abrir</a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{%- endmacro %}

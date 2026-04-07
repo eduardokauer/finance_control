@@ -3,32 +3,32 @@
 {% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
 {% block content %}
 {% set analysis_page_title = "Categorias" %}
-{% set analysis_page_intro = "Subhome da leitura categorial: grafico empilhado de 12 meses, filtros por categoria e composicao operacional do valor." %}
+{% set analysis_page_intro = "Leitura categorial do período, com gráfico empilhado, filtros e composição operacional do valor." %}
 {% include "admin/partials/analysis_period_form.html" %}
 
 <section class="overview-stack">
   <section class="card stack overview-chart-card">
     <div class="overview-chart-header">
       <div class="stack" style="gap:4px;">
-        <strong>Grafico principal de 12 meses</strong>
-        <div class="subtle">Colunas empilhadas por categoria no contexto atual da pagina, com total mensal visivel e filtros rapidos direto na legenda.</div>
+        <strong>Gráfico principal de 12 meses</strong>
+        <div class="subtle">Colunas empilhadas por categoria no contexto atual da página, com total mensal visível e filtros rápidos direto na legenda.</div>
       </div>
     </div>
-    <div id="categories-main-monthly-legend" class="chart-legend-checkboxes" aria-label="Categorias visiveis no grafico"></div>
+    <div id="categories-main-monthly-legend" class="chart-legend-checkboxes" aria-label="Categorias visíveis no gráfico"></div>
     <div class="chart-shell chart-shell-tall">
-      <canvas id="categories-main-monthly-chart" aria-label="Grafico principal de 12 meses"></canvas>
+      <canvas id="categories-main-monthly-chart" aria-label="Gráfico principal de 12 meses"></canvas>
     </div>
   </section>
 
   <section id="category-composition-section" class="card stack overview-chart-card">
     <div class="overview-chart-header">
       <div class="stack" style="gap:4px;">
-        <strong>{% if category_composition and category_composition.selected_categories|length > 1 %}Composicao das categorias selecionadas{% else %}Composicao da categoria{% endif %}</strong>
+        <strong>{% if category_composition and category_composition.selected_categories|length > 1 %}Composição das categorias selecionadas{% else %}Composição da categoria{% endif %}</strong>
         <div class="subtle">
           {% if category_composition %}
             {{ category_composition.note }}
           {% else %}
-            A composicao aparece a partir das categorias selecionadas no contexto da pagina ou do foco vindo da overview.
+            A composição aparece a partir das categorias selecionadas no contexto da página ou do foco vindo da overview.
           {% endif %}
         </div>
       </div>
@@ -66,7 +66,7 @@
               </th>
               <th aria-sort="none">
                 <button type="button" class="analysis-sort-button" data-sort-key="description" data-sort-type="text" data-default-direction="asc">
-                  <span>Descricao</span>
+                  <span>Descrição</span>
                   <span class="analysis-sort-indicator" aria-hidden="true"></span>
                 </button>
               </th>
@@ -107,7 +107,7 @@
     {% else %}
       <div class="empty-state">
         <strong>Nenhuma categoria em foco ainda</strong>
-        <div class="subtle">Selecione uma ou mais categorias no contexto da pagina ou venha da overview com uma categoria em foco para abrir a composicao filtrada.</div>
+        <div class="subtle">Selecione uma ou mais categorias no contexto da página ou venha da overview com uma categoria em foco para abrir a composição filtrada.</div>
       </div>
     {% endif %}
   </section>

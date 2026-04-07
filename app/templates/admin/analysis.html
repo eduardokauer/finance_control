@@ -1,345 +1,307 @@
 {% extends "admin/base.html" %}
-{% block title %}Visão conciliada{% endblock %}
+{% block title %}Vis&atilde;o conciliada{% endblock %}
 {% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
 {% block content %}
+{% from "admin/partials/statement_operational_table.html" import statement_operational_table with context %}
+{% from "admin/partials/invoice_operational_table.html" import invoice_operational_table with context %}
+{% from "admin/partials/invoice_entries_table.html" import invoice_entries_table with context %}
+{% from "admin/partials/conciliated_composition_rows.html" import conciliated_composition_rows %}
 {% set analysis_page_title = "Visão conciliada" %}
-{% set analysis_page_intro = "Subhome principal da leitura conciliada: composição do período, histórico, categorias e sinais analíticos sem virar uma segunda overview." %}
+{% set analysis_page_intro = "Conta e faturas conciliadas no período." %}
 {% set analysis_form_action = "/admin/analysis" %}
-{% set analysis_submit_label = "Ver análise detalhada" %}
+{% set analysis_submit_label = "Aplicar" %}
 {% set analysis_show_generate = True %}
 {% include "admin/partials/analysis_period_form.html" %}
 
-<section class="analysis-shell-grid analysis-shell-grid-hero section-gap-sm">
-  <div class="card stack analysis-hero-card">
-    <div class="analysis-section-header">
-        <strong>Leitura principal da visão conciliada</strong>
-        <div class="subtle">Esta área aprofunda a leitura conciliada do período com histórico e categorias, sem disputar papel com a Visão Geral.</div>
-    </div>
-    <div class="analysis-list">
-      <div class="analysis-item">
-        <strong>Resumo executivo</strong>
-        <p>{{ analysis_data.primary_summary.executive_summary }}</p>
+{% set composition_summary = conciliated_composition.summary %}
+{% set base_detail_href = analysis_urls.detail %}
+<section class="analysis-page-stack">
+  <section class="analysis-metric-grid" aria-label="Resumo conciliado">
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">Conciliado | {{ analysis_data.period.month_reference_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Receitas reais</strong>
+        <span class="help-copy">Entradas reais do extrato no recorte, sem transferências técnicas.</span>
+        <span class="home-kpi-icon home-kpi-icon-income" aria-hidden="true">&uarr;</span>
       </div>
-      <div class="analysis-item">
-        <strong>Cobertura da leitura atual</strong>
-        <p>{{ analysis_data.primary_summary.coverage_note }}</p>
+      <span class="analysis-metric-detail">Entradas totais: {{ composition_summary.bank_income_display }}</span>
+      <div class="metric-value amount-positive">{{ composition_summary.real_bank_income_display }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="{{ base_detail_href }}&statement_transaction_kind=income&statement_scope=included#conciliated-bank-table">Ver lançamentos</a>
+        <a class="button button-ghost" href="#conciliated-composition">Ver composição</a>
       </div>
-    </div>
-    <div class="analysis-stat-strip">
-      <div class="analysis-stat">
-        <div class="subtle">Receitas reais conciliadas</div>
-        <strong>{{ analysis_data.primary_summary.income_display }}</strong>
+    </article>
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">{{ analysis_data.period.month_reference_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Despesas reais</strong>
+        <span class="help-copy">Saídas reais da conta somadas aos itens conciliados de fatura e sem transferências técnicas.</span>
+        <span class="home-kpi-icon home-kpi-icon-expense" aria-hidden="true">&darr;</span>
       </div>
-      <div class="analysis-stat">
-        <div class="subtle">Despesas reais conciliadas</div>
-        <strong>{{ analysis_data.primary_summary.expense_display }}</strong>
+      <span class="analysis-metric-detail">Saídas totais: {{ composition_summary.total_bank_outflow_display }}</span>
+      <div class="metric-value amount-negative">{{ composition_summary.real_conciliated_expense_display }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="{{ base_detail_href }}&statement_scope=included&statement_transaction_kind=expense#conciliated-bank-table">Conta</a>
+        <a class="button button-ghost" href="{{ base_detail_href }}&invoice_item_type=charge&invoice_status=conciliated#conciliated-invoice-table">Faturas</a>
       </div>
-      <div class="analysis-stat">
-        <div class="subtle">Saldo real conciliado</div>
-        <strong>{{ analysis_data.primary_summary.balance_display }}</strong>
+    </article>
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">{{ analysis_data.period.month_reference_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Saldo real</strong>
+        <span class="help-copy">Resultado final da leitura conciliada depois das exclusões técnicas e da composição de faturas.</span>
+        <span class="home-kpi-icon home-kpi-icon-net_flow" aria-hidden="true">&#9679;</span>
       </div>
-      <div class="analysis-stat">
-        <div class="subtle">Categorias no mês-base</div>
-        <strong>{{ analysis_data.categories|length }}</strong>
+      <div class="metric-value {% if composition_summary.real_conciliated_balance_total < 0 %}amount-negative{% else %}amount-positive{% endif %}">{{ composition_summary.real_conciliated_balance_display }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="#conciliated-composition">Abrir fórmula</a>
       </div>
-    </div>
-  </div>
+    </article>
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">{{ analysis_data.period.month_reference_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Faturas conciliadas</strong>
+        <span class="help-copy">Quantidade de faturas do recorte já absorvidas pela leitura principal.</span>
+        <span class="home-kpi-icon home-kpi-icon-result" aria-hidden="true">&#9679;</span>
+      </div>
+      <span class="analysis-metric-detail">Fora da leitura: {{ composition_summary.outside_invoices_total }}</span>
+      <div class="metric-value">{{ composition_summary.included_invoice_count }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="#conciliated-invoices-section">Ver faturas</a>
+        <a class="button button-ghost" href="{{ analysis_urls.invoice_view }}">Abrir visão de faturas</a>
+      </div>
+    </article>
+  </section>
 
-  <aside class="card stack analysis-side-guide">
-    <div class="analysis-section-header">
-      <strong>Aprofundamentos desta tela</strong>
-      <div class="subtle">A navegação rápida abaixo ajuda a chegar direto ao bloco que mais faz sentido para a leitura que veio do resumo.</div>
+  <details id="conciliated-composition" class="accordion card analysis-section-card">
+    <summary>Composição da leitura</summary>
+    <div class="accordion-body">
+      {{ conciliated_composition_rows(conciliated_composition.rows, base_detail_href) }}
     </div>
-    <div class="analysis-anchor-list">
-      <a class="analysis-anchor-link" href="#analysis-overview-section">
-        <span>Consumo do mês-base</span>
-        <strong>Ver composição</strong>
-      </a>
-      <a class="analysis-anchor-link" href="#analysis-historical-section">
-        <span>Leitura histórica</span>
-        <strong>Ver gráficos</strong>
-      </a>
-      <a class="analysis-anchor-link" href="#analysis-category-history-section">
-        <span>Categorias e histórico</span>
-        <strong>Ver comparações</strong>
-      </a>
-      <a class="analysis-anchor-link" href="#analysis-alerts-section">
-        <span>Alertas e ações</span>
-        <strong>Ver sinais</strong>
-      </a>
+  </details>
+
+  <section class="card analysis-section-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>12 meses conciliado</strong>
+        <div class="help-copy">Receitas reais, despesas reais e saldo final do consolidado conciliado.</div>
+      </div>
     </div>
-  </aside>
+    <div class="chart-shell chart-shell-tall">
+      <canvas id="conciliated-cashflow-chart" aria-label="12 meses conciliado"></canvas>
+    </div>
+  </section>
+
+  <section class="card analysis-section-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Categorias conciliadas em 12 meses</strong>
+        <div class="help-copy">Mesmo gráfico da área de categorias, mas limitado ao que entra na leitura conciliada.</div>
+      </div>
+      <div class="analysis-section-actions">
+        <a class="button button-ghost" href="{{ analysis_urls.categories_view }}">Abrir categorias</a>
+      </div>
+    </div>
+    <div id="conciliated-categories-legend" class="chart-legend-checkboxes" aria-label="Categorias conciliadas"></div>
+    <div class="chart-shell chart-shell-tall">
+      <canvas id="conciliated-categories-chart" aria-label="Categorias conciliadas em 12 meses"></canvas>
+    </div>
+  </section>
+
+  <section id="conciliated-bank-table" class="card analysis-table-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Conta no recorte</strong>
+        <div class="help-copy">Todos os lançamentos do extrato do recorte, com indicação clara do que entra ou sai da leitura conciliada.</div>
+      </div>
+      <div class="analysis-section-actions">
+        <a class="button button-ghost" href="{{ analysis_urls.conference }}">Abrir visão de extrato</a>
+      </div>
+    </div>
+    <form method="get" action="/admin/analysis#conciliated-bank-table" class="analysis-filter-form">
+      <input type="hidden" name="selection_mode" value="{{ selection_mode }}">
+      <input type="hidden" name="month" value="{{ month_value if selection_mode == 'month' else '' }}">
+      <input type="hidden" name="period_start" value="{{ period_start }}">
+      <input type="hidden" name="period_end" value="{{ period_end }}">
+      {% for field in analysis_extra_hidden_fields or [] %}
+        {% if field.value is not none %}
+          <input type="hidden" name="{{ field.name }}" value="{{ field.value }}">
+        {% endif %}
+      {% endfor %}
+      <div class="analysis-filter-grid">
+        <label>Categoria
+          <select name="statement_category">
+            <option value="">Todas</option>
+            {% for option in statement_filter_options.categories %}
+              <option value="{{ option }}" {% if statement_filters.category == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Tipo
+          <select name="statement_transaction_kind">
+            <option value="">Todos</option>
+            {% for option in statement_filter_options.transaction_kinds %}
+              <option value="{{ option }}" {% if statement_filters.transaction_kind == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Leitura
+          <select name="statement_scope">
+            <option value="" {% if not statement_filters.scope %}selected{% endif %}>Tudo</option>
+            <option value="included" {% if statement_filters.scope == 'included' %}selected{% endif %}>Dentro da leitura</option>
+            <option value="excluded" {% if statement_filters.scope == 'excluded' %}selected{% endif %}>Fora da leitura</option>
+            <option value="excluded_transfer" {% if statement_filters.scope == 'excluded_transfer' %}selected{% endif %}>Transferências removidas</option>
+            <option value="excluded_payment" {% if statement_filters.scope == 'excluded_payment' %}selected{% endif %}>Pagamentos removidos</option>
+          </select>
+        </label>
+        <label>Buscar descrição
+          <input type="text" name="statement_description" value="{{ statement_filters.description }}" placeholder="PIX, TED, aluguel...">
+        </label>
+        <label>Ordenação
+          <select name="statement_sort">
+            <option value="recent" {% if statement_filters.sort == 'recent' %}selected{% endif %}>Mais recentes</option>
+            <option value="amount_desc" {% if statement_filters.sort == 'amount_desc' %}selected{% endif %}>Maior valor</option>
+            <option value="amount_asc" {% if statement_filters.sort == 'amount_asc' %}selected{% endif %}>Menor valor</option>
+            <option value="description" {% if statement_filters.sort == 'description' %}selected{% endif %}>Descrição</option>
+          </select>
+        </label>
+      </div>
+      <div class="analysis-section-actions">
+        <button type="submit" class="button button-primary">Filtrar conta</button>
+      </div>
+    </form>
+    <div class="analysis-stats-strip">
+      <span class="analysis-stat-chip">Linhas: {{ statement_stats.total_rows }} / {{ statement_stats.full_total_rows }}</span>
+      <span class="analysis-stat-chip">Dentro: {{ statement_stats.included_count }}</span>
+      <span class="analysis-stat-chip">Fora: {{ statement_stats.excluded_count }}</span>
+    </div>
+    {% if statement_rows %}
+      {{ statement_operational_table(statement_rows, True) }}
+    {% else %}
+      <div class="empty-state">
+        <strong>Nenhum lançamento no recorte</strong>
+      </div>
+    {% endif %}
+  </section>
+
+  <section id="conciliated-invoice-table" class="card analysis-table-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Itens de fatura considerados</strong>
+        <div class="help-copy">A leitura conciliada usa somente charges e créditos de faturas já conciliadas.</div>
+      </div>
+      <div class="analysis-section-actions">
+        <a class="button button-ghost" href="{{ analysis_urls.invoice_view }}">Abrir visão de faturas</a>
+      </div>
+    </div>
+    <form method="get" action="/admin/analysis#conciliated-invoice-table" class="analysis-filter-form">
+      <input type="hidden" name="selection_mode" value="{{ selection_mode }}">
+      <input type="hidden" name="month" value="{{ month_value if selection_mode == 'month' else '' }}">
+      <input type="hidden" name="period_start" value="{{ period_start }}">
+      <input type="hidden" name="period_end" value="{{ period_end }}">
+      {% for field in analysis_extra_hidden_fields or [] %}
+        {% if field.value is not none %}
+          <input type="hidden" name="{{ field.name }}" value="{{ field.value }}">
+        {% endif %}
+      {% endfor %}
+      <div class="analysis-filter-grid">
+        <label>Categoria
+          <select name="invoice_category">
+            <option value="">Todas</option>
+            {% for option in invoice_filter_options.categories %}
+              <option value="{{ option }}" {% if invoice_filters.category == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Tipo
+          <select name="invoice_item_type">
+            <option value="">Todos</option>
+            {% for option in invoice_filter_options.item_types %}
+              <option value="{{ option }}" {% if invoice_filters.item_type == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Cartão
+          <select name="invoice_card_label">
+            <option value="">Todos</option>
+            {% for option in invoice_filter_options.card_labels %}
+              <option value="{{ option }}" {% if invoice_filters.card_label == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Status
+          <select name="invoice_status">
+            <option value="">Todos</option>
+            {% for option in invoice_filter_options.conciliation_statuses %}
+              <option value="{{ option }}" {% if invoice_filters.conciliation_status == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Buscar descrição
+          <input type="text" name="invoice_description" value="{{ invoice_filters.description }}" placeholder="mercado, assinatura...">
+        </label>
+        <label>Ordenação
+          <select name="invoice_sort">
+            <option value="recent" {% if invoice_filters.sort == 'recent' %}selected{% endif %}>Mais recentes</option>
+            <option value="amount_desc" {% if invoice_filters.sort == 'amount_desc' %}selected{% endif %}>Maior valor</option>
+            <option value="amount_asc" {% if invoice_filters.sort == 'amount_asc' %}selected{% endif %}>Menor valor</option>
+            <option value="description" {% if invoice_filters.sort == 'description' %}selected{% endif %}>Descrição</option>
+          </select>
+        </label>
+      </div>
+      <div class="analysis-section-actions">
+        <button type="submit" class="button button-primary">Filtrar itens</button>
+      </div>
+    </form>
+    <div class="analysis-stats-strip">
+      <span class="analysis-stat-chip">Itens: {{ invoice_stats.total_rows }} / {{ invoice_stats.full_total_rows }}</span>
+      <span class="analysis-stat-chip">Visíveis: {{ invoice_stats.visible_count }}</span>
+      <span class="analysis-stat-chip">Faturas: {{ invoice_stats.invoice_count }}</span>
+    </div>
+    {% if invoice_rows %}
+      {{ invoice_operational_table(invoice_rows) }}
+    {% else %}
+      <div class="empty-state">
+        <strong>Nenhum item no recorte</strong>
+      </div>
+    {% endif %}
+  </section>
+
+  <section id="conciliated-invoices-section" class="card analysis-table-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Faturas do período</strong>
+        <div class="help-copy">Resumo das faturas do recorte com status de conciliação e atalhos operacionais.</div>
+      </div>
+      <div class="analysis-section-actions">
+        <a class="button button-ghost" href="/admin/credit-card-invoices/manage">Administrar faturas</a>
+      </div>
+    </div>
+    {% if invoice_entries %}
+      {{ invoice_entries_table(invoice_entries) }}
+    {% else %}
+      <div class="empty-state">
+        <strong>Nenhuma fatura no período</strong>
+      </div>
+    {% endif %}
+  </section>
 </section>
 
-<section class="analysis-shell-grid analysis-shell-grid-main section-gap-sm">
-  <div class="analysis-main-column">
-    <section
-      id="analysis-overview-section"
-      class="card stack analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'cards' %}analysis-focus-target-active{% endif %}"
-      style="margin-bottom:0;"
-    >
-      <div class="analysis-section-header">
-        <strong>Visão de consumo do mês-base</strong>
-        <div class="subtle">{{ analysis_data.category_breakdown.note }}</div>
-      </div>
-      <div class="analysis-list">
-        {% for category in analysis_data.categories %}
-          <div class="analysis-item">
-            <div class="analysis-item-title">
-              <strong>{{ category.name }}</strong>
-              {% if category.is_technical %}
-                <span class="badge warn">{{ category.technical_label }}</span>
-              {% else %}
-                <span class="badge">{{ category.flow_label }}</span>
-              {% endif %}
-            </div>
-            <p>
-              Movimento líquido: {{ category.display_total }}
-              {% if category.expense_total > 0 %}| despesa considerada: {{ category.expense_display }}{% endif %}
-              {% if category.expense_total > 0 %}| peso nas despesas: {{ category.share_of_expense_display }}{% endif %}
-              {% if category.income_total > 0 %}| entradas: {{ category.income_display }}{% endif %}
-              {% if category.technical_label == 'Crédito de Fatura' %}| abatimento técnico fora das categorias de consumo{% endif %}
-              | {{ category.transaction_count }} lançamento(s)
-            </p>
-          </div>
-        {% else %}
-          <div class="analysis-item">
-            <strong>Sem categorias conciliadas no mês-base</strong>
-            <p>Não houve movimentação categorizada na base conciliada do mês de referência.</p>
-          </div>
-        {% endfor %}
-        <div class="analysis-item">
-          <strong>Ajustes técnicos da leitura conciliada</strong>
-          <p>Créditos técnicos de fatura: {{ analysis_data.category_breakdown.invoice_credit_adjustment_display }} | pagamentos bancários excluídos: {{ analysis_data.category_breakdown.excluded_bank_payment_display }}.</p>
-        </div>
-      </div>
-    </section>
-
-    <div
-      id="analysis-historical-section"
-      class="analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'chart' %}analysis-focus-target-active{% endif %}"
-    >
-      {% if analysis_run %}
-        <section class="card stack analysis-panel-card" style="margin-bottom:0;">
-          <div class="analysis-section-header">
-            <strong>Leitura histórica e categorias do período</strong>
-            <div class="subtle">Os gráficos continuam em uma área própria de profundidade, deixando claro que os controles locais do histórico não substituem os controles globais da página.</div>
-          </div>
-          <div class="analysis-chart-grid">
-            <div class="stack">
-              <div class="analysis-section-header">
-                <strong>Receitas x despesas x saldo</strong>
-                <div class="subtle">Últimos 12 meses do calendário, com meses zerados incluídos.</div>
-              </div>
-              <div class="chart-shell"><canvas id="monthly-chart"></canvas></div>
-            </div>
-            <div class="stack">
-              <div class="analysis-section-header">
-                <strong>Top categorias de consumo por peso nas despesas</strong>
-                <div class="subtle">Referência: {{ analysis_data.period.month_reference_label }} | ranking por despesas do mês-base na visão de consumo</div>
-              </div>
-              <div class="chart-shell"><canvas id="categories-chart"></canvas></div>
-            </div>
-          </div>
-        </section>
-      {% else %}
-        <div class="card stack analysis-panel-card" style="margin-bottom:0;">
-          <strong>Análise ainda não gerada</strong>
-          <div class="subtle">As leituras de consumo acima já refletem o período selecionado. Gere uma nova análise determinística para liberar os gráficos desta visão detalhada.</div>
-        </div>
-      {% endif %}
-    </div>
-
-    <div class="card stack analysis-panel-card" style="margin-bottom:0;">
-      <div class="analysis-section-header">
-        <strong>Conferência e auditoria</strong>
-        <div class="subtle">A visão bruta, os sinais auxiliares de conciliação, os itens técnicos e o HTML renderizado seguem concentrados na área de conferência para não poluir esta leitura principal.</div>
-      </div>
-      <div class="actions">
-        <a class="button" href="{{ analysis_urls.conference }}">Abrir conferência do período</a>
-      </div>
-    </div>
-  </div>
-
-  <div class="analysis-side-column">
-    <section
-      id="analysis-category-history-section"
-      class="card stack analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'categories' %}analysis-focus-target-active{% endif %}"
-      style="margin-bottom:0;"
-    >
-      <div class="analysis-section-header">
-        <strong>Comparações históricas por categoria</strong>
-        <div class="subtle">{{ analysis_data.category_history.note }}</div>
-      </div>
-      <div class="analysis-list">
-        {% for category in analysis_data.category_history.rows %}
-          <div class="analysis-item">
-            <div class="analysis-item-title">
-              <strong>{{ category.name }}</strong>
-              {% if category.is_technical %}
-                <span class="badge warn">{{ category.technical_label }}</span>
-              {% else %}
-                <span class="badge">{{ category.flow_label }}</span>
-              {% endif %}
-            </div>
-            <p>
-              {{ analysis_data.category_history.current_month_label }}: {{ category.current_display }}
-              {% if category.current_share_of_expense_display != 'n/a' %}| peso atual: {{ category.current_share_of_expense_display }}{% endif %}
-              | {{ analysis_data.category_history.previous_month_label }}: {{ category.previous_month_display }}
-              {% if category.previous_month_change %}| delta m/m: {{ category.previous_month_change.delta_display }} | {{ category.previous_month_change.trend_label }} {{ category.previous_month_change.percent_display }}{% else %}| m/m sem base{% endif %}
-              | {{ analysis_data.category_history.previous_year_label }}: {{ category.previous_year_display }}
-              {% if category.previous_year_change %}| delta a/a: {{ category.previous_year_change.delta_display }} | {{ category.previous_year_change.trend_label }} {{ category.previous_year_change.percent_display }}{% else %}| a/a sem base{% endif %}
-            </p>
-          </div>
-        {% else %}
-          <div class="analysis-item">
-            <strong>Sem base histórica suficiente por categoria</strong>
-            <p>O mês-base ainda não tem categorias conciliadas com histórico comparável suficiente para leitura m/m ou a/a.</p>
-          </div>
-        {% endfor %}
-        <div class="analysis-item">
-          <strong>Ajustes técnicos fora das categorias de consumo</strong>
-          <p>
-            {{ analysis_data.category_history.current_month_label }}: {{ analysis_data.category_history.technical_adjustments.current_invoice_credit_display }}
-            | {{ analysis_data.category_history.previous_month_label }}: {{ analysis_data.category_history.technical_adjustments.previous_month_invoice_credit_display }}
-            {% if analysis_data.category_history.technical_adjustments.previous_month_change %}| delta m/m: {{ analysis_data.category_history.technical_adjustments.previous_month_change.delta_display }} | {{ analysis_data.category_history.technical_adjustments.previous_month_change.trend_label }} {{ analysis_data.category_history.technical_adjustments.previous_month_change.percent_display }}{% else %}| m/m sem base{% endif %}
-            | {{ analysis_data.category_history.previous_year_label }}: {{ analysis_data.category_history.technical_adjustments.previous_year_invoice_credit_display }}
-            {% if analysis_data.category_history.technical_adjustments.previous_year_change %}| delta a/a: {{ analysis_data.category_history.technical_adjustments.previous_year_change.delta_display }} | {{ analysis_data.category_history.technical_adjustments.previous_year_change.trend_label }} {{ analysis_data.category_history.technical_adjustments.previous_year_change.percent_display }}{% else %}| a/a sem base{% endif %}
-          </p>
-          <p>{{ analysis_data.category_history.technical_adjustments.note }}</p>
-        </div>
-      </div>
-    </section>
-
-    <section
-      id="analysis-alerts-section"
-      class="card stack analysis-focus-target {% if analysis_focus_banner and analysis_focus_banner.key == 'alerts' %}analysis-focus-target-active{% endif %}"
-      style="margin-bottom:0;"
-    >
-      <div class="analysis-section-header">
-        <strong>Alertas determinísticos</strong>
-        <div class="subtle">Ações recomendadas e sinais mais relevantes da visão de consumo e do resumo principal conciliado para o período selecionado.</div>
-      </div>
-      <div class="analysis-list">
-        {% for alert in analysis_data.alerts %}
-          <div class="analysis-item">
-            <div class="analysis-item-title">
-              <strong>{{ alert.title }}</strong>
-              <span class="badge {% if alert.level == 'danger' %}danger{% elif alert.level == 'warn' %}warn{% endif %}">{{ alert.level }}</span>
-            </div>
-            <p>{{ alert.body }}</p>
-          </div>
-        {% else %}
-          <div class="analysis-item">
-            <strong>Nenhum alerta crítico</strong>
-            <p>O período não trouxe sinais determinísticos prioritários além do acompanhamento normal.</p>
-          </div>
-        {% endfor %}
-        {% for action in analysis_data.actions %}
-          <div class="analysis-item">
-            <strong>{{ action.title }}</strong>
-            <p>{{ action.body }}</p>
-          </div>
-        {% else %}
-          <div class="analysis-item">
-            <strong>Nenhuma ação prioritária</strong>
-            <p>A análise atual não encontrou um ajuste imediato acima da linha de base do período.</p>
-          </div>
-        {% endfor %}
-      </div>
-    </section>
-
-    <section class="card stack analysis-panel-card" style="margin-bottom:0;">
-      <div class="analysis-section-header">
-        <strong>Cargas feitas</strong>
-        <div class="subtle">Arquivos recentes que alimentam a visão conciliada desta área.</div>
-      </div>
-      <div class="analysis-list">
-        {% for load in recent_loads %}
-          <div class="analysis-item">
-            <div class="analysis-item-title">
-              <strong>{{ load.source_label }}</strong>
-              <span class="badge">{{ load.status }}</span>
-            </div>
-            <p>{{ load.file_name }}</p>
-            <div class="subtle">{{ load.created_at.strftime('%d/%m/%Y %H:%M') if load.created_at else '-' }}</div>
-          </div>
-        {% else %}
-          <div class="analysis-item">
-            <strong>Nenhuma carga recente</strong>
-            <p>Os próximos extratos e CSVs de fatura usados na leitura conciliada aparecem aqui.</p>
-          </div>
-        {% endfor %}
-      </div>
-    </section>
-  </div>
-</section>
-
-{% if analysis_run %}
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script>
-    (() => {
-      const monthlyElement = document.getElementById('monthly-chart');
-      if (monthlyElement) {
-        const monthlyData = {{ analysis_data.charts.monthly|tojson }};
-        new Chart(monthlyElement, {
-          type: 'line',
-          data: {
-            labels: monthlyData.labels,
-            datasets: [
-              {
-                label: 'Receitas',
-                data: monthlyData.income,
-                borderColor: '#18794e',
-                backgroundColor: 'rgba(24, 121, 78, 0.12)',
-                tension: 0.25,
-              },
-              {
-                label: 'Despesas',
-                data: monthlyData.expense,
-                borderColor: '#b42318',
-                backgroundColor: 'rgba(180, 35, 24, 0.12)',
-                tension: 0.25,
-              },
-              {
-                label: 'Saldo',
-                data: monthlyData.balance,
-                borderColor: '#0f766e',
-                backgroundColor: 'rgba(15, 118, 110, 0.12)',
-                tension: 0.25,
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-          },
-        });
-      }
-
-      const categoriesElement = document.getElementById('categories-chart');
-      if (categoriesElement) {
-        const categoryData = {{ analysis_data.charts.categories|tojson }};
-        new Chart(categoriesElement, {
-          type: 'bar',
-          data: {
-            labels: categoryData.labels,
-            datasets: [
-              {
-                label: 'Despesas do mês-base',
-                data: categoryData.values,
-                backgroundColor: categoryData.technical.map((isTechnical) => (isTechnical ? '#f59e0b' : '#0f766e')),
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-          },
-        });
-      }
-    })();
-  </script>
-{% endif %}
-{% include "admin/partials/analysis_period_form_script.html" %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% include "admin/partials/category_stacked_chart_script.html" %}
+{% include "admin/partials/analysis_chart_helpers.html" %}
+<script>
+  (() => {
+    window.mountAdminCashFlowChart("conciliated-cashflow-chart", {{ analysis_data.charts.conciliated | tojson }}, {
+      incomeLabel: "Receitas reais",
+      expenseLabel: "Despesas reais",
+      balanceLabel: "Saldo real",
+    });
+    window.mountAdminStackedCategoryChart(
+      "conciliated-categories-chart",
+      {{ analysis_data.charts.categories_monthly | tojson }},
+      { legendId: "conciliated-categories-legend" }
+    );
+  })();
+</script>
 {% endblock %}
