@@ -9,7 +9,16 @@ import re
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.repositories.models import AnalysisRun, CategorizationRule, Category, CreditCardInvoice, SourceFile, Transaction, TransactionAuditLog
+from app.repositories.models import (
+    AnalysisRun,
+    CategorizationRule,
+    Category,
+    CreditCardInvoice,
+    CreditCardInvoiceItem,
+    SourceFile,
+    Transaction,
+    TransactionAuditLog,
+)
 from app.services.analysis import run_analysis
 from app.services.classification import apply_transaction_classification, classify_transaction, create_audit_log
 from app.services.credit_card_bills import map_conciliated_bank_payment_signals
@@ -42,6 +51,35 @@ class TransactionFilters:
     uncategorized_only: bool = False
     transaction_kind: str | None = None
     sort: str = "recent"
+
+
+@dataclass(frozen=True)
+class CategoryUsageCounts:
+    transactions_count: int = 0
+    invoice_items_count: int = 0
+    rules_count: int = 0
+
+    @property
+    def total_references(self) -> int:
+        return self.transactions_count + self.invoice_items_count + self.rules_count
+
+
+@dataclass(frozen=True)
+class CategoryManagementSummary:
+    category: Category
+    usage: CategoryUsageCounts
+
+    @property
+    def can_delete(self) -> bool:
+        return self.usage.total_references == 0 and not is_reserved_category_name(self.category.name)
+
+    @property
+    def delete_block_reason(self) -> str | None:
+        if is_reserved_category_name(self.category.name):
+            return "Categoria protegida pelo sistema."
+        if self.usage.total_references > 0:
+            return "Mova lancamentos, itens de fatura e regras antes de excluir."
+        return None
 
 
 def default_closed_month(today: date | None = None) -> tuple[date, date]:
@@ -312,8 +350,48 @@ def renderable_analysis_html(html_output: str) -> str:
     return html_output
 
 
+def is_reserved_category_name(name: str) -> bool:
+    normalized_name = normalize_description(name or "")
+    return normalized_name == "nao categorizado"
+
+
 def list_categories(db: Session) -> list[Category]:
     return db.scalars(select(Category).order_by(Category.is_active.desc(), Category.name.asc())).all()
+
+
+def list_category_management_summaries(db: Session) -> list[CategoryManagementSummary]:
+    categories = list_categories(db)
+    tx_counts = {
+        category_name: int(count)
+        for category_name, count in db.execute(
+            select(Transaction.category, func.count(Transaction.id)).group_by(Transaction.category)
+        ).all()
+    }
+    invoice_item_counts = {
+        category_name: int(count)
+        for category_name, count in db.execute(
+            select(CreditCardInvoiceItem.category, func.count(CreditCardInvoiceItem.id))
+            .where(CreditCardInvoiceItem.category.is_not(None))
+            .group_by(CreditCardInvoiceItem.category)
+        ).all()
+    }
+    rule_counts = {
+        category_name: int(count)
+        for category_name, count in db.execute(
+            select(CategorizationRule.category_name, func.count(CategorizationRule.id)).group_by(CategorizationRule.category_name)
+        ).all()
+    }
+    return [
+        CategoryManagementSummary(
+            category=category,
+            usage=CategoryUsageCounts(
+                transactions_count=tx_counts.get(category.name, 0),
+                invoice_items_count=invoice_item_counts.get(category.name, 0),
+                rules_count=rule_counts.get(category.name, 0),
+            ),
+        )
+        for category in categories
+    ]
 
 
 def list_rules(db: Session) -> list[CategorizationRule]:
@@ -345,6 +423,97 @@ def upsert_category(db: Session, *, category_id: int | None, name: str, transact
         category.is_active = is_active
     db.commit()
     db.refresh(category)
+    return category
+
+
+def reassign_category_references(
+    db: Session,
+    *,
+    source_category_id: int,
+    target_category_id: int,
+    origin: str = "admin_category_reassignment",
+) -> dict:
+    source_category = db.get(Category, source_category_id)
+    target_category = db.get(Category, target_category_id)
+    if source_category is None or target_category is None:
+        raise ValueError("Categoria de origem ou destino invalida.")
+    if source_category.id == target_category.id:
+        raise ValueError("Selecione categorias diferentes para mover os registros.")
+    if source_category.transaction_kind != target_category.transaction_kind:
+        raise ValueError("A consolidacao exige categorias do mesmo tipo.")
+    if not target_category.is_active:
+        raise ValueError("A categoria de destino precisa estar ativa.")
+
+    audit_note = f"Consolidacao administrativa de categoria: {source_category.name} -> {target_category.name}"
+
+    transactions = db.scalars(
+        select(Transaction)
+        .where(Transaction.category == source_category.name)
+        .order_by(Transaction.transaction_date.desc(), Transaction.id.desc())
+    ).all()
+    for tx in transactions:
+        previous_category = tx.category
+        previous_kind = tx.transaction_kind
+        tx.category = target_category.name
+        create_audit_log(
+            db,
+            tx,
+            origin=origin,
+            previous_category=previous_category,
+            new_category=tx.category,
+            previous_transaction_kind=previous_kind,
+            new_transaction_kind=tx.transaction_kind,
+            applied_rule_id=tx.categorization_rule_id,
+            notes=audit_note,
+        )
+
+    invoice_items = db.scalars(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.category == source_category.name)
+        .order_by(CreditCardInvoiceItem.purchase_date.desc(), CreditCardInvoiceItem.id.desc())
+    ).all()
+    for item in invoice_items:
+        item.category = target_category.name
+
+    rules = db.scalars(
+        select(CategorizationRule)
+        .where(CategorizationRule.category_name == source_category.name)
+        .order_by(CategorizationRule.priority.asc(), CategorizationRule.id.asc())
+    ).all()
+    for rule in rules:
+        rule.category_name = target_category.name
+
+    db.commit()
+    return {
+        "source_category": source_category,
+        "target_category": target_category,
+        "transactions_updated": len(transactions),
+        "invoice_items_updated": len(invoice_items),
+        "rules_updated": len(rules),
+    }
+
+
+def delete_category_if_unused(
+    db: Session,
+    *,
+    category_id: int,
+) -> Category:
+    category = db.get(Category, category_id)
+    if category is None:
+        raise ValueError("Categoria invalida.")
+    if is_reserved_category_name(category.name):
+        raise ValueError("A categoria base do sistema nao pode ser excluida.")
+
+    summary = next(
+        (summary for summary in list_category_management_summaries(db) if summary.category.id == category_id),
+        None,
+    )
+    usage = summary.usage if summary is not None else CategoryUsageCounts()
+    if usage.total_references > 0:
+        raise ValueError("Mova lancamentos, itens de fatura e regras antes de excluir a categoria.")
+
+    db.delete(category)
+    db.commit()
     return category
 
 

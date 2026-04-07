@@ -1,14 +1,75 @@
 {% extends "admin/base.html" %}
 {% block title %}Administrar categorias{% endblock %}
+{% block extra_head %}
+<style>
+  .category-row-manage {
+    display: grid;
+    gap: 16px;
+    padding: 18px;
+    border: 1px solid rgba(215, 225, 236, 0.92);
+    border-radius: 18px;
+    background: var(--surface-muted);
+  }
+
+  .category-usage-strip {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .category-usage-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(37, 99, 235, 0.16);
+    background: rgba(255, 255, 255, 0.86);
+    color: var(--muted-strong);
+    font-size: 0.92rem;
+  }
+
+  .category-row-tools {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr);
+    align-items: end;
+  }
+
+  .category-delete-card {
+    display: grid;
+    gap: 8px;
+    align-content: start;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(215, 225, 236, 0.92);
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  .category-tool-note {
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+
+  @media (max-width: 960px) {
+    .category-row-tools {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}
 {% block content %}
 {% from "admin/partials/page_parts.html" import page_header %}
 {{ page_header(active_nav_section_label, "Administrar categorias", "Tela de manutencao da taxonomia oficial, separando leitura categorial da rotina de cadastro e ajustes.") }}
 
 <section class="stack" style="gap:20px;">
+  {% if management_error %}
+    <section class="flash flash-danger">{{ management_error }}</section>
+  {% endif %}
+
   <section class="toolbar-card">
     <div class="ops-panel-header">
       <strong>Criar categoria</strong>
-      <div class="help-copy">Novas categorias entram tipadas para evitar ambiguidade entre despesa, receita e transferencia.</div>
     </div>
     <form method="post" action="/admin/categories" class="toolbar-grid">
       <input type="hidden" name="return_to" value="{{ management_return_to }}">
@@ -35,11 +96,11 @@
   <section class="card tableish">
     <div class="ops-panel-header">
       <h2 class="section-title">Painel de configuracao das categorias</h2>
-      <p class="section-intro">A manutencao rapida da taxonomia fica separada da leitura analitica, mas continua disponivel em uma unica area de configuracao.</p>
     </div>
-    {% for category in categories %}
-      <div class="category-row">
-        <form method="post" action="/admin/categories/{{ category.id }}/update" class="toolbar-grid">
+    {% for row in category_management_rows %}
+      {% set category = row.category %}
+      <div class="category-row category-row-manage">
+        <form method="post" action="/admin/categories/{{ category.id }}/update" class="toolbar-grid toolbar-grid-compact">
           <input type="hidden" name="return_to" value="{{ management_return_to }}">
           <label>Nome
             <input type="text" name="name" value="{{ category.name }}" required>
@@ -59,6 +120,53 @@
             <button type="submit" class="button button-ghost">Salvar</button>
           </div>
         </form>
+
+        <div class="category-usage-strip">
+          <span class="category-usage-pill">Lancamentos {{ row.transactions_count }}</span>
+          <span class="category-usage-pill">Itens de fatura {{ row.invoice_items_count }}</span>
+          <span class="category-usage-pill">Regras {{ row.rules_count }}</span>
+        </div>
+
+        <div class="category-row-tools">
+          <form
+            method="post"
+            action="/admin/categories/{{ category.id }}/reassign"
+            class="toolbar-grid toolbar-grid-compact"
+            onsubmit="return confirm('Mover todos os lancamentos, itens de fatura e regras desta categoria para o destino selecionado?');"
+          >
+            <input type="hidden" name="return_to" value="{{ management_return_to }}">
+            <label>Mover tudo para
+              <select name="target_category_id" required {% if not row.move_target_options %}disabled{% endif %}>
+                <option value="">Selecione</option>
+                {% for option in row.move_target_options %}
+                  <option
+                    value="{{ option.id }}"
+                    {% if row.selected_move_target_id == option.id %}selected{% endif %}
+                  >{{ option.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <div class="toolbar-actions">
+              <button type="submit" class="button button-primary" {% if not row.move_target_options %}disabled{% endif %}>Mover tudo</button>
+            </div>
+            {% if not row.move_target_options %}
+              <div class="category-tool-note">Sem destino compativel ativo para este tipo.</div>
+            {% endif %}
+          </form>
+
+          <form
+            method="post"
+            action="/admin/categories/{{ category.id }}/delete"
+            class="category-delete-card"
+            onsubmit="return confirm('Excluir esta categoria? Essa acao nao pode ser desfeita.');"
+          >
+            <input type="hidden" name="return_to" value="{{ management_return_to }}">
+            <button type="submit" class="button button-danger" {% if not row.can_delete %}disabled{% endif %}>Excluir categoria</button>
+            {% if row.delete_block_reason %}
+              <div class="category-tool-note">{{ row.delete_block_reason }}</div>
+            {% endif %}
+          </form>
+        </div>
       </div>
     {% else %}
       <div class="empty-state">

@@ -274,6 +274,128 @@ def test_admin_sidebar_exposes_invoice_submenu(client, db_session, monkeypatch):
     assert "admin-sidebar-sublink-active" in response.text
 
 
+def test_admin_categories_manage_can_reassign_category_references_and_delete_source_category(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    casa = Category(name="Casa", transaction_kind="expense", is_active=True)
+    db_session.add(casa)
+    db_session.flush()
+    moradia = db_session.scalar(select(Category).where(Category.name == "Moradia"))
+    assert moradia is not None
+
+    tx = _seed_transaction(
+        db_session,
+        description="ALUGUEL CASA",
+        normalized="aluguel casa",
+        transaction_date=date(2026, 3, 10),
+        amount=-1850.0,
+        transaction_kind="expense",
+        category="Casa",
+    )
+    rule = CategorizationRule(
+        rule_type="contains",
+        pattern="casa",
+        category_name="Casa",
+        kind_mode="flow",
+        source_scope="both",
+        priority=40,
+        is_active=True,
+    )
+    db_session.add(rule)
+    db_session.commit()
+    db_session.refresh(casa)
+    db_session.refresh(rule)
+
+    invoice = _seed_credit_card_invoice(
+        db_session,
+        card_label="Itaú Visa final 8888",
+        card_final="8888",
+        item_specs=[("MATERIAL CASA", "180.00")],
+    )
+    invoice_item = db_session.scalars(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id)
+    ).first()
+    assert invoice_item is not None
+    invoice_item.category = "Casa"
+    invoice_item.categorization_method = "rule"
+    invoice_item.categorization_confidence = 0.9
+    invoice_item.categorization_rule_id = rule.id
+    db_session.commit()
+    _login(client)
+
+    move_response = client.post(
+        f"/admin/categories/{casa.id}/reassign",
+        data={
+            "target_category_id": moradia.id,
+            "return_to": "/admin/categories/manage",
+        },
+        follow_redirects=False,
+    )
+
+    assert move_response.status_code == 303
+    assert move_response.headers["location"] == "/admin/categories/manage"
+
+    db_session.refresh(tx)
+    db_session.refresh(invoice_item)
+    db_session.refresh(rule)
+
+    assert tx.category == "Moradia"
+    assert invoice_item.category == "Moradia"
+    assert rule.category_name == "Moradia"
+    audit_logs = db_session.scalars(
+        select(TransactionAuditLog).where(TransactionAuditLog.transaction_id == tx.id)
+    ).all()
+    assert any(
+        log.origin == "admin_category_reassignment"
+        and log.previous_category == "Casa"
+        and log.new_category == "Moradia"
+        for log in audit_logs
+    )
+
+    follow_up = client.get("/admin/categories/manage")
+    assert follow_up.status_code == 200
+    assert "Categoria consolidada: Casa -&gt; Moradia." in follow_up.text
+    assert "Mover tudo" in follow_up.text
+    assert "Excluir categoria" in follow_up.text
+
+    delete_response = client.post(
+        f"/admin/categories/{casa.id}/delete",
+        data={"return_to": "/admin/categories/manage"},
+        follow_redirects=False,
+    )
+
+    assert delete_response.status_code == 303
+    assert delete_response.headers["location"] == "/admin/categories/manage"
+    assert db_session.get(Category, casa.id) is None
+
+
+def test_admin_categories_manage_blocks_delete_while_category_still_has_usage(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    casa = Category(name="Casa", transaction_kind="expense", is_active=True)
+    db_session.add(casa)
+    db_session.commit()
+    _seed_transaction(
+        db_session,
+        description="CONTA CASA",
+        normalized="conta casa",
+        transaction_date=date(2026, 3, 8),
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Casa",
+    )
+    _login(client)
+
+    response = client.post(
+        f"/admin/categories/{casa.id}/delete",
+        data={"return_to": "/admin/categories/manage"},
+    )
+
+    assert response.status_code == 400
+    assert "Mova lancamentos, itens de fatura e regras antes de excluir a categoria." in response.text
+    assert db_session.get(Category, casa.id) is not None
+
+
 def test_admin_summary_page_exposes_contextual_ctas_with_preserved_state(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
@@ -2327,6 +2449,92 @@ def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(c
     assert "Comparações históricas por categoria na visão de consumo" in response.text
     assert "Visão bruta de apoio" not in response.text
     assert "legacy html" not in response.text
+
+def test_admin_summary_page_supports_legacy_payload_without_extended_primary_summary(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR",
+        normalized="salario mar home legacy",
+        amount=5000.0,
+        transaction_kind="income",
+        category="Sal\u00e1rio",
+    )
+
+    legacy_payload = {
+        "period": {"label": "01/03/2026 a 31/03/2026", "start": "2026-03-01", "end": "2026-03-31", "month_reference_label": "mar/2026"},
+        "summary": {
+            "income_total": 5000.0,
+            "expense_total": 0.0,
+            "balance": 5000.0,
+            "uncategorized_total": 0.0,
+            "transaction_count": 1,
+            "income_display": "R$ 5.000,00",
+            "expense_display": "R$ 0,00",
+            "balance_display": "R$ 5.000,00",
+            "uncategorized_display": "R$ 0,00",
+        },
+        "comparison": {
+            "reference_label": "fev/2026",
+            "income": {"trend": "up", "trend_label": "subiu", "percent_display": "n/a", "delta_display": "R$ 5.000,00", "current_display": "R$ 5.000,00", "previous_display": "R$ 0,00"},
+            "expense": {"trend": "stable", "trend_label": "estável", "percent_display": "n/a", "delta_display": "R$ 0,00", "current_display": "R$ 0,00", "previous_display": "R$ 0,00"},
+            "balance": {"trend": "up", "trend_label": "subiu", "percent_display": "n/a", "delta_display": "R$ 5.000,00", "current_display": "R$ 5.000,00", "previous_display": "R$ 0,00"},
+        },
+        "monthly_series": [],
+        "categories": [],
+        "top_expense_categories": [],
+        "technical_items": {
+            "transfer_total": 0.0,
+            "transfer_display": "R$ 0,00",
+            "transfer_share": 0.0,
+            "transfer_share_display": "n/a",
+            "card_bill_total": 0.0,
+            "card_bill_display": "R$ 0,00",
+            "card_bill_share": 0.0,
+            "card_bill_share_display": "n/a",
+            "combined_total": 0.0,
+            "combined_display": "R$ 0,00",
+            "combined_share": 0.0,
+            "combined_share_display": "n/a",
+            "note": "legacy home test",
+        },
+        "quality": {"uncategorized_total": 0.0, "uncategorized_display": "R$ 0,00", "uncategorized_share": 0.0, "uncategorized_share_display": "n/a"},
+        "alerts": [],
+        "actions": [],
+        "charts": {"monthly": {"labels": [], "income": [], "expense": [], "balance": []}, "categories": {"labels": [], "values": [], "technical": []}},
+        "conciliation_signals": {
+            "conciliated_bank_payment_total_brl": 0.0,
+            "conciliated_bank_payment_count": 0,
+            "conciliated_bank_payment_display": "R$ 0,00",
+            "invoice_credit_total_brl": 0.0,
+            "invoice_credit_display": "R$ 0,00",
+            "invoices_by_status": {"pending_review": 0, "partially_conciliated": 0, "conciliated": 0, "conflict": 0},
+            "invoices_total": 0,
+            "note": "legacy payload",
+        },
+    }
+    db_session.add(
+        AnalysisRun(
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            trigger_source_file_id=None,
+            payload=json.dumps(legacy_payload, ensure_ascii=False),
+            prompt="legacy_summary",
+            html_output="<p>legacy html</p>",
+            status="success",
+        )
+    )
+    db_session.commit()
+    _login(client)
+
+    response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31")
+
+    assert response.status_code == 200
+    assert "Receitas reais conciliadas" in response.text
+    assert "Entradas totais:" in response.text
+    assert "Saidas totais:" in response.text
+
 
 def test_admin_transactions_page_marks_conciliated_bank_payment(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")

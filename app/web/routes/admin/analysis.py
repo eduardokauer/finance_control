@@ -51,6 +51,23 @@ def _origin_block_label(origin_block: str | None) -> str | None:
     return ORIGIN_BLOCK_LABELS.get(origin_block or "")
 
 
+def _merge_payload_section_defaults(
+    payload_snapshot: dict,
+    live_snapshot: dict,
+    *,
+    section_name: str,
+    fallback_section_name: str | None = None,
+) -> None:
+    current_section = payload_snapshot.get(section_name)
+    if current_section is None and fallback_section_name:
+        current_section = payload_snapshot.get(fallback_section_name)
+    live_section = live_snapshot.get(section_name, {})
+    if isinstance(current_section, dict) and isinstance(live_section, dict):
+        payload_snapshot[section_name] = {**live_section, **current_section}
+    elif current_section is None:
+        payload_snapshot[section_name] = live_section
+
+
 def _build_overview_cards(analysis_data: dict) -> list[dict]:
     primary_summary = analysis_data["primary_summary"]
     conciliated_month = analysis_data["conciliated_month"]
@@ -347,9 +364,15 @@ def _analysis_page_context(
         payload_snapshot["conciliation_signals"] = live_snapshot["conciliation_signals"]
     if payload_snapshot and "conciliated_month" not in payload_snapshot:
         payload_snapshot["conciliated_month"] = live_snapshot["conciliated_month"]
-    if payload_snapshot and "primary_summary" not in payload_snapshot:
-        payload_snapshot["primary_summary"] = live_snapshot["primary_summary"]
     if payload_snapshot:
+        _merge_payload_section_defaults(payload_snapshot, live_snapshot, section_name="conciliation_signals")
+        _merge_payload_section_defaults(payload_snapshot, live_snapshot, section_name="conciliated_month")
+        _merge_payload_section_defaults(
+            payload_snapshot,
+            live_snapshot,
+            section_name="primary_summary",
+            fallback_section_name="summary",
+        )
         payload_snapshot["home_cards"] = live_snapshot["home_cards"]
         payload_snapshot["home_yearly_chart"] = live_snapshot["home_yearly_chart"]
         payload_snapshot["home_category_comparison"] = live_snapshot["home_category_comparison"]
