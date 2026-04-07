@@ -10,7 +10,15 @@ from sqlalchemy.orm import Session
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
 from app.repositories.models import CreditCardInvoiceItem, Transaction
-from app.services.admin import list_available_analysis_months, list_categories, resolve_analysis_period, upsert_category
+from app.services.admin import (
+    delete_category_if_unused,
+    list_available_analysis_months,
+    list_categories,
+    list_category_management_summaries,
+    reassign_category_references,
+    resolve_analysis_period,
+    upsert_category,
+)
 from app.services.analysis import (
     _analysis_category_name,
     build_analysis_snapshot,
@@ -487,11 +495,50 @@ def _categories_management_context(
     db: Session,
     *,
     request_url: str,
+    management_error: str | None = None,
+    reassign_source_category_id: int | None = None,
+    reassign_target_category_id: int | None = None,
 ) -> dict:
     all_categories = list_categories(db)
+    category_summaries = list_category_management_summaries(db)
+    summary_by_category_id = {
+        summary.category.id: summary
+        for summary in category_summaries
+    }
+    category_rows = []
+    for category in all_categories:
+        summary = summary_by_category_id.get(category.id)
+        usage = summary.usage if summary is not None else None
+        move_target_options = [
+            {
+                "id": other.id,
+                "name": other.name,
+            }
+            for other in all_categories
+            if other.id != category.id and other.is_active and other.transaction_kind == category.transaction_kind
+        ]
+        category_rows.append(
+            {
+                "category": category,
+                "transactions_count": usage.transactions_count if usage else 0,
+                "invoice_items_count": usage.invoice_items_count if usage else 0,
+                "rules_count": usage.rules_count if usage else 0,
+                "total_references": usage.total_references if usage else 0,
+                "can_delete": summary.can_delete if summary is not None else False,
+                "delete_block_reason": summary.delete_block_reason if summary is not None else None,
+                "move_target_options": move_target_options,
+                "selected_move_target_id": (
+                    reassign_target_category_id
+                    if reassign_source_category_id == category.id
+                    else None
+                ),
+            }
+        )
     return {
         "categories": all_categories,
+        "category_management_rows": category_rows,
         "management_return_to": request_url,
+        "management_error": management_error,
     }
 
 
@@ -788,3 +835,67 @@ def admin_update_category(
     upsert_category(db, category_id=category_id, name=name, transaction_kind=transaction_kind, is_active=is_active)
     request.session["flash"] = "Categoria atualizada."
     return RedirectResponse(url=unquote(return_to or "/admin/categories/manage"), status_code=303)
+
+
+@router.post("/categories/{category_id}/reassign")
+def admin_reassign_category(
+    category_id: int,
+    request: Request,
+    target_category_id: int = Form(...),
+    return_to: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    resolved_return_to = unquote(return_to or "/admin/categories/manage")
+    try:
+        result = reassign_category_references(
+            db,
+            source_category_id=category_id,
+            target_category_id=target_category_id,
+        )
+    except ValueError as exc:
+        return render_admin(
+            request,
+            "admin/categories_manage.html",
+            _categories_management_context(
+                db,
+                request_url=resolved_return_to,
+                management_error=str(exc),
+                reassign_source_category_id=category_id,
+                reassign_target_category_id=target_category_id,
+            ),
+            status_code=400,
+        )
+    request.session["flash"] = (
+        f"Categoria consolidada: {result['source_category'].name} -> {result['target_category'].name}. "
+        f"{result['transactions_updated']} lancamento(s), "
+        f"{result['invoice_items_updated']} item(ns) de fatura e "
+        f"{result['rules_updated']} regra(s) atualizados."
+    )
+    return RedirectResponse(url=resolved_return_to, status_code=303)
+
+
+@router.post("/categories/{category_id}/delete")
+def admin_delete_category(
+    category_id: int,
+    request: Request,
+    return_to: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    resolved_return_to = unquote(return_to or "/admin/categories/manage")
+    try:
+        deleted_category = delete_category_if_unused(db, category_id=category_id)
+    except ValueError as exc:
+        return render_admin(
+            request,
+            "admin/categories_manage.html",
+            _categories_management_context(
+                db,
+                request_url=resolved_return_to,
+                management_error=str(exc),
+            ),
+            status_code=400,
+        )
+    request.session["flash"] = f"Categoria excluida: {deleted_category.name}."
+    return RedirectResponse(url=resolved_return_to, status_code=303)
