@@ -1,0 +1,172 @@
+<script>
+  (() => {
+    if (window.mountAdminCashFlowChart && window.mountAdminInvoiceMonthlyChart) {
+      return;
+    }
+
+    const compactCurrency = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      maximumFractionDigits: 0,
+    });
+    const fullCurrency = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+
+    window.mountAdminCashFlowChart = function mountAdminCashFlowChart(canvasId, data, palette = {}) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas || !window.Chart) {
+        return null;
+      }
+
+      return new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets: [
+            {
+              type: 'bar',
+              label: palette.incomeLabel || 'Receitas',
+              data: data.income,
+              backgroundColor: palette.incomeColor || 'rgba(21, 127, 70, 0.72)',
+              borderColor: palette.incomeBorder || 'rgba(21, 127, 70, 0.92)',
+              borderRadius: 8,
+              borderSkipped: false,
+              maxBarThickness: 28,
+              order: 2,
+            },
+            {
+              type: 'bar',
+              label: palette.expenseLabel || 'Despesas',
+              data: data.expense,
+              backgroundColor: palette.expenseColor || 'rgba(197, 52, 47, 0.68)',
+              borderColor: palette.expenseBorder || 'rgba(197, 52, 47, 0.92)',
+              borderRadius: 8,
+              borderSkipped: false,
+              maxBarThickness: 28,
+              order: 2,
+            },
+            {
+              type: 'line',
+              label: palette.balanceLabel || 'Saldo',
+              data: data.balance,
+              borderColor: palette.balanceColor || 'rgba(37, 99, 235, 0.92)',
+              backgroundColor: 'transparent',
+              pointBackgroundColor: palette.balanceColor || 'rgba(37, 99, 235, 0.92)',
+              tension: 0.24,
+              borderWidth: 2.4,
+              pointRadius: 3,
+              pointHoverRadius: 4,
+              fill: false,
+              order: 1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { grid: { display: false } },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback(value) {
+                  return compactCurrency.format(value || 0);
+                },
+              },
+            },
+          },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return `${context.dataset.label}: ${fullCurrency.format(context.parsed.y || 0)}`;
+                },
+              },
+            },
+          },
+        },
+      });
+    };
+
+    window.mountAdminInvoiceMonthlyChart = function mountAdminInvoiceMonthlyChart(canvasId, data) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas || !window.Chart) {
+        return null;
+      }
+
+      return new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'Valor faturado',
+              data: data.total_billed,
+              backgroundColor: 'rgba(37, 99, 235, 0.72)',
+              borderColor: 'rgba(37, 99, 235, 0.92)',
+              borderRadius: 8,
+              borderSkipped: false,
+              maxBarThickness: 28,
+              order: 2,
+            },
+            {
+              type: 'line',
+              label: 'Charges',
+              data: data.charge_total,
+              borderColor: 'rgba(21, 127, 70, 0.92)',
+              backgroundColor: 'transparent',
+              pointBackgroundColor: 'rgba(21, 127, 70, 0.92)',
+              tension: 0.24,
+              borderWidth: 2.4,
+              pointRadius: 3,
+              fill: false,
+              order: 1,
+            },
+            {
+              type: 'line',
+              label: 'Créditos',
+              data: data.credit_total,
+              borderColor: 'rgba(181, 71, 8, 0.92)',
+              backgroundColor: 'transparent',
+              pointBackgroundColor: 'rgba(181, 71, 8, 0.92)',
+              tension: 0.24,
+              borderWidth: 2.4,
+              pointRadius: 3,
+              fill: false,
+              order: 1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { grid: { display: false } },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback(value) {
+                  return compactCurrency.format(value || 0);
+                },
+              },
+            },
+          },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  return `${context.dataset.label}: ${fullCurrency.format(context.parsed.y || 0)}`;
+                },
+              },
+            },
+          },
+        },
+      });
+    };
+  })();
+</script>

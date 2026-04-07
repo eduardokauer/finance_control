@@ -28,6 +28,11 @@ ADMIN_NAV_SECTIONS = [
                         "key": "statement_manage",
                         "label": "Administrar extratos",
                         "href": "/admin/conference/manage",
+                    },
+                    {
+                        "key": "statement_technical",
+                        "label": "Auditoria técnica",
+                        "href": "/admin/conference/technical",
                     }
                 ],
             },
@@ -61,7 +66,18 @@ ADMIN_NAV_SECTIONS = [
         "label": "Operação",
         "items": [
             {"key": "operations", "label": "Central operacional", "href": "/admin/operations"},
-            {"key": "transactions", "label": "Lançamentos", "href": "/admin/transactions"},
+            {
+                "key": "transactions",
+                "label": "Lançamentos",
+                "href": "/admin/transactions",
+                "children": [
+                    {
+                        "key": "transactions_bulk",
+                        "label": "Ações em lote",
+                        "href": "/admin/transactions/bulk",
+                    }
+                ],
+            },
         ],
     },
     {
@@ -77,6 +93,8 @@ ADMIN_NAV_SECTIONS = [
 def _active_nav_key(path: str) -> str:
     if path.startswith("/admin/conference/manage"):
         return "statement_manage"
+    if path.startswith("/admin/conference/technical"):
+        return "statement_technical"
     if path.startswith("/admin/credit-card-invoices/manage"):
         return "invoice_manage"
     if path.startswith("/admin/categories/manage"):
@@ -87,6 +105,8 @@ def _active_nav_key(path: str) -> str:
         return "statement"
     if path.startswith("/admin/operations"):
         return "operations"
+    if path.startswith("/admin/transactions/bulk"):
+        return "transactions_bulk"
     if path.startswith("/admin/transactions"):
         return "transactions"
     if path.startswith("/admin/credit-card-invoices"):

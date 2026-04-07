@@ -1114,6 +1114,7 @@
     .home-kpi-subtitle,
     .analysis-focus-banner .stack > .subtle,
     .summary-shortcut > .subtle,
+    .empty-state > .subtle,
     label > .subtle {
       display: none !important;
     }
@@ -1636,7 +1637,7 @@
 
       function initializeInlineHelp(root = document) {
         root.querySelectorAll(
-          ".page-intro, .help-copy, .section-intro, .analysis-section-header > .subtle, .overview-chart-header .stack > .subtle, .analysis-toolbar-header .stack > .subtle, .home-kpi-subtitle, .analysis-focus-banner .stack > .subtle, .summary-shortcut > .subtle, label > .subtle",
+          ".page-intro, .help-copy, .section-intro, .analysis-section-header > .subtle, .overview-chart-header .stack > .subtle, .analysis-toolbar-header .stack > .subtle, .home-kpi-subtitle, .analysis-focus-banner .stack > .subtle, .summary-shortcut > .subtle, .empty-state > .subtle, label > .subtle",
         ).forEach(attachInlineHelp);
       }
 

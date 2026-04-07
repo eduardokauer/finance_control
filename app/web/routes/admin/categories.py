@@ -434,7 +434,7 @@ def _categories_page_context(
         "analysis_breadcrumb_items": [{"label": "Categorias", "href": None}],
         "analysis_back_href": None,
         "analysis_context_chips": [
-            {"key": "period", "label": "Periodo", "value": analysis_data["period"]["label"]},
+            {"key": "period", "label": "Período", "value": analysis_data["period"]["label"]},
             *(
                 [{"key": "focus_category", "label": "Categoria em foco", "value": valid_focus}]
                 if valid_focus
@@ -449,13 +449,13 @@ def _categories_page_context(
         "analysis_focus_banner": (
             {
                 "key": "categories",
-                "title": "Composicao aberta a partir da overview",
+                "title": "Composição aberta a partir da overview",
                 "body": (
-                    f"A composicao de {valid_focus} foi restaurada com o mesmo periodo do clique, "
+                    f"A composição de {valid_focus} foi restaurada com o mesmo período do clique, "
                     "combinando conta e charges conciliados de fatura."
                 ),
                 "href": "#category-composition-section",
-                "link_label": "Ir para a composicao",
+                "link_label": "Ir para a composição",
             }
             if valid_focus
             else None
@@ -465,8 +465,8 @@ def _categories_page_context(
         "analysis_show_generate": False,
         "analysis_global_tabs": [],
         "analysis_controls_intro": (
-            "Categorias vira uma area propria: o filtro define o periodo da leitura, do grafico principal "
-            "e da composicao clicavel."
+            "Categorias vira uma área própria: o filtro define o período da leitura, do gráfico principal "
+            "e da composição clicável."
         ),
         "analysis_toolbar_filters": [
             {

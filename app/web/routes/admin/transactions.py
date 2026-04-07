@@ -30,6 +30,49 @@ from .helpers import render_admin, templates
 router = APIRouter()
 
 
+def _transactions_page_context(
+    request: Request,
+    db: Session,
+    *,
+    month: str | None,
+    period_start: date | None,
+    period_end: date | None,
+    category: str | None,
+    description: str | None,
+    uncategorized_only: bool,
+    transaction_kind: str | None,
+    sort: str | None,
+    limit: int,
+    offset: int,
+) -> dict:
+    default_period = latest_closed_month_with_transactions(db) or default_closed_month()
+    filters = build_transaction_filters(
+        month=month,
+        period_start=period_start,
+        period_end=period_end,
+        category=category,
+        description=description,
+        uncategorized_only=uncategorized_only,
+        transaction_kind=transaction_kind,
+        sort=sort,
+        default_period=default_period,
+    )
+    transactions, total = list_transactions_for_admin(db, filters, limit=limit, offset=offset)
+    current_url = str(request.url)
+    return {
+        "filters": filters,
+        "transactions": transactions,
+        "pagination": build_pagination(total, limit=limit, offset=offset),
+        "categories": list_categories(db),
+        "current_url": current_url,
+        "encoded_current_url": quote(current_url, safe=""),
+        "current_path": request.url.path,
+        "current_query": request.url.query,
+        "bulk_actions_href": "/admin/transactions/bulk",
+        "transactions_list_href": "/admin/transactions",
+    }
+
+
 @router.get("/transactions", response_class=HTMLResponse)
 def admin_transactions(
     request: Request,
@@ -46,8 +89,9 @@ def admin_transactions(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    default_period = latest_closed_month_with_transactions(db) or default_closed_month()
-    filters = build_transaction_filters(
+    context = _transactions_page_context(
+        request,
+        db,
         month=month,
         period_start=period_start,
         period_end=period_end,
@@ -56,21 +100,43 @@ def admin_transactions(
         uncategorized_only=uncategorized_only,
         transaction_kind=transaction_kind,
         sort=sort,
-        default_period=default_period,
+        limit=limit,
+        offset=offset,
     )
-    transactions, total = list_transactions_for_admin(db, filters, limit=limit, offset=offset)
-    current_url = str(request.url)
-    context = {
-        "filters": filters,
-        "transactions": transactions,
-        "pagination": build_pagination(total, limit=limit, offset=offset),
-        "categories": list_categories(db),
-        "current_url": current_url,
-        "encoded_current_url": quote(current_url, safe=""),
-        "current_path": request.url.path,
-        "current_query": request.url.query,
-    }
     return render_admin(request, "admin/transactions.html", context)
+
+
+@router.get("/transactions/bulk", response_class=HTMLResponse)
+def admin_transactions_bulk(
+    request: Request,
+    month: str | None = None,
+    period_start: date | None = None,
+    period_end: date | None = None,
+    category: str | None = None,
+    description: str | None = None,
+    uncategorized_only: bool = False,
+    transaction_kind: str | None = None,
+    sort: str | None = "recent",
+    limit: int = Query(default=20, le=50),
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    context = _transactions_page_context(
+        request,
+        db,
+        month=month,
+        period_start=period_start,
+        period_end=period_end,
+        category=category,
+        description=description,
+        uncategorized_only=uncategorized_only,
+        transaction_kind=transaction_kind,
+        sort=sort,
+        limit=limit,
+        offset=offset,
+    )
+    return render_admin(request, "admin/transactions_bulk.html", context)
 
 
 @router.get("/transactions/{transaction_id}", response_class=HTMLResponse)
@@ -164,6 +230,7 @@ def admin_update_transaction(
 
 
 @router.post("/transactions/bulk-preview", response_class=HTMLResponse)
+@router.post("/transactions/bulk/preview", response_class=HTMLResponse)
 def admin_bulk_preview(
     request: Request,
     selected_ids: list[int] = Form(default=[]),
@@ -188,6 +255,7 @@ def admin_bulk_preview(
 
 
 @router.post("/transactions/bulk-apply")
+@router.post("/transactions/bulk/apply")
 def admin_bulk_apply(
     request: Request,
     selected_ids: list[int] = Form(default=[]),

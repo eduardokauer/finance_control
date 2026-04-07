@@ -2,15 +2,19 @@
 {% block title %}Lançamentos{% endblock %}
 {% block content %}
 {% from "admin/partials/page_parts.html" import page_header %}
-{% call page_header(active_nav_section_label, "Lançamentos", "Tabela operacional da base importada, com filtros densos, edição em massa e acesso rápido ao detalhe de cada lançamento.") %}
+{% from "admin/partials/transactions_table.html" import transactions_table %}
+{% call page_header(active_nav_section_label, "Lançamentos", "Base operacional dos lançamentos.") %}
+  <a class="button button-ghost" href="{{ bulk_actions_href }}">Ações em lote</a>
   <a class="button button-ghost" href="/admin/operations">Voltar para central</a>
 {% endcall %}
 
-<section class="ops-shell-grid">
+<section class="stack section-gap-md">
   <div class="card ops-hero-card">
     <div class="ops-panel-header">
       <strong>Base operacional de lançamentos</strong>
-      <div class="help-copy">A listagem continua densa, mas agora deixa mais clara a hierarquia entre contexto do recorte, filtros da página e ações em lote sobre a base.</div>
+      <div class="toolbar-actions">
+        <a class="button button-primary" href="{{ bulk_actions_href }}">Abrir ações em lote</a>
+      </div>
     </div>
     <div class="ops-stat-grid">
       <div class="ops-stat-card">
@@ -31,234 +35,97 @@
       <div class="ops-stat-card">
         <div class="subtle">Modo atual</div>
         <strong>{% if filters.uncategorized_only %}Não categorizados{% else %}Base completa{% endif %}</strong>
-        <div class="subtle">Filtros da página ainda controlam todo o recorte</div>
+        <div class="subtle">Filtros da página controlam todo o recorte</div>
       </div>
     </div>
   </div>
 
-  <aside class="card stack">
-    <div class="ops-panel-header">
-      <strong>Atalhos da operação</strong>
-      <div class="help-copy">Os atalhos abaixo mantêm o foco no fluxo operacional sem abrir uma nova IA paralela.</div>
-    </div>
-    <div class="ops-guide-list">
-      <a class="ops-guide-link" href="/admin/transactions?uncategorized_only=true">
-        <span>Tratamento rápido</span>
-        <strong>Ver não categorizados</strong>
-      </a>
-      <a class="ops-guide-link" href="/admin/reapply">
-        <span>Reprocessamento</span>
-        <strong>Reaplicar regras</strong>
-      </a>
-      <a class="ops-guide-link" href="/admin/rules">
-        <span>Base oficial</span>
-        <strong>Gerenciar regras</strong>
-      </a>
-      <a class="ops-guide-link" href="/admin/operations">
-        <span>Hub operacional</span>
-        <strong>Voltar para central</strong>
-      </a>
-    </div>
-  </aside>
-</section>
-
-<details class="toolbar-card top-filter-accordion section-gap-md" data-top-filter-accordion>
-  <summary class="top-filter-summary">
-    <span class="top-filter-summary-copy">
-      <span class="top-filter-summary-title">
-        <strong>Filtros da listagem</strong>
-        <span class="help-copy">Os filtros continuam sendo controles globais da página, agrupados em uma toolbar estável para desktop e mobile.</span>
+  <details class="toolbar-card top-filter-accordion" data-top-filter-accordion>
+    <summary class="top-filter-summary">
+      <span class="top-filter-summary-copy">
+        <span class="top-filter-summary-title">
+          <strong>Filtros da listagem</strong>
+          <span class="help-copy">Os filtros continuam sendo controles globais da página, agrupados em uma toolbar estável para desktop e mobile.</span>
+        </span>
+        <span class="top-filter-summary-meta">
+          <span class="top-filter-summary-chip"><strong>Período</strong>{{ filters.period_start.strftime('%d/%m/%Y') }} a {{ filters.period_end.strftime('%d/%m/%Y') }}</span>
+          <span class="top-filter-summary-chip"><strong>Ordenação</strong>{{ 'Mais recentes' if filters.sort == 'recent' else 'Maior valor' }}</span>
+          {% if filters.category %}
+            <span class="top-filter-summary-chip"><strong>Categoria</strong>{{ filters.category }}</span>
+          {% endif %}
+          {% if filters.transaction_kind %}
+            <span class="top-filter-summary-chip"><strong>Tipo</strong>{{ filters.transaction_kind }}</span>
+          {% endif %}
+          {% if filters.description %}
+            <span class="top-filter-summary-chip"><strong>Busca</strong>{{ filters.description }}</span>
+          {% endif %}
+          {% if filters.uncategorized_only %}
+            <span class="top-filter-summary-chip"><strong>Modo</strong>Não categorizados</span>
+          {% endif %}
+        </span>
       </span>
-      <span class="top-filter-summary-meta">
-        <span class="top-filter-summary-chip"><strong>Período</strong>{{ filters.period_start.strftime('%d/%m/%Y') }} a {{ filters.period_end.strftime('%d/%m/%Y') }}</span>
-        <span class="top-filter-summary-chip"><strong>Ordenação</strong>{{ 'Mais recentes' if filters.sort == 'recent' else 'Maior valor' }}</span>
-        {% if filters.category %}
-          <span class="top-filter-summary-chip"><strong>Categoria</strong>{{ filters.category }}</span>
-        {% endif %}
-        {% if filters.transaction_kind %}
-          <span class="top-filter-summary-chip"><strong>Tipo</strong>{{ filters.transaction_kind }}</span>
-        {% endif %}
-        {% if filters.description %}
-          <span class="top-filter-summary-chip"><strong>Busca</strong>{{ filters.description }}</span>
-        {% endif %}
-        {% if filters.uncategorized_only %}
-          <span class="top-filter-summary-chip"><strong>Modo</strong>Não categorizados</span>
-        {% endif %}
-      </span>
-    </span>
-  </summary>
-  <div class="top-filter-body">
-    <form method="get" action="/admin/transactions" class="toolbar-grid">
-      <label>Mês fechado
-        <input type="month" name="month" value="{{ filters.period_start.strftime('%Y-%m') }}">
-      </label>
-      <label>Categoria
-        <select name="category">
-          <option value="">Todas</option>
-          {% for category in categories %}
-            <option value="{{ category.name }}" {% if filters.category == category.name %}selected{% endif %}>{{ category.name }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Data inicial
-        <input type="date" name="period_start" value="{{ filters.period_start }}">
-      </label>
-      <label>Data final
-        <input type="date" name="period_end" value="{{ filters.period_end }}">
-      </label>
-      <label>Buscar descrição
-        <input type="text" name="description" value="{{ filters.description or '' }}" placeholder="Ex.: pix, uber, aluguel">
-      </label>
-      <label>Tipo
-        <select name="transaction_kind">
-          <option value="">Todos</option>
-          {% for kind in ['income', 'expense', 'transfer', 'credit_card_payment', 'adjustment', 'tax'] %}
-            <option value="{{ kind }}" {% if filters.transaction_kind == kind %}selected{% endif %}>{{ kind }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Ordenação
-        <select name="sort">
-          <option value="recent" {% if filters.sort == 'recent' %}selected{% endif %}>Mais recentes</option>
-          <option value="amount_desc" {% if filters.sort == 'amount_desc' %}selected{% endif %}>Maior valor</option>
-        </select>
-      </label>
-      <label class="inline toolbar-inline-toggle">
-        <input type="checkbox" name="uncategorized_only" value="true" {% if filters.uncategorized_only %}checked{% endif %} style="width:auto;">
-        Somente não categorizados
-      </label>
-      <div class="toolbar-actions">
-        <button type="submit" class="button button-primary">Aplicar filtros</button>
-      </div>
-    </form>
-  </div>
-</details>
-
-<form method="post" action="/admin/transactions/bulk-apply" class="ops-shell-grid section-gap-md">
-  <div class="ops-main-column">
-    {% if transactions %}
-      <section class="card stack">
-        <div class="ops-panel-header">
-          <strong>Tabela operacional da base</strong>
-          <div class="help-copy">Selecione um ou mais lançamentos para usar a edição em massa. O detalhe individual continua acessível pela descrição.</div>
+    </summary>
+    <div class="top-filter-body">
+      <form method="get" action="/admin/transactions" class="toolbar-grid">
+        <label>Mês fechado
+          <input type="month" name="month" value="{{ filters.period_start.strftime('%Y-%m') }}">
+        </label>
+        <label>Categoria
+          <select name="category">
+            <option value="">Todas</option>
+            {% for category in categories %}
+              <option value="{{ category.name }}" {% if filters.category == category.name %}selected{% endif %}>{{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Data inicial
+          <input type="date" name="period_start" value="{{ filters.period_start }}">
+        </label>
+        <label>Data final
+          <input type="date" name="period_end" value="{{ filters.period_end }}">
+        </label>
+        <label>Buscar descrição
+          <input type="text" name="description" value="{{ filters.description or '' }}" placeholder="Ex.: pix, uber, aluguel">
+        </label>
+        <label>Tipo
+          <select name="transaction_kind">
+            <option value="">Todos</option>
+            {% for kind in ['income', 'expense', 'transfer', 'credit_card_payment', 'adjustment', 'tax'] %}
+              <option value="{{ kind }}" {% if filters.transaction_kind == kind %}selected{% endif %}>{{ kind }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Ordenação
+          <select name="sort">
+            <option value="recent" {% if filters.sort == 'recent' %}selected{% endif %}>Mais recentes</option>
+            <option value="amount_desc" {% if filters.sort == 'amount_desc' %}selected{% endif %}>Maior valor</option>
+          </select>
+        </label>
+        <label class="inline toolbar-inline-toggle">
+          <input type="checkbox" name="uncategorized_only" value="true" {% if filters.uncategorized_only %}checked{% endif %} style="width:auto;">
+          Somente não categorizados
+        </label>
+        <div class="toolbar-actions">
+          <button type="submit" class="button button-primary">Aplicar filtros</button>
         </div>
-        <div class="table-wrap">
-          <table class="responsive-stack">
-          <thead>
-            <tr>
-              <th></th>
-              <th>data</th>
-              <th>descrição</th>
-              <th>origem</th>
-              <th>categoria</th>
-              <th>tipo</th>
-              <th>sinal analítico</th>
-              <th>valor</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for tx in transactions %}
-              <tr>
-                <td data-label="Selecionar">
-                  <input type="checkbox" name="selected_ids" value="{{ tx.id }}" style="width:auto;">
-                </td>
-                <td data-label="Data">
-                  <strong>{{ tx.transaction_date }}</strong>
-                </td>
-                <td data-label="Descrição">
-                  <a href="/admin/transactions/{{ tx.id }}?return_to={{ encoded_current_url }}" class="text-link">
-                    <strong>{{ tx.description_raw }}</strong>
-                  </a>
-                  {% if tx.category == 'Não Categorizado' or tx.category == 'Nao Categorizado' %}
-                    <div style="margin-top:6px;"><span class="badge warn">não categorizado</span></div>
-                  {% endif %}
-                  {% if tx.manual_notes %}
-                    <div class="subtle" style="margin-top:6px;"><strong>Observação:</strong> {{ tx.manual_notes }}</div>
-                  {% endif %}
-                </td>
-                <td data-label="Origem" class="subtle">{{ tx.source_type }}</td>
-                <td data-label="Categoria">{{ tx.category }}</td>
-                <td data-label="Tipo"><span class="badge">{{ tx.transaction_kind }}</span></td>
-                <td data-label="Sinal analítico">
-                  {% if tx.is_conciliated_bank_payment %}
-                    <span class="badge warn">bank_payment conciliado</span>
-                    <div class="subtle" style="margin-top:6px;">{{ tx.conciliation_signal.card_label }} · {{ "%02d/%04d"|format(tx.conciliation_signal.billing_month, tx.conciliation_signal.billing_year) }} · status {{ tx.conciliation_signal.conciliation_status }}</div>
-                  {% else %}
-                    <span class="subtle">-</span>
-                  {% endif %}
-                </td>
-                <td data-label="Valor" class="{% if tx.amount < 0 %}amount-negative{% else %}amount-positive{% endif %}">
-                  {{ '%.2f'|format(tx.amount) }}
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </section>
-    {% else %}
-      <div class="empty-state">
-        <strong>Nenhum lançamento encontrado</strong>
-        <div class="subtle">Ajuste os filtros acima para buscar outro intervalo ou outra combinação de categoria, tipo e descrição.</div>
-      </div>
-    {% endif %}
-  </div>
+      </form>
+    </div>
+  </details>
 
-  <aside class="ops-side-column">
-    <section class="toolbar-card">
+  {% if transactions %}
+    <section class="card stack">
       <div class="ops-panel-header">
-        <strong>Ações em lote</strong>
-        <div class="help-copy">Use este bloco para reclassificar a seleção atual e, se fizer sentido, salvar uma regra futura a partir do mesmo padrão.</div>
+        <strong>Tabela operacional da base</strong>
       </div>
-      <div class="toolbar-grid">
-        <label>Nova categoria
-          <select name="category" required>
-            <option value="">Selecione</option>
-            {% for category in categories if category.is_active %}
-              <option value="{{ category.name }}">{{ category.name }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <label>Novo tipo
-          <select name="transaction_kind" required>
-            <option value="expense">expense</option>
-            <option value="income">income</option>
-            <option value="transfer">transfer</option>
-          </select>
-        </label>
-        <label>Padrão opcional para salvar regra futura
-          <input type="text" name="rule_pattern" placeholder="Ex.: uber ou pix mercado pago">
-        </label>
-        <label>Modo do match da regra
-          <select name="rule_match_mode">
-            <option value="contains">contains</option>
-            <option value="exact_normalized">exact_normalized</option>
-          </select>
-        </label>
-      </div>
-      <label>Observação
-        <textarea name="notes" placeholder="Motivo da reclassificação"></textarea>
-      </label>
-      <label class="inline">
-        <input type="checkbox" name="save_rule" value="true" style="width:auto;">
-        Salvar regra para uso futuro
-      </label>
-      <input type="hidden" name="return_to" value="{{ current_url }}">
-      <div id="bulk-preview"></div>
-      <div class="toolbar-actions">
-        <button
-          type="button"
-          class="button button-ghost"
-          hx-post="/admin/transactions/bulk-preview"
-          hx-include="closest form"
-          hx-target="#bulk-preview"
-          hx-swap="innerHTML">Pré-visualizar seleção</button>
-        <button type="submit" class="button button-primary" onclick="return confirm('Aplicar reclassificação em massa?');">Aplicar aos selecionados</button>
-      </div>
+      {{ transactions_table(transactions, encoded_current_url, False) }}
     </section>
-
-  </aside>
-</form>
+  {% else %}
+    <div class="empty-state">
+      <strong>Nenhum lançamento encontrado</strong>
+      <div class="subtle">Ajuste os filtros acima para buscar outro intervalo ou outra combinação de categoria, tipo e descrição.</div>
+    </div>
+  {% endif %}
+</section>
 
 {% if pagination.has_more %}
   <div class="toolbar-actions">

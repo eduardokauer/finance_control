@@ -1,0 +1,59 @@
+{% macro transactions_table(transactions, encoded_current_url, selectable=False) %}
+<div class="table-wrap">
+  <table class="responsive-stack">
+    <thead>
+      <tr>
+        {% if selectable %}
+          <th></th>
+        {% endif %}
+        <th>data</th>
+        <th>descrição</th>
+        <th>origem</th>
+        <th>categoria</th>
+        <th>tipo</th>
+        <th>sinal analítico</th>
+        <th>valor</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for tx in transactions %}
+        <tr>
+          {% if selectable %}
+            <td data-label="Selecionar">
+              <input type="checkbox" name="selected_ids" value="{{ tx.id }}" style="width:auto;">
+            </td>
+          {% endif %}
+          <td data-label="Data">
+            <strong>{{ tx.transaction_date }}</strong>
+          </td>
+          <td data-label="Descrição">
+            <a href="/admin/transactions/{{ tx.id }}?return_to={{ encoded_current_url }}" class="text-link">
+              <strong>{{ tx.description_raw }}</strong>
+            </a>
+            {% if tx.category == 'Não Categorizado' or tx.category == 'Nao Categorizado' %}
+              <div style="margin-top:6px;"><span class="badge warn">não categorizado</span></div>
+            {% endif %}
+            {% if tx.manual_notes %}
+              <div class="subtle" style="margin-top:6px;"><strong>Observação:</strong> {{ tx.manual_notes }}</div>
+            {% endif %}
+          </td>
+          <td data-label="Origem" class="subtle">{{ tx.source_type }}</td>
+          <td data-label="Categoria">{{ tx.category }}</td>
+          <td data-label="Tipo"><span class="badge">{{ tx.transaction_kind }}</span></td>
+          <td data-label="Sinal analítico">
+            {% if tx.is_conciliated_bank_payment %}
+              <span class="badge warn">bank_payment conciliado</span>
+              <div class="subtle" style="margin-top:6px;">{{ tx.conciliation_signal.card_label }} · {{ "%02d/%04d"|format(tx.conciliation_signal.billing_month, tx.conciliation_signal.billing_year) }} · status {{ tx.conciliation_signal.conciliation_status }}</div>
+            {% else %}
+              <span class="subtle">-</span>
+            {% endif %}
+          </td>
+          <td data-label="Valor" class="{% if tx.amount < 0 %}amount-negative{% else %}amount-positive{% endif %}">
+            {{ '%.2f'|format(tx.amount) }}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}

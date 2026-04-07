@@ -1,198 +1,196 @@
 {% extends "admin/base.html" %}
-{% block title %}Visão de Faturas{% endblock %}
+{% block title %}Vis&atilde;o de Faturas{% endblock %}
+{% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
 {% block content %}
-{% from "admin/partials/page_parts.html" import page_header %}
-<style>
-  .invoice-chart-shell {
-    min-height: 320px;
-  }
-  .invoice-chart-shell canvas {
-    width: 100% !important;
-    height: 320px !important;
-  }
-</style>
+{% from "admin/partials/invoice_operational_table.html" import invoice_operational_table with context %}
+{% from "admin/partials/invoice_entries_table.html" import invoice_entries_table with context %}
+{% include "admin/partials/analysis_period_form.html" %}
 
-{% call page_header(active_nav_section_label, "Visão de Faturas", "Subhome das faturas focada na leitura histórica, nos gráficos principais e na lista operacional.") %}
-  <a class="button button-ghost" href="/admin/operations">Voltar para central</a>
-{% endcall %}
-
-<section class="overview-stack section-gap-md">
-  {% if chart_data %}
-    <section class="card stack">
-      <div class="ops-panel-header">
-        <strong>Valor total das faturas importadas por mês, separado por ano</strong>
-        <div class="help-copy">Eixo fixo de 12 meses. Cada barra representa um ano com dados, mantendo a mesma cor ao longo do gráfico.</div>
+<section class="analysis-page-stack">
+  <section class="analysis-metric-grid" aria-label="Resumo das faturas">
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">{{ invoice_period_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Total faturado</strong>
+        <span class="help-copy">Soma declarada nas faturas do recorte atual.</span>
+        <span class="home-kpi-icon home-kpi-icon-result" aria-hidden="true">&#9679;</span>
       </div>
-      <div class="invoice-chart-shell"><canvas id="invoice-imports-chart"></canvas></div>
-    </section>
-  {% endif %}
-
-  <section class="card stack">
-    <div class="ops-panel-header">
-      <strong>Gráfico de categorias das faturas</strong>
-      <div class="help-copy">Top categorias reconhecidas na visão de faturas do período-base {{ invoice_period_label }}.</div>
-    </div>
-    <div class="invoice-chart-shell"><canvas id="invoice-categories-chart"></canvas></div>
+      <div class="metric-value">{{ invoice_snapshot.total_billed_display }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="#invoice-headers-table">Ver faturas</a>
+      </div>
+    </article>
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">{{ invoice_period_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Charges</strong>
+        <span class="help-copy">Itens de compra do período.</span>
+        <span class="home-kpi-icon home-kpi-icon-expense" aria-hidden="true">&darr;</span>
+      </div>
+      <div class="metric-value amount-negative">{{ invoice_snapshot.charge_total_display }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="/admin/credit-card-invoices?selection_mode={{ selection_mode }}{% if selection_mode == 'month' %}&month={{ month_value }}{% else %}&period_start={{ period_start }}&period_end={{ period_end }}{% endif %}&item_type=charge#invoice-items-table">Ver itens</a>
+      </div>
+    </article>
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">{{ invoice_period_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Créditos</strong>
+        <span class="help-copy">Ajustes positivos ligados às faturas do recorte.</span>
+        <span class="home-kpi-icon home-kpi-icon-income" aria-hidden="true">&uarr;</span>
+      </div>
+      <div class="metric-value amount-positive">{{ invoice_snapshot.credit_total_display }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="/admin/credit-card-invoices?selection_mode={{ selection_mode }}{% if selection_mode == 'month' %}&month={{ month_value }}{% else %}&period_start={{ period_start }}&period_end={{ period_end }}{% endif %}&item_type=credit#invoice-items-table">Ver créditos</a>
+      </div>
+    </article>
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">{{ invoice_period_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Faturas</strong>
+        <span class="help-copy">Quantidade de faturas do recorte por vencimento.</span>
+        <span class="home-kpi-icon home-kpi-icon-net_flow" aria-hidden="true">&#9679;</span>
+      </div>
+      <span class="analysis-metric-detail">Pendentes: {{ invoice_snapshot.status_counts.pending_review }}</span>
+      <div class="metric-value">{{ invoice_snapshot.invoice_count }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="/admin/credit-card-invoices/manage">Administrar faturas</a>
+      </div>
+    </article>
   </section>
 
-  {% if entries %}
-    <section class="card stack">
-      <div class="ops-panel-header">
-        <strong>Lista operacional das faturas</strong>
-        <div class="help-copy">A tabela mantém a navegação completa no desktop e vira leitura empilhada no mobile.</div>
+  <section class="card analysis-section-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>12 meses de fatura</strong>
+        <div class="help-copy">Mesmo gráfico mensal da Visão Geral, especializado nos itens de fatura.</div>
       </div>
-      <div class="table-wrap">
-        <table class="responsive-stack">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Cartão</th>
-              <th>Competência</th>
-              <th>Data da fatura</th>
-              <th>Vencimento</th>
-              <th>Valor total</th>
-              <th>Importação</th>
-              <th>Conciliação</th>
-              <th>Itens</th>
-              <th>Importada em</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for entry in entries %}
-              <tr>
-                <td data-label="ID">#{{ entry.invoice.id }}</td>
-                <td data-label="Cartão">{{ entry.card.card_label }}</td>
-                <td data-label="Competência">{{ "%02d/%04d"|format(entry.invoice.billing_month, entry.invoice.billing_year) }}</td>
-                <td data-label="Data da fatura">{{ format_date_br(entry.invoice.closing_date) if entry.invoice.closing_date else '-' }}</td>
-                <td data-label="Vencimento">{{ format_date_br(entry.invoice.due_date) }}</td>
-                <td data-label="Valor total">{{ format_currency_br(entry.invoice.total_amount_brl) }}</td>
-                <td data-label="Importação"><span class="badge {{ status_variant(entry.invoice.import_status) }}">{{ entry.invoice.import_status }}</span></td>
-                <td data-label="Conciliação">
-                  <span class="badge {{ status_variant(entry.conciliation_status) }}">{{ entry.conciliation_status }}</span>
-                  <div class="subtle">
-                    {% if entry.conciliation_status == 'conciliated' %}
-                      {{ format_currency_br(entry.conciliated_total_brl) }} já conciliado
-                    {% elif entry.conciliated_total_brl > 0 %}
-                      {{ format_currency_br(entry.conciliated_total_brl) }} conciliado · saldo {{ format_currency_br(entry.remaining_balance_brl) }}
-                    {% else %}
-                      saldo pendente {{ format_currency_br(entry.remaining_balance_brl) }}
-                    {% endif %}
-                  </div>
-                  {% if entry.conciliation_status != 'conciliated' %}
-                    <div><a class="text-link" href="/admin/credit-card-invoices/{{ entry.invoice.id }}#invoice-conciliation-section">Ir para conciliar</a></div>
-                  {% endif %}
-                </td>
-                <td data-label="Itens">{{ entry.item_count }} lançamento(s)</td>
-                <td data-label="Importada em">{{ entry.invoice.imported_at.strftime('%d/%m/%Y %H:%M') if entry.invoice.imported_at else '-' }}</td>
-                <td data-label="Ação"><a class="text-link" href="/admin/credit-card-invoices/{{ entry.invoice.id }}">Ver detalhe</a></td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  {% else %}
-    <div class="empty-state">
-      <strong>Nenhuma fatura importada ainda</strong>
-      <div class="subtle">Use a área Administrar faturas para iniciar a base operacional das faturas do projeto.</div>
     </div>
-  {% endif %}
+    <div class="chart-shell chart-shell-tall">
+      <canvas id="invoice-monthly-chart" aria-label="12 meses de fatura"></canvas>
+    </div>
+  </section>
+
+  <section class="card analysis-section-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Categorias de fatura</strong>
+        <div class="help-copy">Mesma leitura empilhada da área de categorias, restrita aos itens de fatura do período.</div>
+      </div>
+    </div>
+    <div id="invoice-categories-legend" class="chart-legend-checkboxes" aria-label="Categorias de fatura"></div>
+    <div class="chart-shell chart-shell-tall">
+      <canvas id="invoice-categories-chart" aria-label="Categorias de fatura em 12 meses"></canvas>
+    </div>
+  </section>
+
+  <section id="invoice-items-table" class="card analysis-table-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Itens de fatura</strong>
+        <div class="help-copy">Listagem operacional dos itens no período, com filtros por cartão, categoria, tipo e status.</div>
+      </div>
+      <div class="analysis-section-actions">
+        <a class="button button-ghost" href="/admin/credit-card-invoices/manage">Administrar faturas</a>
+      </div>
+    </div>
+    <form method="get" action="/admin/credit-card-invoices#invoice-items-table" class="analysis-filter-form">
+      <input type="hidden" name="selection_mode" value="{{ selection_mode }}">
+      <input type="hidden" name="month" value="{{ month_value if selection_mode == 'month' else '' }}">
+      <input type="hidden" name="period_start" value="{{ period_start }}">
+      <input type="hidden" name="period_end" value="{{ period_end }}">
+      <div class="analysis-filter-grid">
+        <label>Cartão
+          <select name="card_label">
+            <option value="">Todos</option>
+            {% for option in invoice_filter_options.card_labels %}
+              <option value="{{ option }}" {% if invoice_filters.card_label == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Categoria
+          <select name="category">
+            <option value="">Todas</option>
+            {% for option in invoice_filter_options.categories %}
+              <option value="{{ option }}" {% if invoice_filters.category == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Tipo
+          <select name="item_type">
+            <option value="">Todos</option>
+            {% for option in invoice_filter_options.item_types %}
+              <option value="{{ option }}" {% if invoice_filters.item_type == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Status
+          <select name="conciliation_status">
+            <option value="">Todos</option>
+            {% for option in invoice_filter_options.conciliation_statuses %}
+              <option value="{{ option }}" {% if invoice_filters.conciliation_status == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Buscar descrição
+          <input type="text" name="description" value="{{ invoice_filters.description }}" placeholder="mercado, assinatura...">
+        </label>
+        <label>Ordenação
+          <select name="sort">
+            <option value="recent" {% if invoice_filters.sort == 'recent' %}selected{% endif %}>Mais recentes</option>
+            <option value="amount_desc" {% if invoice_filters.sort == 'amount_desc' %}selected{% endif %}>Maior valor</option>
+            <option value="amount_asc" {% if invoice_filters.sort == 'amount_asc' %}selected{% endif %}>Menor valor</option>
+            <option value="description" {% if invoice_filters.sort == 'description' %}selected{% endif %}>Descrição</option>
+          </select>
+        </label>
+      </div>
+      <div class="analysis-section-actions">
+        <button type="submit" class="button button-primary">Filtrar itens</button>
+      </div>
+    </form>
+    <div class="analysis-stats-strip">
+      <span class="analysis-stat-chip">Itens: {{ invoice_stats.row_count }} / {{ invoice_stats.full_row_count }}</span>
+      <span class="analysis-stat-chip">Faturas: {{ invoice_stats.invoice_count }}</span>
+      <span class="analysis-stat-chip">Conciliadas: {{ invoice_snapshot.status_counts.conciliated }}</span>
+      <span class="analysis-stat-chip">Pendentes: {{ invoice_snapshot.status_counts.pending_review }}</span>
+    </div>
+    {% if invoice_rows %}
+      {{ invoice_operational_table(invoice_rows) }}
+    {% else %}
+      <div class="empty-state">
+        <strong>Nenhum item no recorte</strong>
+      </div>
+    {% endif %}
+  </section>
+
+  <section id="invoice-headers-table" class="card analysis-table-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Faturas do recorte</strong>
+        <div class="help-copy">Cabeçalhos das faturas do período com valor total, datas e status de conciliação.</div>
+      </div>
+    </div>
+    {% if entries %}
+      {{ invoice_entries_table(entries) }}
+    {% else %}
+      <div class="empty-state">
+        <strong>Nenhuma fatura no período</strong>
+      </div>
+    {% endif %}
+  </section>
 </section>
 
-{% if chart_data or invoice_category_chart %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% include "admin/partials/category_stacked_chart_script.html" %}
+{% include "admin/partials/analysis_chart_helpers.html" %}
 <script>
   (() => {
-    const canvas = document.getElementById('invoice-imports-chart');
-    if (canvas && typeof Chart !== 'undefined' && {{ (chart_data is not none)|tojson }}) {
-      const chartData = {
-        labels: {{ chart_data.month_labels | default([], true) | tojson }},
-        datasets: {{ chart_data.datasets | default([], true) | tojson }},
-      };
-
-      new Chart(canvas, {
-        type: 'bar',
-        data: {
-          labels: chartData.labels,
-          datasets: chartData.datasets.map((dataset) => ({
-            label: String(dataset.year),
-            data: dataset.values,
-            backgroundColor: dataset.color,
-            borderRadius: 10,
-          })),
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: {
-                callback(value) {
-                  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-                },
-              },
-            },
-          },
-          plugins: {
-            tooltip: {
-              callbacks: {
-                label(context) {
-                  return `${context.dataset.label}: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed.y || 0)}`;
-                },
-              },
-            },
-          },
-        },
-      });
-    }
-
-    const categoriesCanvas = document.getElementById('invoice-categories-chart');
-    if (categoriesCanvas) {
-      const categoriesData = {{ invoice_category_chart | tojson }};
-      new Chart(categoriesCanvas, {
-        type: 'bar',
-        data: {
-          labels: categoriesData.labels,
-          datasets: [
-            {
-              label: 'Despesas por categoria',
-              data: categoriesData.values,
-              backgroundColor: categoriesData.technical.map((isTechnical) => (isTechnical ? 'rgba(245, 158, 11, 0.75)' : 'rgba(37, 99, 235, 0.72)')),
-              borderRadius: 10,
-              borderSkipped: false,
-            },
-          ],
-        },
-        options: {
-          indexAxis: 'y',
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              beginAtZero: true,
-              ticks: {
-                callback(value) {
-                  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-                },
-              },
-            },
-            y: { grid: { display: false } },
-          },
-          plugins: {
-            tooltip: {
-              callbacks: {
-                label(context) {
-                  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed.x || 0);
-                },
-              },
-            },
-          },
-        },
-      });
-    }
+    window.mountAdminInvoiceMonthlyChart("invoice-monthly-chart", {{ chart_data.monthly | tojson }});
+    window.mountAdminStackedCategoryChart(
+      "invoice-categories-chart",
+      {{ chart_data.categories_monthly | tojson }},
+      { legendId: "invoice-categories-legend" }
+    );
   })();
 </script>
-{% endif %}
 {% endblock %}

@@ -1,0 +1,56 @@
+{% macro invoice_operational_table(rows) -%}
+<div class="table-wrap">
+  <table class="responsive-stack">
+    <thead>
+      <tr>
+        <th>Compra</th>
+        <th>Descrição</th>
+        <th>Cartão</th>
+        <th>Categoria</th>
+        <th>Tipo</th>
+        <th>Conciliação</th>
+        <th>Leitura</th>
+        <th>Valor</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td data-label="Compra">
+            <div class="cell-stack">
+              <strong>{{ row.purchase_date_display }}</strong>
+              <span class="subtle">venc. {{ row.due_date_display }}</span>
+            </div>
+          </td>
+          <td data-label="Descrição">
+            <div class="cell-stack">
+              <strong>{{ row.description }}</strong>
+              <span class="subtle">fatura #{{ row.invoice_id }}</span>
+            </div>
+          </td>
+          <td data-label="Cartão">{{ row.card_label }}</td>
+          <td data-label="Categoria">{{ row.category }}</td>
+          <td data-label="Tipo"><span class="badge">{{ row.item_type }}</span></td>
+          <td data-label="Conciliação"><span class="badge {% if row.conciliation_status == 'conciliated' %}ok{% elif row.conciliation_status in ['conflict', 'pending_review'] %}warn{% endif %}">{{ row.conciliation_status }}</span></td>
+          <td data-label="Leitura">
+            <div class="cell-stack">
+              <span class="badge {% if not row.is_visible_in_conciliated %}warn{% else %}ok{% endif %}">{{ row.visibility_label }}</span>
+              {% if row.visibility_reason %}
+                <span class="subtle">{{ row.visibility_reason }}</span>
+              {% endif %}
+            </div>
+          </td>
+          <td data-label="Valor" class="{% if row.amount < 0 %}amount-negative{% else %}amount-positive{% endif %}">{{ row.amount_display }}</td>
+          <td data-label="Ação">
+            <div class="cell-stack">
+              <a class="text-link" href="/admin/credit-card-invoices/{{ row.invoice_id }}">Fatura</a>
+              <a class="text-link" href="/admin/credit-card-invoices/{{ row.invoice_id }}/items/{{ row.id }}/category">Editar item</a>
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{%- endmacro %}
