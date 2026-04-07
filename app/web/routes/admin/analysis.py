@@ -58,24 +58,31 @@ def _build_overview_cards(analysis_data: dict) -> list[dict]:
     return [
         {
             "eyebrow": f"Conciliado | {period_label}",
-            "title": "Receitas conciliadas",
-            "subtitle": "Receitas da conta consideradas na leitura principal do mes.",
+            "title": "Receitas reais conciliadas",
+            "subtitle": "Transferencias de entrada ficam fora da leitura principal do mes.",
             "value": primary_summary["income_display"],
             "value_class": "amount-positive",
+            "detail": f"Entradas totais: {primary_summary['gross_income_display']}",
         },
         {
             "eyebrow": period_label,
-            "title": "Despesa liquida conciliada",
-            "subtitle": "Despesa do mes apos substituir pagamentos bancarios pelos itens da fatura conciliada.",
+            "title": "Despesas reais conciliadas",
+            "subtitle": "Transferencias de saida ficam fora e pagamentos conciliados sao substituidos pela fatura.",
             "value": primary_summary["expense_display"],
             "value_class": "amount-negative",
+            "detail": f"Saidas totais: {primary_summary['gross_expense_display']}",
         },
         {
             "eyebrow": period_label,
-            "title": "Saldo conciliado",
-            "subtitle": "Saldo final do mes na leitura principal conciliada.",
+            "title": "Saldo real conciliado",
+            "subtitle": "Saldo final da leitura principal sem transferencias tecnicas.",
             "value": primary_summary["balance_display"],
             "value_class": "amount-positive" if primary_summary["balance"] >= 0 else "amount-negative",
+            "detail": (
+                f"Transferencias fora da leitura: "
+                f"{primary_summary['excluded_transfer_income_display']} em entradas | "
+                f"{primary_summary['excluded_transfer_expense_display']} em saidas"
+            ),
         },
         {
             "eyebrow": period_label,
@@ -132,7 +139,7 @@ def _build_overview_charts(analysis_data: dict) -> dict[str, dict]:
     return {
         "conciliated": {
             "title": "12 meses conciliado",
-            "note": f"Leitura principal conciliada ao redor de {period_label}, com receitas, despesas e saldo do período.",
+            "note": f"Leitura principal conciliada ao redor de {period_label}, com receitas e despesas reais do período, sem transferencias.",
             "canvas_id": "overview-conciliated-chart",
             "kind": "cash-flow",
             "data": analysis_data["charts"]["conciliated"],

@@ -286,12 +286,75 @@ def test_analysis_snapshot_builds_conciliated_month_view_without_changing_main_t
     assert conciliated["conciliated_balance_total"] == 1900.0
     assert conciliated["included_invoice_count"] == 1
     assert conciliated["outside_invoices_total"] == 0
-    assert snapshot["primary_summary"]["income_display"] == conciliated["bank_income_display"]
-    assert snapshot["primary_summary"]["expense_display"] == conciliated["net_conciliated_expense_display"]
-    assert snapshot["primary_summary"]["balance_display"] == conciliated["conciliated_balance_display"]
+    assert snapshot["primary_summary"]["income_display"] == conciliated["real_bank_income_display"]
+    assert snapshot["primary_summary"]["expense_display"] == conciliated["real_conciliated_expense_display"]
+    assert snapshot["primary_summary"]["balance_display"] == conciliated["real_conciliated_balance_display"]
+    assert snapshot["primary_summary"]["gross_income_display"] == conciliated["bank_income_display"]
+    assert snapshot["primary_summary"]["gross_expense_display"] == conciliated["total_bank_outflow_display"]
     assert snapshot["primary_summary"]["included_invoice_count"] == 1
     assert snapshot["primary_summary"]["outside_invoice_count"] == 0
     assert snapshot["primary_summary"]["excluded_bank_payment_count"] == 1
+
+
+def test_analysis_snapshot_primary_summary_excludes_transfers_from_real_view(db_session):
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 6), description="TED RECEBIDA", amount=2000.0, category="Transferências", transaction_kind="transfer")
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 3, 10), description="PIX TRANSF MAR", amount=-900.0, category="Transferências", transaction_kind="transfer")
+    payment = _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 18),
+        description="FATURA MAR",
+        amount=-1300.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+    invoice = _add_invoice(
+        db_session,
+        due_date=date(2026, 3, 20),
+        item_specs=[
+            ("COMPRA MERCADO", "900.00"),
+            ("CURSO ONLINE", "500.00"),
+            ("DESCONTO NA FATURA - PO", "-100.00"),
+            ("PAGAMENTO EFETUADO", "-1300.00"),
+        ],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice.id,
+        categories_by_description={
+            "COMPRA MERCADO": "Supermercado",
+            "CURSO ONLINE": "Educação",
+        },
+    )
+    reconcile_credit_card_invoice_bank_payments(
+        db_session,
+        invoice_id=invoice.id,
+        bank_transaction_ids=[payment.id],
+    )
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    conciliated = snapshot["conciliated_month"]
+    primary_summary = snapshot["primary_summary"]
+
+    assert conciliated["bank_income_total"] == 7000.0
+    assert conciliated["transfer_income_total"] == 2000.0
+    assert conciliated["real_bank_income_total"] == 5000.0
+    assert conciliated["total_bank_outflow_total"] == 4000.0
+    assert conciliated["transfer_expense_total"] == 900.0
+    assert conciliated["real_bank_expense_total"] == 1800.0
+    assert conciliated["real_conciliated_expense_total"] == 3100.0
+    assert conciliated["real_conciliated_balance_total"] == 1900.0
+
+    assert primary_summary["income_total"] == 5000.0
+    assert primary_summary["expense_total"] == 3100.0
+    assert primary_summary["balance"] == 1900.0
+    assert primary_summary["gross_income_total"] == 7000.0
+    assert primary_summary["gross_expense_total"] == 4000.0
+    assert primary_summary["excluded_transfer_income_total"] == 2000.0
+    assert primary_summary["excluded_transfer_expense_total"] == 900.0
 
 
 def test_analysis_snapshot_builds_home_cards_from_cash_flow_and_consumption_view(db_session):
