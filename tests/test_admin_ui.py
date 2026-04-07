@@ -211,9 +211,11 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert 'class="analysis-period-bar"' in home.text
     assert "Último mês fechado disponível" in home.text
     assert 'id="analysis-apply-button"' in home.text
-    assert "Receitas conciliadas" in home.text
-    assert "Despesa liquida conciliada" in home.text
-    assert "Saldo conciliado" in home.text
+    assert "Receitas reais conciliadas" in home.text
+    assert "Despesas reais conciliadas" in home.text
+    assert "Saldo real conciliado" in home.text
+    assert "Entradas totais:" in home.text
+    assert "Saidas totais:" in home.text
     assert "Faturas conciliadas" in home.text
     assert "12 meses conciliado" in home.text
     assert "12 meses de extrato" in home.text
@@ -881,14 +883,14 @@ def test_admin_summary_page_switches_home_lenses_and_hides_top_categories_in_cas
     competence_response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence")
 
     assert cash_response.status_code == 200
-    assert "Receitas conciliadas" in cash_response.text
+    assert "Receitas reais conciliadas" in cash_response.text
     assert "12 meses conciliado" in cash_response.text
     assert 'data-context-cta="categories"' in cash_response.text
     assert 'id="overview-categories-legend"' in cash_response.text
     assert "mountAdminStackedCategoryChart" in cash_response.text
 
     assert competence_response.status_code == 200
-    assert "Receitas conciliadas" in competence_response.text
+    assert "Receitas reais conciliadas" in competence_response.text
     assert "12 meses conciliado" in competence_response.text
     assert 'data-context-cta="categories"' in competence_response.text
     assert 'id="overview-categories-legend"' in competence_response.text

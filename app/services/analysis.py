@@ -1266,12 +1266,12 @@ def _build_conciliated_monthly_series(db: Session, *, anchor_month: date) -> lis
             {
                 "month": period_start.strftime("%Y-%m"),
                 "label": format_month_label(period_start),
-                "income_total": snapshot["bank_income_total"],
-                "income_display": snapshot["bank_income_display"],
-                "expense_total": snapshot["net_conciliated_expense_total"],
-                "expense_display": snapshot["net_conciliated_expense_display"],
-                "balance": snapshot["conciliated_balance_total"],
-                "balance_display": snapshot["conciliated_balance_display"],
+                "income_total": snapshot["real_bank_income_total"],
+                "income_display": snapshot["real_bank_income_display"],
+                "expense_total": snapshot["real_conciliated_expense_total"],
+                "expense_display": snapshot["real_conciliated_expense_display"],
+                "balance": snapshot["real_conciliated_balance_total"],
+                "balance_display": snapshot["real_conciliated_balance_display"],
                 "included_invoice_count": snapshot["included_invoice_count"],
             }
         )
@@ -1715,10 +1715,19 @@ def _build_conciliated_month_snapshot(
     }
 
     bank_income_total = sum(_income_amount(tx) for tx in current_txs)
+    transfer_income_total = sum(_income_amount(tx) for tx in current_txs if _is_transfer_technical(tx))
+    total_bank_outflow_total = sum(_expense_amount(tx) for tx in current_txs)
+    transfer_expense_total = sum(_expense_amount(tx) for tx in current_txs if _is_transfer_technical(tx))
     bank_expense_total_included = sum(
         _expense_amount(tx)
         for tx in current_txs
         if tx.id not in excluded_payment_ids
+    )
+    real_bank_income_total = max(bank_income_total - transfer_income_total, 0.0)
+    real_bank_expense_total = sum(
+        _expense_amount(tx)
+        for tx in current_txs
+        if tx.id not in excluded_payment_ids and not _is_transfer_technical(tx)
     )
     excluded_conciliated_bank_payment_total = sum(
         _expense_amount(tx)
@@ -1730,33 +1739,54 @@ def _build_conciliated_month_snapshot(
         + charge_total
         - invoice_credit_total
     )
+    real_conciliated_expense_total = (
+        real_bank_expense_total
+        + charge_total
+        - invoice_credit_total
+    )
     conciliated_balance_total = bank_income_total - net_conciliated_expense_total
+    real_conciliated_balance_total = real_bank_income_total - real_conciliated_expense_total
     invoices_outside_total = sum(outside_status_counts.values())
 
     return {
         "bank_income_total": bank_income_total,
+        "transfer_income_total": transfer_income_total,
+        "real_bank_income_total": real_bank_income_total,
+        "total_bank_outflow_total": total_bank_outflow_total,
         "bank_expense_total_included": bank_expense_total_included,
+        "transfer_expense_total": transfer_expense_total,
+        "real_bank_expense_total": real_bank_expense_total,
         "conciliated_card_charge_total": charge_total,
         "conciliated_invoice_credit_total": invoice_credit_total,
         "excluded_conciliated_bank_payment_total": excluded_conciliated_bank_payment_total,
         "net_conciliated_expense_total": net_conciliated_expense_total,
+        "real_conciliated_expense_total": real_conciliated_expense_total,
         "conciliated_balance_total": conciliated_balance_total,
+        "real_conciliated_balance_total": real_conciliated_balance_total,
         "included_invoice_count": len(included_invoice_ids),
         "outside_invoices_by_status": outside_status_counts,
         "outside_invoices_total": invoices_outside_total,
         "excluded_bank_payment_count": len(excluded_payment_ids),
         "ignored_invoice_payment_item_total": payment_item_total,
         "bank_income_display": format_currency_br(bank_income_total),
+        "transfer_income_display": format_currency_br(transfer_income_total),
+        "real_bank_income_display": format_currency_br(real_bank_income_total),
+        "total_bank_outflow_display": format_currency_br(total_bank_outflow_total),
         "bank_expense_total_included_display": format_currency_br(bank_expense_total_included),
+        "transfer_expense_display": format_currency_br(transfer_expense_total),
+        "real_bank_expense_display": format_currency_br(real_bank_expense_total),
         "conciliated_card_charge_display": format_currency_br(charge_total),
         "conciliated_invoice_credit_display": format_currency_br(invoice_credit_total),
         "excluded_conciliated_bank_payment_display": format_currency_br(excluded_conciliated_bank_payment_total),
         "net_conciliated_expense_display": format_currency_br(net_conciliated_expense_total),
+        "real_conciliated_expense_display": format_currency_br(real_conciliated_expense_total),
         "conciliated_balance_display": format_currency_br(conciliated_balance_total),
+        "real_conciliated_balance_display": format_currency_br(real_conciliated_balance_total),
         "ignored_invoice_payment_item_display": format_currency_br(payment_item_total),
         "note": (
             "Considera apenas faturas totalmente conciliadas. "
-            "Pagamentos bancários conciliados saem do gasto real e compras/créditos da fatura entram como consumo líquido do mês."
+            "Transferências ficam fora da leitura real, pagamentos bancários conciliados saem do gasto real "
+            "e compras/créditos da fatura entram como consumo líquido do mês."
         ),
     }
 
@@ -1772,9 +1802,9 @@ def _build_quality(summary: dict) -> dict:
 
 
 def _build_primary_summary(*, conciliated_month: dict) -> dict:
-    income_total = conciliated_month["bank_income_total"]
-    expense_total = conciliated_month["net_conciliated_expense_total"]
-    balance_total = conciliated_month["conciliated_balance_total"]
+    income_total = conciliated_month["real_bank_income_total"]
+    expense_total = conciliated_month["real_conciliated_expense_total"]
+    balance_total = conciliated_month["real_conciliated_balance_total"]
     included_invoice_count = conciliated_month["included_invoice_count"]
     outside_invoice_count = conciliated_month["outside_invoices_total"]
     excluded_payment_count = conciliated_month["excluded_bank_payment_count"]
@@ -1784,11 +1814,16 @@ def _build_primary_summary(*, conciliated_month: dict) -> dict:
             f"{outside_invoice_count} ficaram fora por pendência, parcial ou conflito."
         )
     else:
-        coverage_note = "Sem faturas conciliadas no período; a leitura principal coincide com a movimentação líquida da conta."
+        coverage_note = (
+            "Sem faturas conciliadas no período; a leitura principal mostra a movimentação real da conta, "
+            "já sem transferências."
+        )
     executive_summary = (
-        f"Receitas da conta em {conciliated_month['bank_income_display']}, despesa líquida conciliada em "
-        f"{conciliated_month['net_conciliated_expense_display']} e saldo conciliado de "
-        f"{conciliated_month['conciliated_balance_display']}."
+        f"Receitas reais conciliadas em {conciliated_month['real_bank_income_display']}, despesas reais conciliadas em "
+        f"{conciliated_month['real_conciliated_expense_display']} e saldo real conciliado de "
+        f"{conciliated_month['real_conciliated_balance_display']}. "
+        f"Como apoio, entradas totais da conta em {conciliated_month['bank_income_display']} e saídas totais da conta em "
+        f"{conciliated_month['total_bank_outflow_display']}."
     )
     return {
         "mode": "conciliated",
@@ -1798,6 +1833,14 @@ def _build_primary_summary(*, conciliated_month: dict) -> dict:
         "income_display": format_currency_br(income_total),
         "expense_display": format_currency_br(expense_total),
         "balance_display": format_currency_br(balance_total),
+        "gross_income_total": conciliated_month["bank_income_total"],
+        "gross_income_display": conciliated_month["bank_income_display"],
+        "gross_expense_total": conciliated_month["total_bank_outflow_total"],
+        "gross_expense_display": conciliated_month["total_bank_outflow_display"],
+        "excluded_transfer_income_total": conciliated_month["transfer_income_total"],
+        "excluded_transfer_income_display": conciliated_month["transfer_income_display"],
+        "excluded_transfer_expense_total": conciliated_month["transfer_expense_total"],
+        "excluded_transfer_expense_display": conciliated_month["transfer_expense_display"],
         "included_invoice_count": included_invoice_count,
         "outside_invoice_count": outside_invoice_count,
         "excluded_bank_payment_count": excluded_payment_count,
@@ -2079,7 +2122,7 @@ def _build_alerts(
                 "level": "danger",
                 "title": "Saldo negativo no período",
                 "body": (
-                    f"O período fechou com saldo conciliado de {primary_summary['balance_display']}. "
+                    f"O período fechou com saldo real conciliado de {primary_summary['balance_display']}. "
                     "Vale revisar as maiores saídas de consumo antes do próximo fechamento."
                 ),
             }
@@ -2498,10 +2541,14 @@ def render_analysis_html(snapshot: dict) -> str:
         "<p>{}</p>".format(category_history_note),
         category_history_html,
         "<h2>Cobertura da visão conciliada</h2>",
-        "<p>Receitas da conta em {}, despesas líquidas conciliadas em {} e saldo conciliado de {}.</p>".format(
+        "<p>Receitas reais conciliadas em {}, despesas reais conciliadas em {} e saldo real conciliado de {}.</p>".format(
+            conciliated_month["real_bank_income_display"],
+            conciliated_month["real_conciliated_expense_display"],
+            conciliated_month["real_conciliated_balance_display"],
+        ),
+        "<p>Como apoio, entradas totais da conta em {} e saídas totais da conta em {}.</p>".format(
             conciliated_month["bank_income_display"],
-            conciliated_month["net_conciliated_expense_display"],
-            conciliated_month["conciliated_balance_display"],
+            conciliated_month["total_bank_outflow_display"],
         ),
         "<p>Faturas conciliadas consideradas: {}. Faturas fora da leitura principal: {}.</p>".format(
             conciliated_month["included_invoice_count"],
