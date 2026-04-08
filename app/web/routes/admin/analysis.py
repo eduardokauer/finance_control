@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -27,7 +27,7 @@ from app.services.analysis import (
 )
 from app.services.credit_card_bills import list_credit_card_invoices
 
-from .helpers import render_admin
+from .helpers import is_htmx_request, parse_optional_date, render_admin, templates
 
 router = APIRouter()
 
@@ -75,6 +75,26 @@ def _extend_url(
             fragment or split_url.fragment,
         )
     )
+
+
+def _relative_request_url(request: Request) -> str:
+    return request.url.path + (f"?{request.url.query}" if request.url.query else "")
+
+
+def _analysis_shell_template(base_path: str) -> str | None:
+    return {
+        "/admin": "admin/partials/summary_page_shell.html",
+        "/admin/analysis": "admin/partials/analysis_page_shell.html",
+        "/admin/conference": "admin/partials/conference_page_shell.html",
+    }.get(base_path)
+
+
+def _analysis_shell_target(base_path: str) -> str | None:
+    return {
+        "/admin": "#summary-view-shell",
+        "/admin/analysis": "#analysis-view-shell",
+        "/admin/conference": "#conference-view-shell",
+    }.get(base_path)
 
 
 def _lens_label(lens: str | None) -> str | None:
@@ -850,6 +870,7 @@ def _analysis_page_context(
         "recent_loads": recent_loads,
         "analysis_global_tabs": [],
         "format_currency_br": format_currency_br,
+        "analysis_shell_target": _analysis_shell_target(base_path),
         "analysis_controls_intro": (
             "Período global da página."
             if base_path != "/admin/conference/technical"
@@ -1027,6 +1048,242 @@ def _conciliated_operational_context(
     }
 
 
+def _summary_page_context(
+    db: Session,
+    *,
+    selection_mode: str | None,
+    month: str | None,
+    period_start: date | None,
+    period_end: date | None,
+    home_lens: str | None,
+    home_chart_mode: str | None,
+    home_chart_year: int | None,
+    home_chart_compare: str | None,
+) -> dict:
+    return _analysis_page_context(
+        db,
+        base_path="/admin",
+        selection_mode=selection_mode,
+        month=month,
+        period_start=period_start,
+        period_end=period_end,
+        home_lens=home_lens,
+        home_chart_mode=home_chart_mode,
+        home_chart_year=home_chart_year,
+        home_chart_compare=home_chart_compare,
+    )
+
+
+def _analysis_detail_page_context(
+    db: Session,
+    *,
+    selection_mode: str | None,
+    month: str | None,
+    period_start: date | None,
+    period_end: date | None,
+    home_lens: str | None,
+    home_chart_mode: str | None,
+    home_chart_year: int | None,
+    home_chart_compare: str | None,
+    origin: str | None,
+    origin_block: str | None,
+    conciliated_category: str | None,
+    conciliated_description: str | None,
+    conciliated_origin: str | None,
+    conciliated_analytic_type: str | None,
+    conciliated_sort: str | None,
+    statement_category: str | None,
+    statement_description: str | None,
+    statement_transaction_kind: str | None,
+    statement_scope: str | None,
+    statement_sort: str | None,
+    invoice_category: str | None,
+    invoice_description: str | None,
+    invoice_item_type: str | None,
+    invoice_card_label: str | None,
+    invoice_status: str | None,
+    invoice_sort: str | None,
+) -> dict:
+    page_context = _analysis_page_context(
+        db,
+        base_path="/admin/analysis",
+        selection_mode=selection_mode,
+        month=month,
+        period_start=period_start,
+        period_end=period_end,
+        home_lens=home_lens,
+        home_chart_mode=home_chart_mode,
+        home_chart_year=home_chart_year,
+        home_chart_compare=home_chart_compare,
+        origin=origin,
+        origin_block=origin_block,
+    )
+    page_context.update(
+        _conciliated_operational_context(
+            db,
+            period_start=page_context["period_start"],
+            period_end=page_context["period_end"],
+            category=conciliated_category,
+            description=conciliated_description,
+            origin=conciliated_origin,
+            analytic_type=conciliated_analytic_type,
+            sort=conciliated_sort,
+        )
+    )
+    page_context.update(
+        _statement_view_context(
+            db,
+            period_start=page_context["period_start"],
+            period_end=page_context["period_end"],
+            category=statement_category,
+            description=statement_description,
+            transaction_kind=statement_transaction_kind,
+            scope=statement_scope,
+            sort=statement_sort,
+            conciliated_view=True,
+        )
+    )
+    page_context.update(
+        _invoice_view_context(
+            db,
+            period_start=page_context["period_start"],
+            period_end=page_context["period_end"],
+            category=invoice_category,
+            description=invoice_description,
+            item_type=invoice_item_type,
+            conciliation_status=invoice_status,
+            visibility="visible",
+            card_label=invoice_card_label,
+            sort=invoice_sort,
+            conciliated_only=True,
+        )
+    )
+    page_context["conciliated_composition"] = build_conciliated_composition_snapshot(
+        db,
+        period_start=page_context["period_start"],
+        period_end=page_context["period_end"],
+    )
+    return page_context
+
+
+def _conference_page_context(
+    db: Session,
+    *,
+    selection_mode: str | None,
+    month: str | None,
+    period_start: date | None,
+    period_end: date | None,
+    home_lens: str | None,
+    home_chart_mode: str | None,
+    home_chart_year: int | None,
+    home_chart_compare: str | None,
+    origin: str | None,
+    origin_block: str | None,
+    statement_category: str | None,
+    statement_description: str | None,
+    statement_transaction_kind: str | None,
+    statement_scope: str | None,
+    statement_sort: str | None,
+) -> dict:
+    page_context = _analysis_page_context(
+        db,
+        base_path="/admin/conference",
+        selection_mode=selection_mode,
+        month=month,
+        period_start=period_start,
+        period_end=period_end,
+        home_lens=home_lens,
+        home_chart_mode=home_chart_mode,
+        home_chart_year=home_chart_year,
+        home_chart_compare=home_chart_compare,
+        origin=origin,
+        origin_block=origin_block,
+    )
+    page_context.update(
+        _statement_view_context(
+            db,
+            period_start=page_context["period_start"],
+            period_end=page_context["period_end"],
+            category=statement_category,
+            description=statement_description,
+            transaction_kind=statement_transaction_kind,
+            scope=statement_scope,
+            sort=statement_sort,
+            conciliated_view=False,
+        )
+    )
+    return page_context
+
+
+def _render_analysis_shell(request: Request, *, base_path: str, context: dict, status_code: int = 200) -> HTMLResponse:
+    template_name = _analysis_shell_template(base_path)
+    if not template_name:
+        raise ValueError(f"Unsupported analysis shell base path: {base_path}")
+    return templates.TemplateResponse(
+        request,
+        template_name,
+        {"request": request, **context},
+        status_code=status_code,
+    )
+
+
+def render_analysis_shell_for_return_to(request: Request, db: Session, return_to: str, *, status_code: int = 200) -> HTMLResponse:
+    split_url = urlsplit(unquote(return_to or "/admin"))
+    params = dict(parse_qsl(split_url.query, keep_blank_values=True))
+    base_path = split_url.path or "/admin"
+
+    common = {
+        "selection_mode": params.get("selection_mode") or None,
+        "month": params.get("month") or None,
+        "period_start": parse_optional_date(params.get("period_start")),
+        "period_end": parse_optional_date(params.get("period_end")),
+        "home_lens": params.get("home_lens") or None,
+        "home_chart_mode": params.get("home_chart_mode") or None,
+        "home_chart_year": int(params["home_chart_year"]) if params.get("home_chart_year") else None,
+        "home_chart_compare": params.get("home_chart_compare") or None,
+        "origin": params.get("origin") or None,
+        "origin_block": params.get("origin_block") or None,
+    }
+
+    if base_path in {"/admin", "/admin/summary"}:
+        context = _summary_page_context(db, **common)
+    elif base_path == "/admin/analysis":
+        context = _analysis_detail_page_context(
+            db,
+            **common,
+            conciliated_category=params.get("conciliated_category") or None,
+            conciliated_description=params.get("conciliated_description") or None,
+            conciliated_origin=params.get("conciliated_origin") or None,
+            conciliated_analytic_type=params.get("conciliated_analytic_type") or None,
+            conciliated_sort=params.get("conciliated_sort") or "recent",
+            statement_category=params.get("statement_category") or None,
+            statement_description=params.get("statement_description") or None,
+            statement_transaction_kind=params.get("statement_transaction_kind") or None,
+            statement_scope=params.get("statement_scope") or None,
+            statement_sort=params.get("statement_sort") or "recent",
+            invoice_category=params.get("invoice_category") or None,
+            invoice_description=params.get("invoice_description") or None,
+            invoice_item_type=params.get("invoice_item_type") or None,
+            invoice_card_label=params.get("invoice_card_label") or None,
+            invoice_status=params.get("invoice_status") or None,
+            invoice_sort=params.get("invoice_sort") or "recent",
+        )
+    elif base_path == "/admin/conference":
+        context = _conference_page_context(
+            db,
+            **common,
+            statement_category=params.get("statement_category") or None,
+            statement_description=params.get("statement_description") or None,
+            statement_transaction_kind=params.get("statement_transaction_kind") or None,
+            statement_scope=params.get("statement_scope") or None,
+            statement_sort=params.get("statement_sort") or "recent",
+        )
+    else:
+        raise ValueError(f"Unsupported analysis return_to path: {base_path}")
+    normalized_base_path = "/admin" if base_path == "/admin/summary" else base_path
+    return _render_analysis_shell(request, base_path=normalized_base_path, context=context, status_code=status_code)
+
+
 def admin_summary_page(
     request: Request,
     selection_mode: str | None = None,
@@ -1040,22 +1297,22 @@ def admin_summary_page(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    return render_admin(
-        request,
-        "admin/summary.html",
-        _analysis_page_context(
-            db,
-            base_path="/admin",
-            selection_mode=selection_mode,
-            month=month,
-            period_start=period_start,
-            period_end=period_end,
-            home_lens=home_lens,
-            home_chart_mode=home_chart_mode,
-            home_chart_year=home_chart_year,
-            home_chart_compare=home_chart_compare,
-        ),
+    page_context = _summary_page_context(
+        db,
+        selection_mode=selection_mode,
+        month=month,
+        period_start=period_start,
+        period_end=period_end,
+        home_lens=home_lens,
+        home_chart_mode=home_chart_mode,
+        home_chart_year=home_chart_year,
+        home_chart_compare=home_chart_compare,
     )
+    if is_htmx_request(request):
+        response = _render_analysis_shell(request, base_path="/admin", context=page_context)
+        response.headers["HX-Push-Url"] = _relative_request_url(request)
+        return response
+    return render_admin(request, "admin/summary.html", page_context)
 
 
 @router.get("/summary", response_class=HTMLResponse)
@@ -1119,9 +1376,8 @@ def admin_analysis_page(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    page_context = _analysis_page_context(
+    page_context = _analysis_detail_page_context(
         db,
-        base_path="/admin/analysis",
         selection_mode=selection_mode,
         month=month,
         period_start=period_start,
@@ -1132,57 +1388,28 @@ def admin_analysis_page(
         home_chart_compare=home_chart_compare,
         origin=origin,
         origin_block=origin_block,
+        conciliated_category=conciliated_category,
+        conciliated_description=conciliated_description,
+        conciliated_origin=conciliated_origin,
+        conciliated_analytic_type=conciliated_analytic_type,
+        conciliated_sort=conciliated_sort,
+        statement_category=statement_category,
+        statement_description=statement_description,
+        statement_transaction_kind=statement_transaction_kind,
+        statement_scope=statement_scope,
+        statement_sort=statement_sort,
+        invoice_category=invoice_category,
+        invoice_description=invoice_description,
+        invoice_item_type=invoice_item_type,
+        invoice_card_label=invoice_card_label,
+        invoice_status=invoice_status,
+        invoice_sort=invoice_sort,
     )
-    page_context.update(
-        _conciliated_operational_context(
-            db,
-            period_start=page_context["period_start"],
-            period_end=page_context["period_end"],
-            category=conciliated_category,
-            description=conciliated_description,
-            origin=conciliated_origin,
-            analytic_type=conciliated_analytic_type,
-            sort=conciliated_sort,
-        )
-    )
-    page_context.update(
-        _statement_view_context(
-            db,
-            period_start=page_context["period_start"],
-            period_end=page_context["period_end"],
-            category=statement_category,
-            description=statement_description,
-            transaction_kind=statement_transaction_kind,
-            scope=statement_scope,
-            sort=statement_sort,
-            conciliated_view=True,
-        )
-    )
-    page_context.update(
-        _invoice_view_context(
-            db,
-            period_start=page_context["period_start"],
-            period_end=page_context["period_end"],
-            category=invoice_category,
-            description=invoice_description,
-            item_type=invoice_item_type,
-            conciliation_status=invoice_status,
-            visibility="visible",
-            card_label=invoice_card_label,
-            sort=invoice_sort,
-            conciliated_only=True,
-        )
-    )
-    page_context["conciliated_composition"] = build_conciliated_composition_snapshot(
-        db,
-        period_start=page_context["period_start"],
-        period_end=page_context["period_end"],
-    )
-    return render_admin(
-        request,
-        "admin/analysis.html",
-        page_context,
-    )
+    if is_htmx_request(request):
+        response = _render_analysis_shell(request, base_path="/admin/analysis", context=page_context)
+        response.headers["HX-Push-Url"] = _relative_request_url(request)
+        return response
+    return render_admin(request, "admin/analysis.html", page_context)
 
 
 @router.get("/conference", response_class=HTMLResponse)
@@ -1206,9 +1433,8 @@ def admin_conference_page(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    page_context = _analysis_page_context(
+    page_context = _conference_page_context(
         db,
-        base_path="/admin/conference",
         selection_mode=selection_mode,
         month=month,
         period_start=period_start,
@@ -1219,25 +1445,17 @@ def admin_conference_page(
         home_chart_compare=home_chart_compare,
         origin=origin,
         origin_block=origin_block,
+        statement_category=statement_category,
+        statement_description=statement_description,
+        statement_transaction_kind=statement_transaction_kind,
+        statement_scope=statement_scope,
+        statement_sort=statement_sort,
     )
-    page_context.update(
-        _statement_view_context(
-            db,
-            period_start=page_context["period_start"],
-            period_end=page_context["period_end"],
-            category=statement_category,
-            description=statement_description,
-            transaction_kind=statement_transaction_kind,
-            scope=statement_scope,
-            sort=statement_sort,
-            conciliated_view=False,
-        )
-    )
-    return render_admin(
-        request,
-        "admin/conference.html",
-        page_context,
-    )
+    if is_htmx_request(request):
+        response = _render_analysis_shell(request, base_path="/admin/conference", context=page_context)
+        response.headers["HX-Push-Url"] = _relative_request_url(request)
+        return response
+    return render_admin(request, "admin/conference.html", page_context)
 
 
 @router.get("/conference/technical", response_class=HTMLResponse)
