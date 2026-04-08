@@ -416,6 +416,173 @@ def test_admin_categories_manage_blocks_delete_while_category_still_has_usage(cl
     assert db_session.get(Category, casa.id) is not None
 
 
+def test_admin_transaction_update_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(
+        db_session,
+        description="ALUGUEL HTMX DETAIL",
+        normalized="aluguel htmx detail",
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _login(client)
+
+    response = client.post(
+        f"/admin/transactions/{tx.id}/update",
+        data={
+            "category": "Outros",
+            "transaction_kind": "expense",
+            "notes": "ajuste htmx",
+            "return_to": "/admin/transactions",
+            "rule_action": "none",
+            "rule_match_mode": "contains",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="transaction-detail-shell"' in response.text
+    assert "Outros" in response.text
+    db_session.refresh(tx)
+    assert tx.category == "Outros"
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "Lançamento atualizado."
+
+
+def test_admin_transaction_quick_category_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(db_session, description="PIX SAUDE PET", normalized="pix saude pet")
+    _login(client)
+
+    response = client.post(
+        f"/admin/transactions/{tx.id}/quick-category",
+        data={
+            "name": "Saude Pet",
+            "transaction_kind": "expense",
+            "return_to": "/admin/transactions",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="transaction-detail-shell"' in response.text
+    assert "Saude Pet" in response.text
+    category = db_session.scalar(select(Category).where(Category.name == "Saude Pet"))
+    assert category is not None
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "Categoria criada: Saude Pet."
+
+
+def test_admin_invoice_item_preview_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    invoice = _seed_credit_card_invoice(db_session, status="pending_review")
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == invoice.id, CreditCardInvoiceItem.description_raw == "SUPERMERCADO TESTE")
+    )
+    assert item is not None
+    _login(client)
+
+    response = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category/preview",
+        data={"category": "Outros"},
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="invoice-item-category-shell"' in response.text
+    assert "Preview antes de aplicar" in response.text
+    assert "Outros" in response.text
+
+
+def test_admin_invoice_item_apply_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    invoice = _seed_credit_card_invoice(db_session, status="pending_review")
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == invoice.id, CreditCardInvoiceItem.description_raw == "SUPERMERCADO TESTE")
+    )
+    assert item is not None
+    _login(client)
+
+    response = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category/apply",
+        data={"category": "Outros", "confirm_apply": "true"},
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="invoice-item-category-shell"' in response.text
+    db_session.refresh(item)
+    assert item.category == "Outros"
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "Categoria do item de fatura atualizada."
+
+
+def test_admin_invoice_unlink_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(
+        db_session,
+        description="PAGAMENTO FATURA LINK HTMX",
+        normalized="pagamento fatura link htmx",
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Pagamento de Fatura",
+    )
+    invoice = _seed_conciliated_bank_payment(db_session, tx=tx)
+    conciliation_item = db_session.scalar(
+        select(CreditCardInvoiceConciliationItem)
+        .where(CreditCardInvoiceConciliationItem.bank_transaction_id == tx.id)
+    )
+    assert conciliation_item is not None
+    _login(client)
+
+    response = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/conciliation/items/{conciliation_item.id}/unlink",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="invoice-detail-shell"' in response.text
+    assert "Pagamentos conciliados" in response.text
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "Vínculo de pagamento removido."
+
+
+def test_admin_invoice_conciliation_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    invoice = _seed_credit_card_invoice(db_session, status="pending_review")
+    payment_tx = _seed_transaction(
+        db_session,
+        description="PAGAMENTO FATURA ITAUCARD MAR",
+        normalized="pagamento fatura itaucard mar",
+        transaction_date=date(2026, 3, 20),
+        amount=-130.45,
+        transaction_kind="expense",
+        category="Pagamento de Fatura",
+    )
+    _login(client)
+
+    response = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/conciliation",
+        data={"selected_transaction_ids": str(payment_tx.id)},
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="invoice-detail-shell"' in response.text
+    assert "Resumo da conciliação" in response.text
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "Conciliação atualizada."
+
+
 def test_admin_rules_create_supports_htmx_partial_refresh(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
