@@ -1,0 +1,110 @@
+<div id="reapply-page-shell" class="ops-shell-grid">
+  <div class="ops-main-column">
+    {% if reapply_result %}
+      <section class="card ops-hero-card">
+        <div class="ops-panel-header">
+          <strong>Última reaplicação</strong>
+        </div>
+        <div class="ops-stat-grid">
+          <div class="ops-stat-card">
+            <div class="subtle">Alterados</div>
+            <strong>{{ reapply_result.updated_count }}</strong>
+            <div class="subtle">de {{ reapply_result.checked_count }} avaliados</div>
+          </div>
+          <div class="ops-stat-card">
+            <div class="subtle">Análise</div>
+            <strong>{% if reapply_result.analysis_message %}Atualizada{% else %}Sem nova análise{% endif %}</strong>
+            <div class="subtle">{{ reapply_result.analysis_message or "Operação concluída sem gerar análise adicional." }}</div>
+          </div>
+        </div>
+      </section>
+    {% endif %}
+
+    <details class="toolbar-card top-filter-accordion" data-top-filter-accordion>
+      <summary class="top-filter-summary">
+        <span class="top-filter-summary-copy">
+          <span class="top-filter-summary-title">
+            <strong>Escopo de reaplicação</strong>
+            <span class="help-copy">O padrão é aplicar na base toda. Se quiser limitar por período, preencha uma ou ambas as datas abaixo.</span>
+          </span>
+          <span class="top-filter-summary-meta">
+            <span class="top-filter-summary-chip"><strong>Escopo</strong>Base toda</span>
+            <span class="top-filter-summary-chip"><strong>Regras</strong>{{ rules|length }} disponíveis</span>
+          </span>
+        </span>
+      </summary>
+      <div class="top-filter-body">
+        <form class="stack">
+          <div class="toolbar-grid toolbar-grid-compact">
+            <label>Data inicial opcional
+              <input type="date" name="period_start">
+            </label>
+            <label>Data final opcional
+              <input type="date" name="period_end">
+            </label>
+          </div>
+          <label class="inline">
+            <input type="checkbox" name="include_manual" value="true" style="width:auto;">
+            Incluir também lançamentos já ajustados manualmente
+          </label>
+          <label class="inline">
+            <input type="checkbox" name="allow_degrade_to_uncategorized" value="true" style="width:auto;">
+            Permitir degradação explícita para Não Categorizado quando não houver classificação melhor
+          </label>
+
+          <details class="accordion">
+            <summary>Selecionar regras para aplicar</summary>
+            <div class="accordion-body stack">
+              {% for rule in rules %}
+                <label class="inline" style="align-items:flex-start;">
+                  <input type="checkbox" name="selected_rule_ids" value="{{ rule.id }}" checked style="width:auto; margin-top:3px;">
+                  <span>
+                    <strong>{{ rule.pattern }}</strong><br>
+                    <span class="subtle">{{ rule.category_name }} · {{ "Fluxo da transação" if rule.kind_mode == "flow" else "Transferência" }} · prioridade {{ rule.priority }}</span>
+                  </span>
+                </label>
+              {% else %}
+                <div class="subtle">Nenhuma regra ativa disponível.</div>
+              {% endfor %}
+            </div>
+          </details>
+
+          <div class="toolbar-actions">
+            <button
+              type="button"
+              class="button button-primary"
+              hx-post="/admin/reapply/preview"
+              hx-include="closest form"
+              hx-target="#reapply-preview"
+              hx-swap="innerHTML"
+              data-loading-button
+              data-loading-label="Pré-visualizando..."
+            >Pré-visualizar impacto</button>
+          </div>
+        </form>
+      </div>
+    </details>
+    <div id="reapply-preview"></div>
+  </div>
+
+  <aside class="ops-side-column">
+    <section class="card ops-hero-card">
+      <div class="ops-panel-header">
+        <strong>Painel de reaplicação</strong>
+        <div class="help-copy">Esta tela continua operacional e conservadora: primeiro delimita escopo, depois pré-visualiza impacto e só então executa a reaplicação.</div>
+      </div>
+      <div class="ops-stat-grid">
+        <div class="ops-stat-card">
+          <div class="subtle">Regras ativas</div>
+          <strong>{{ rules|length }}</strong>
+          <div class="subtle">Disponíveis para seleção</div>
+        </div>
+        <div class="ops-stat-card">
+          <div class="subtle">Modo padrão</div>
+          <strong>Base toda</strong>
+          <div class="subtle">Sem limitar período</div>
+        </div>
+      </div>
+    </section>
+  </aside>
+</div>

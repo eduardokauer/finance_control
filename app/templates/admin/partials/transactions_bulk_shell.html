@@ -1,5 +1,30 @@
 {% from "admin/partials/transactions_table.html" import transactions_table %}
 <div id="transactions-bulk-shell" class="stack section-gap-md">
+  {% if bulk_result %}
+    <section class="card ops-hero-card">
+      <div class="ops-panel-header">
+        <strong>Última aplicação</strong>
+      </div>
+      <div class="ops-stat-grid">
+        <div class="ops-stat-card">
+          <div class="subtle">Atualizados</div>
+          <strong>{{ bulk_result.updated_count }}</strong>
+          <div class="subtle">de {{ bulk_result.selected_count }} selecionado(s)</div>
+        </div>
+        <div class="ops-stat-card">
+          <div class="subtle">Nova categoria</div>
+          <strong>{{ bulk_result.category }}</strong>
+          <div class="subtle">Tipo {{ bulk_result.transaction_kind }}</div>
+        </div>
+        <div class="ops-stat-card">
+          <div class="subtle">Regra futura</div>
+          <strong>{% if bulk_result.rule_created %}Criada{% else %}Não criada{% endif %}</strong>
+          <div class="subtle">Resultado da última aplicação</div>
+        </div>
+      </div>
+    </section>
+  {% endif %}
+
   <details class="toolbar-card top-filter-accordion" data-top-filter-accordion>
     <summary class="top-filter-summary">
       <span class="top-filter-summary-copy">
@@ -80,7 +105,14 @@
     </div>
   </details>
 
-  <form method="post" action="/admin/transactions/bulk/apply" class="stack section-gap-md">
+  <form
+    method="post"
+    action="/admin/transactions/bulk/apply"
+    hx-post="/admin/transactions/bulk/apply"
+    hx-target="#transactions-bulk-shell"
+    hx-swap="outerHTML"
+    class="stack section-gap-md"
+  >
     <section class="toolbar-card">
       <div class="ops-panel-header">
         <strong>Configuração da ação</strong>
@@ -118,7 +150,7 @@
         <input type="checkbox" name="save_rule" value="true" style="width:auto;">
         Salvar regra para uso futuro
       </label>
-      <input type="hidden" name="return_to" value="{{ current_url }}">
+      <input type="hidden" name="return_to" value="{{ current_relative_url }}">
       <div id="bulk-preview"></div>
       <div class="toolbar-actions">
         <button

@@ -26,7 +26,7 @@ from app.services.admin import (
 )
 from app.services.credit_card_bills import map_conciliated_bank_payment_signals
 
-from .helpers import is_htmx_request, render_admin, templates, trigger_admin_toast
+from .helpers import is_htmx_request, parse_optional_date, render_admin, templates, trigger_admin_toast
 
 router = APIRouter()
 
@@ -46,6 +46,32 @@ def _extend_relative_url(url: str, *, params: dict[str, str | int | None]) -> st
     return urlunsplit(("", "", split_url.path, urlencode(merged_params), split_url.fragment))
 
 
+def _transactions_view_params_from_url(url: str) -> dict:
+    split_url = urlsplit(unquote(url or "/admin/transactions"))
+    params = dict(parse_qsl(split_url.query, keep_blank_values=True))
+    limit = int(params.get("limit") or 20)
+    if limit > 50:
+        limit = 50
+    if limit < 1:
+        limit = 20
+    offset = int(params.get("offset") or 0)
+    if offset < 0:
+        offset = 0
+    return {
+        "month": params.get("month") or None,
+        "period_start": parse_optional_date(params.get("period_start")),
+        "period_end": parse_optional_date(params.get("period_end")),
+        "category": params.get("category") or None,
+        "description": params.get("description") or None,
+        "uncategorized_only": params.get("uncategorized_only") == "true",
+        "transaction_kind": params.get("transaction_kind") or None,
+        "sort": params.get("sort") or "recent",
+        "limit": limit,
+        "offset": offset,
+        "current_relative_url": urlunsplit(("", "", split_url.path, split_url.query, "")) or "/admin/transactions",
+    }
+
+
 def _transactions_page_context(
     request: Request,
     db: Session,
@@ -60,6 +86,7 @@ def _transactions_page_context(
     sort: str | None,
     limit: int,
     offset: int,
+    current_relative_url_override: str | None = None,
 ) -> dict:
     default_period = latest_closed_month_with_transactions(db) or default_closed_month()
     filters = build_transaction_filters(
@@ -74,9 +101,10 @@ def _transactions_page_context(
         default_period=default_period,
     )
     transactions, total = list_transactions_for_admin(db, filters, limit=limit, offset=offset)
-    current_url = str(request.url)
-    current_relative_url = _relative_request_url(request)
-    base_relative_url = request.url.path
+    current_relative_url = current_relative_url_override or _relative_request_url(request)
+    current_url = current_relative_url
+    current_split = urlsplit(current_relative_url)
+    base_relative_url = current_split.path
     sort_urls = {
         "recent": _extend_relative_url(current_relative_url, params={"sort": "recent", "offset": 0}),
         "amount_desc": _extend_relative_url(current_relative_url, params={"sort": "amount_desc", "offset": 0}),
@@ -97,8 +125,8 @@ def _transactions_page_context(
         "current_url": current_url,
         "current_relative_url": current_relative_url,
         "encoded_current_url": quote(current_url, safe=""),
-        "current_path": request.url.path,
-        "current_query": request.url.query,
+        "current_path": base_relative_url,
+        "current_query": current_split.query,
         "base_relative_url": base_relative_url,
         "transactions_sort_urls": sort_urls,
         "next_page_href": next_page_href,
@@ -167,6 +195,7 @@ def _render_transactions_shell(
     sort: str | None,
     limit: int,
     offset: int,
+    current_relative_url_override: str | None = None,
     status_code: int = 200,
 ) -> HTMLResponse:
     return templates.TemplateResponse(
@@ -187,6 +216,7 @@ def _render_transactions_shell(
                 sort=sort,
                 limit=limit,
                 offset=offset,
+                current_relative_url_override=current_relative_url_override,
             ),
         },
         status_code=status_code,
@@ -207,6 +237,8 @@ def _render_transactions_bulk_shell(
     sort: str | None,
     limit: int,
     offset: int,
+    current_relative_url_override: str | None = None,
+    bulk_result: dict | None = None,
     status_code: int = 200,
 ) -> HTMLResponse:
     return templates.TemplateResponse(
@@ -227,7 +259,9 @@ def _render_transactions_bulk_shell(
                 sort=sort,
                 limit=limit,
                 offset=offset,
+                current_relative_url_override=current_relative_url_override,
             ),
+            "bulk_result": bulk_result,
         },
         status_code=status_code,
     )
@@ -499,6 +533,7 @@ def admin_bulk_apply(
     _: bool = Depends(require_admin_session),
 ):
     txs = preview_bulk_reclassification(db, transaction_ids=selected_ids)
+    rule_created = False
     if txs:
         reclassify_transactions_manual(
             db,
@@ -520,5 +555,38 @@ def admin_bulk_apply(
                 priority=0,
                 is_active=True,
             )
-    request.session["flash"] = f"{len(txs)} lançamento(s) atualizados."
-    return RedirectResponse(url=unquote(return_to), status_code=303)
+            rule_created = True
+    updated_count = len(txs)
+    resolved_return_to = unquote(return_to)
+    if is_htmx_request(request):
+        view_params = _transactions_view_params_from_url(resolved_return_to)
+        response = _render_transactions_bulk_shell(
+            request,
+            db,
+            month=view_params["month"],
+            period_start=view_params["period_start"],
+            period_end=view_params["period_end"],
+            category=view_params["category"],
+            description=view_params["description"],
+            uncategorized_only=view_params["uncategorized_only"],
+            transaction_kind=view_params["transaction_kind"],
+            sort=view_params["sort"],
+            limit=view_params["limit"],
+            offset=view_params["offset"],
+            current_relative_url_override=view_params["current_relative_url"],
+            bulk_result={
+                "updated_count": updated_count,
+                "selected_count": len(selected_ids),
+                "category": category,
+                "transaction_kind": transaction_kind,
+                "rule_created": rule_created,
+            },
+        )
+        if updated_count:
+            message = f"{updated_count} lançamento(s) atualizados."
+            if rule_created:
+                message += " Regra salva para uso futuro."
+            return trigger_admin_toast(response, message, level="success")
+        return trigger_admin_toast(response, "Nenhum lançamento selecionado para atualizar.", level="warning")
+    request.session["flash"] = f"{updated_count} lançamento(s) atualizados."
+    return RedirectResponse(url=resolved_return_to, status_code=303)
