@@ -1,0 +1,196 @@
+{% from "admin/partials/invoice_operational_table.html" import invoice_operational_table with context %}
+{% from "admin/partials/invoice_entries_table.html" import invoice_entries_table with context %}
+<section id="invoice-view-shell" class="analysis-page-stack">
+  <section class="analysis-metric-grid" aria-label="Resumo das faturas">
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">{{ invoice_period_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Total faturado</strong>
+        <span class="help-copy">Soma declarada nas faturas do recorte atual.</span>
+        <span class="home-kpi-icon home-kpi-icon-result" aria-hidden="true">&#9679;</span>
+      </div>
+      <div class="metric-value">{{ invoice_snapshot.total_billed_display }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="#invoice-headers-table">Ver faturas</a>
+      </div>
+    </article>
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">{{ invoice_period_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Charges</strong>
+        <span class="help-copy">Itens de compra do período.</span>
+        <span class="home-kpi-icon home-kpi-icon-expense" aria-hidden="true">&darr;</span>
+      </div>
+      <div class="metric-value amount-negative">{{ invoice_snapshot.charge_total_display }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="/admin/credit-card-invoices?selection_mode={{ selection_mode }}{% if selection_mode == 'month' %}&month={{ month_value }}{% else %}&period_start={{ period_start }}&period_end={{ period_end }}{% endif %}&item_type=charge#invoice-items-table">Ver itens</a>
+      </div>
+    </article>
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">{{ invoice_period_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Créditos</strong>
+        <span class="help-copy">Ajustes positivos ligados às faturas do recorte.</span>
+        <span class="home-kpi-icon home-kpi-icon-income" aria-hidden="true">&uarr;</span>
+      </div>
+      <div class="metric-value amount-positive">{{ invoice_snapshot.credit_total_display }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="/admin/credit-card-invoices?selection_mode={{ selection_mode }}{% if selection_mode == 'month' %}&month={{ month_value }}{% else %}&period_start={{ period_start }}&period_end={{ period_end }}{% endif %}&item_type=credit#invoice-items-table">Ver créditos</a>
+      </div>
+    </article>
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">{{ invoice_period_label }}</span>
+      <div class="analysis-metric-title-row">
+        <strong>Faturas</strong>
+        <span class="help-copy">Quantidade de faturas do recorte por vencimento.</span>
+        <span class="home-kpi-icon home-kpi-icon-net_flow" aria-hidden="true">&#9679;</span>
+      </div>
+      <span class="analysis-metric-detail">Pendentes: {{ invoice_snapshot.status_counts.pending_review }}</span>
+      <div class="metric-value">{{ invoice_snapshot.invoice_count }}</div>
+      <div class="analysis-metric-actions">
+        <a class="button button-ghost" href="/admin/credit-card-invoices/manage">Administrar faturas</a>
+      </div>
+    </article>
+  </section>
+
+  <section class="card analysis-section-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>12 meses de fatura</strong>
+        <div class="help-copy">Mesmo gráfico mensal da Visão Geral, especializado nos itens de fatura.</div>
+      </div>
+    </div>
+    <div class="chart-shell chart-shell-tall">
+      <canvas id="invoice-monthly-chart" aria-label="12 meses de fatura"></canvas>
+    </div>
+  </section>
+
+  <section class="card analysis-section-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Categorias de fatura</strong>
+        <div class="help-copy">Mesma leitura empilhada da área de categorias, restrita aos itens de fatura do período.</div>
+      </div>
+    </div>
+    <div id="invoice-categories-legend" class="chart-legend-checkboxes" aria-label="Categorias de fatura"></div>
+    <div class="chart-shell chart-shell-tall">
+      <canvas id="invoice-categories-chart" aria-label="Categorias de fatura em 12 meses"></canvas>
+    </div>
+  </section>
+
+  <section id="invoice-items-table" class="card analysis-table-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Itens de fatura</strong>
+        <div class="help-copy">Listagem operacional dos itens no período, com filtros por cartão, categoria, tipo e status.</div>
+      </div>
+      <div class="analysis-section-actions">
+        <a class="button button-ghost" href="/admin/credit-card-invoices/manage">Administrar faturas</a>
+      </div>
+    </div>
+    <form
+      method="get"
+      action="/admin/credit-card-invoices#invoice-items-table"
+      hx-get="/admin/credit-card-invoices"
+      hx-target="#invoice-view-shell"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      class="analysis-filter-form"
+    >
+      <input type="hidden" name="selection_mode" value="{{ selection_mode }}">
+      <input type="hidden" name="month" value="{{ month_value if selection_mode == 'month' else '' }}">
+      <input type="hidden" name="period_start" value="{{ period_start }}">
+      <input type="hidden" name="period_end" value="{{ period_end }}">
+      <div class="analysis-filter-grid">
+        <label>Cartão
+          <select name="card_label">
+            <option value="">Todos</option>
+            {% for option in invoice_filter_options.card_labels %}
+              <option value="{{ option }}" {% if invoice_filters.card_label == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Categoria
+          <select name="category">
+            <option value="">Todas</option>
+            {% for option in invoice_filter_options.categories %}
+              <option value="{{ option }}" {% if invoice_filters.category == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Tipo
+          <select name="item_type">
+            <option value="">Todos</option>
+            {% for option in invoice_filter_options.item_types %}
+              <option value="{{ option }}" {% if invoice_filters.item_type == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Status
+          <select name="conciliation_status">
+            <option value="">Todos</option>
+            {% for option in invoice_filter_options.conciliation_statuses %}
+              <option value="{{ option }}" {% if invoice_filters.conciliation_status == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Buscar descrição
+          <input type="text" name="description" value="{{ invoice_filters.description }}" placeholder="mercado, assinatura...">
+        </label>
+        <label>Ordenação
+          <select name="sort">
+            <option value="recent" {% if invoice_filters.sort == 'recent' %}selected{% endif %}>Mais recentes</option>
+            <option value="amount_desc" {% if invoice_filters.sort == 'amount_desc' %}selected{% endif %}>Maior valor</option>
+            <option value="amount_asc" {% if invoice_filters.sort == 'amount_asc' %}selected{% endif %}>Menor valor</option>
+            <option value="description" {% if invoice_filters.sort == 'description' %}selected{% endif %}>Descrição</option>
+          </select>
+        </label>
+      </div>
+      <div class="analysis-section-actions">
+        <button type="submit" class="button button-primary" data-loading-button data-loading-label="Filtrando...">Filtrar itens</button>
+      </div>
+    </form>
+    <div class="analysis-stats-strip">
+      <span class="analysis-stat-chip">Itens: {{ invoice_stats.row_count }} / {{ invoice_stats.full_row_count }}</span>
+      <span class="analysis-stat-chip">Faturas: {{ invoice_stats.invoice_count }}</span>
+      <span class="analysis-stat-chip">Conciliadas: {{ invoice_snapshot.status_counts.conciliated }}</span>
+      <span class="analysis-stat-chip">Pendentes: {{ invoice_snapshot.status_counts.pending_review }}</span>
+    </div>
+    {% if invoice_rows %}
+      {{ invoice_operational_table(invoice_rows) }}
+    {% else %}
+      <div class="empty-state">
+        <strong>Nenhum item no recorte</strong>
+      </div>
+    {% endif %}
+  </section>
+
+  <section id="invoice-headers-table" class="card analysis-table-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Faturas do recorte</strong>
+        <div class="help-copy">Cabeçalhos das faturas do período com valor total, datas e status de conciliação.</div>
+      </div>
+    </div>
+    {% if entries %}
+      {{ invoice_entries_table(entries) }}
+    {% else %}
+      <div class="empty-state">
+        <strong>Nenhuma fatura no período</strong>
+      </div>
+    {% endif %}
+  </section>
+
+  <script>
+    (() => {
+      if (window.Chart && window.mountAdminInvoiceMonthlyChart && window.mountAdminStackedCategoryChart) {
+        window.mountAdminInvoiceMonthlyChart("invoice-monthly-chart", {{ chart_data.monthly | tojson }});
+        window.mountAdminStackedCategoryChart(
+          "invoice-categories-chart",
+          {{ chart_data.categories_monthly | tojson }},
+          { legendId: "invoice-categories-legend" }
+        );
+      }
+    })();
+  </script>
+</section>
