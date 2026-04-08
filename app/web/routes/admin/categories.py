@@ -34,7 +34,7 @@ from app.services.credit_card_bills import (
 )
 from app.utils.normalization import normalize_description
 
-from .helpers import render_admin, templates
+from .helpers import is_htmx_request, render_admin, templates, trigger_admin_toast
 
 router = APIRouter()
 
@@ -547,6 +547,33 @@ def _categories_management_context(
     }
 
 
+def _render_categories_management_shell(
+    request: Request,
+    db: Session,
+    *,
+    request_url: str,
+    management_error: str | None = None,
+    reassign_source_category_id: int | None = None,
+    reassign_target_category_id: int | None = None,
+    status_code: int = 200,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/categories_manage_shell.html",
+        {
+            "request": request,
+            **_categories_management_context(
+                db,
+                request_url=request_url,
+                management_error=management_error,
+                reassign_source_category_id=reassign_source_category_id,
+                reassign_target_category_id=reassign_target_category_id,
+            ),
+        },
+        status_code=status_code,
+    )
+
+
 @router.get("/categories", response_class=HTMLResponse)
 def admin_categories(
     request: Request,
@@ -821,9 +848,17 @@ def admin_create_category(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    upsert_category(db, category_id=None, name=name, transaction_kind=transaction_kind, is_active=is_active)
+    category = upsert_category(db, category_id=None, name=name, transaction_kind=transaction_kind, is_active=is_active)
+    resolved_return_to = unquote(return_to or "/admin/categories/manage")
+    if is_htmx_request(request):
+        response = _render_categories_management_shell(
+            request,
+            db,
+            request_url=resolved_return_to,
+        )
+        return trigger_admin_toast(response, f"Categoria salva: {category.name}.", level="success")
     request.session["flash"] = "Categoria salva."
-    return RedirectResponse(url=unquote(return_to or "/admin/categories/manage"), status_code=303)
+    return RedirectResponse(url=resolved_return_to, status_code=303)
 
 
 @router.post("/categories/{category_id}/update")
@@ -837,9 +872,23 @@ def admin_update_category(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    upsert_category(db, category_id=category_id, name=name, transaction_kind=transaction_kind, is_active=is_active)
+    category = upsert_category(
+        db,
+        category_id=category_id,
+        name=name,
+        transaction_kind=transaction_kind,
+        is_active=is_active,
+    )
+    resolved_return_to = unquote(return_to or "/admin/categories/manage")
+    if is_htmx_request(request):
+        response = _render_categories_management_shell(
+            request,
+            db,
+            request_url=resolved_return_to,
+        )
+        return trigger_admin_toast(response, f"Categoria atualizada: {category.name}.", level="success")
     request.session["flash"] = "Categoria atualizada."
-    return RedirectResponse(url=unquote(return_to or "/admin/categories/manage"), status_code=303)
+    return RedirectResponse(url=resolved_return_to, status_code=303)
 
 
 @router.post("/categories/{category_id}/reassign")
@@ -859,6 +908,16 @@ def admin_reassign_category(
             target_category_id=target_category_id,
         )
     except ValueError as exc:
+        if is_htmx_request(request):
+            return _render_categories_management_shell(
+                request,
+                db,
+                request_url=resolved_return_to,
+                management_error=str(exc),
+                reassign_source_category_id=category_id,
+                reassign_target_category_id=target_category_id,
+                status_code=400,
+            )
         return render_admin(
             request,
             "admin/categories_manage.html",
@@ -870,6 +929,22 @@ def admin_reassign_category(
                 reassign_target_category_id=target_category_id,
             ),
             status_code=400,
+        )
+    if is_htmx_request(request):
+        response = _render_categories_management_shell(
+            request,
+            db,
+            request_url=resolved_return_to,
+        )
+        return trigger_admin_toast(
+            response,
+            (
+                f"Categoria consolidada: {result['source_category'].name} -> {result['target_category'].name}. "
+                f"{result['transactions_updated']} lançamento(s), "
+                f"{result['invoice_items_updated']} item(ns) de fatura e "
+                f"{result['rules_updated']} regra(s) atualizados."
+            ),
+            level="success",
         )
     request.session["flash"] = (
         f"Categoria consolidada: {result['source_category'].name} -> {result['target_category'].name}. "
@@ -892,6 +967,14 @@ def admin_delete_category(
     try:
         deleted_category = delete_category_if_unused(db, category_id=category_id)
     except ValueError as exc:
+        if is_htmx_request(request):
+            return _render_categories_management_shell(
+                request,
+                db,
+                request_url=resolved_return_to,
+                management_error=str(exc),
+                status_code=400,
+            )
         return render_admin(
             request,
             "admin/categories_manage.html",
@@ -902,5 +985,12 @@ def admin_delete_category(
             ),
             status_code=400,
         )
+    if is_htmx_request(request):
+        response = _render_categories_management_shell(
+            request,
+            db,
+            request_url=resolved_return_to,
+        )
+        return trigger_admin_toast(response, f"Categoria excluída: {deleted_category.name}.", level="success")
     request.session["flash"] = f"Categoria excluida: {deleted_category.name}."
     return RedirectResponse(url=resolved_return_to, status_code=303)

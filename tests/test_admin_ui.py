@@ -416,6 +416,97 @@ def test_admin_categories_manage_blocks_delete_while_category_still_has_usage(cl
     assert db_session.get(Category, casa.id) is not None
 
 
+def test_admin_rules_create_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _login(client)
+
+    response = client.post(
+        "/admin/rules",
+        data={
+            "pattern": "uber htmx",
+            "rule_type": "contains",
+            "category_name": "Moradia",
+            "kind_mode": "flow",
+            "source_scope": "both",
+            "priority": "10",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="rules-page-shell"' in response.text
+    assert "uber htmx" in response.text
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "Regra criada."
+    assert trigger_payload["admin:toast"]["level"] == "success"
+
+
+def test_admin_categories_reassign_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    casa = Category(name="Casa", transaction_kind="expense", is_active=True)
+    db_session.add(casa)
+    db_session.commit()
+    moradia = db_session.scalar(select(Category).where(Category.name == "Moradia"))
+    _seed_transaction(
+        db_session,
+        description="CONTA CASA HTMX",
+        normalized="conta casa htmx",
+        transaction_date=date(2026, 3, 8),
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Casa",
+    )
+    _login(client)
+
+    response = client.post(
+        f"/admin/categories/{casa.id}/reassign",
+        data={
+            "target_category_id": str(moradia.id),
+            "return_to": "/admin/categories/manage",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="categories-manage-shell"' in response.text
+    tx = db_session.scalar(select(Transaction).where(Transaction.description_normalized == "conta casa htmx"))
+    assert tx.category == "Moradia"
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert "Categoria consolidada: Casa -> Moradia." in trigger_payload["admin:toast"]["message"]
+    assert trigger_payload["admin:toast"]["level"] == "success"
+
+
+def test_admin_categories_delete_error_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    casa = Category(name="Casa", transaction_kind="expense", is_active=True)
+    db_session.add(casa)
+    db_session.commit()
+    _seed_transaction(
+        db_session,
+        description="CONTA CASA BLOQUEIO HTMX",
+        normalized="conta casa bloqueio htmx",
+        transaction_date=date(2026, 3, 8),
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Casa",
+    )
+    _login(client)
+
+    response = client.post(
+        f"/admin/categories/{casa.id}/delete",
+        data={"return_to": "/admin/categories/manage"},
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 400
+    assert 'id="categories-manage-shell"' in response.text
+    assert "Mova lan" in response.text
+    assert db_session.get(Category, casa.id) is not None
+
+
 def test_admin_summary_page_exposes_contextual_ctas_with_preserved_state(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
