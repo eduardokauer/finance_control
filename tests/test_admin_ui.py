@@ -207,6 +207,7 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert home.status_code == 200
     assert "Finance Control Admin" in home.text
     assert 'class="admin-topbar"' in home.text
+    assert 'id="admin-toast-region"' in home.text
     assert 'data-admin-nav' in home.text
     assert "Principal" in home.text
     assert "Operação" in home.text
