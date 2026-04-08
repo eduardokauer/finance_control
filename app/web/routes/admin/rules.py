@@ -9,9 +9,35 @@ from app.core.database import get_db
 from app.repositories.models import CategorizationRule
 from app.services.admin import list_categories, list_rules, upsert_rule
 
-from .helpers import render_admin
+from .helpers import is_htmx_request, render_admin, templates, trigger_admin_toast
 
 router = APIRouter()
+
+
+def _rules_context(db: Session, *, open_rule_id: int | None = None) -> dict:
+    return {
+        "rules": list_rules(db),
+        "categories": list_categories(db),
+        "open_rule_id": open_rule_id,
+    }
+
+
+def _render_rules_shell(
+    request: Request,
+    db: Session,
+    *,
+    open_rule_id: int | None = None,
+    status_code: int = 200,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/rules_page_shell.html",
+        {
+            "request": request,
+            **_rules_context(db, open_rule_id=open_rule_id),
+        },
+        status_code=status_code,
+    )
 
 
 @router.get("/rules", response_class=HTMLResponse)
@@ -24,11 +50,7 @@ def admin_rules(
     return render_admin(
         request,
         "admin/rules.html",
-        {
-            "rules": list_rules(db),
-            "categories": list_categories(db),
-            "open_rule_id": open_rule_id,
-        },
+        _rules_context(db, open_rule_id=open_rule_id),
     )
 
 
@@ -44,7 +66,7 @@ def admin_create_rule(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    upsert_rule(
+    rule = upsert_rule(
         db,
         rule_id=None,
         pattern=pattern,
@@ -55,6 +77,9 @@ def admin_create_rule(
         priority=priority,
         is_active=True,
     )
+    if is_htmx_request(request):
+        response = _render_rules_shell(request, db, open_rule_id=rule.id)
+        return trigger_admin_toast(response, "Regra criada.", level="success")
     request.session["flash"] = "Regra criada."
     return RedirectResponse(url="/admin/rules", status_code=303)
 
@@ -84,6 +109,9 @@ def admin_update_rule(
         priority=priority,
         is_active=is_active,
     )
+    if is_htmx_request(request):
+        response = _render_rules_shell(request, db, open_rule_id=rule_id)
+        return trigger_admin_toast(response, "Regra atualizada.", level="success")
     request.session["flash"] = "Regra atualizada."
     return RedirectResponse(url="/admin/rules", status_code=303)
 
@@ -95,6 +123,9 @@ def admin_toggle_rule(rule_id: int, request: Request, db: Session = Depends(get_
         raise HTTPException(status_code=404, detail="Rule not found")
     rule.is_active = not rule.is_active
     db.commit()
+    if is_htmx_request(request):
+        response = _render_rules_shell(request, db, open_rule_id=rule_id)
+        return trigger_admin_toast(response, "Status da regra atualizado.", level="success")
     request.session["flash"] = "Status da regra atualizado."
     return RedirectResponse(url="/admin/rules", status_code=303)
 
@@ -106,5 +137,8 @@ def admin_delete_rule(rule_id: int, request: Request, db: Session = Depends(get_
         raise HTTPException(status_code=404, detail="Rule not found")
     db.delete(rule)
     db.commit()
+    if is_htmx_request(request):
+        response = _render_rules_shell(request, db)
+        return trigger_admin_toast(response, "Regra excluída.", level="success")
     request.session["flash"] = "Regra excluída."
     return RedirectResponse(url="/admin/rules", status_code=303)

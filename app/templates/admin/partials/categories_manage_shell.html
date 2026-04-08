@@ -1,0 +1,134 @@
+<div id="categories-manage-shell" class="stack" style="gap:20px;">
+  {% if management_error %}
+    <section class="flash flash-danger">{{ management_error }}</section>
+  {% endif %}
+
+  <section class="toolbar-card">
+    <div class="ops-panel-header">
+      <strong>Criar categoria</strong>
+    </div>
+    <form
+      method="post"
+      action="/admin/categories"
+      hx-post="/admin/categories"
+      hx-target="#categories-manage-shell"
+      hx-swap="outerHTML"
+      class="toolbar-grid"
+    >
+      <input type="hidden" name="return_to" value="{{ management_return_to }}">
+      <label>Nome
+        <input type="text" name="name" required>
+      </label>
+      <label>Tipo obrigatório
+        <select name="transaction_kind">
+          <option value="expense">expense</option>
+          <option value="income">income</option>
+          <option value="transfer">transfer</option>
+        </select>
+      </label>
+      <label class="inline toolbar-inline-toggle">
+        <input type="checkbox" name="is_active" value="true" checked style="width:auto;">
+        Ativa
+      </label>
+      <div class="toolbar-actions">
+        <button type="submit" class="button button-primary" data-loading-button data-loading-label="Criando...">Criar categoria</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card tableish">
+    <div class="ops-panel-header">
+      <h2 class="section-title">Painel de configuração das categorias</h2>
+    </div>
+    {% for row in category_management_rows %}
+      {% set category = row.category %}
+      <div class="category-row category-row-manage">
+        <form
+          method="post"
+          action="/admin/categories/{{ category.id }}/update"
+          hx-post="/admin/categories/{{ category.id }}/update"
+          hx-target="#categories-manage-shell"
+          hx-swap="outerHTML"
+          class="toolbar-grid toolbar-grid-compact"
+        >
+          <input type="hidden" name="return_to" value="{{ management_return_to }}">
+          <label>Nome
+            <input type="text" name="name" value="{{ category.name }}" required>
+          </label>
+          <label>Tipo
+            <select name="transaction_kind">
+              {% for kind in ['expense', 'income', 'transfer'] %}
+                <option value="{{ kind }}" {% if kind == category.transaction_kind %}selected{% endif %}>{{ kind }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="inline toolbar-inline-toggle">
+            <input type="checkbox" name="is_active" value="true" {% if category.is_active %}checked{% endif %} style="width:auto;">
+            Ativa
+          </label>
+          <div class="toolbar-actions">
+            <button type="submit" class="button button-ghost" data-loading-button data-loading-label="Salvando...">Salvar</button>
+          </div>
+        </form>
+
+        <div class="category-usage-strip">
+          <span class="category-usage-pill">Lançamentos {{ row.transactions_count }}</span>
+          <span class="category-usage-pill">Itens de fatura {{ row.invoice_items_count }}</span>
+          <span class="category-usage-pill">Regras {{ row.rules_count }}</span>
+        </div>
+
+        <div class="category-row-tools">
+          <form
+            method="post"
+            action="/admin/categories/{{ category.id }}/reassign"
+            hx-post="/admin/categories/{{ category.id }}/reassign"
+            hx-target="#categories-manage-shell"
+            hx-swap="outerHTML"
+            class="toolbar-grid toolbar-grid-compact"
+            onsubmit="return confirm('Mover todos os lançamentos, itens de fatura e regras desta categoria para o destino selecionado?');"
+          >
+            <input type="hidden" name="return_to" value="{{ management_return_to }}">
+            <label>Mover tudo para
+              <select name="target_category_id" required {% if not row.move_target_options %}disabled{% endif %}>
+                <option value="">Selecione</option>
+                {% for option in row.move_target_options %}
+                  <option
+                    value="{{ option.id }}"
+                    {% if row.selected_move_target_id == option.id %}selected{% endif %}
+                  >{{ option.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <div class="toolbar-actions">
+              <button type="submit" class="button button-primary" data-loading-button data-loading-label="Movendo..." {% if not row.move_target_options %}disabled{% endif %}>Mover tudo</button>
+            </div>
+            {% if not row.move_target_options %}
+              <div class="category-tool-note">Sem destino compatível ativo para este tipo.</div>
+            {% endif %}
+          </form>
+
+          <form
+            method="post"
+            action="/admin/categories/{{ category.id }}/delete"
+            hx-post="/admin/categories/{{ category.id }}/delete"
+            hx-target="#categories-manage-shell"
+            hx-swap="outerHTML"
+            class="category-delete-card"
+            onsubmit="return confirm('Excluir esta categoria? Essa ação não pode ser desfeita.');"
+          >
+            <input type="hidden" name="return_to" value="{{ management_return_to }}">
+            <button type="submit" class="button button-danger" data-loading-button data-loading-label="Excluindo..." {% if not row.can_delete %}disabled{% endif %}>Excluir categoria</button>
+            {% if row.delete_block_reason %}
+              <div class="category-tool-note">{{ row.delete_block_reason }}</div>
+            {% endif %}
+          </form>
+        </div>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <strong>Nenhuma categoria cadastrada</strong>
+        <div class="subtle">A primeira categoria oficial criada passa a aparecer aqui para manutenção contínua.</div>
+      </div>
+    {% endfor %}
+  </section>
+</div>
