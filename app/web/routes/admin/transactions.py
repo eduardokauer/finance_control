@@ -21,11 +21,12 @@ from app.services.admin import (
     preview_bulk_reclassification,
     preview_similar_transactions,
     reclassify_transactions_manual,
+    upsert_category,
     upsert_rule,
 )
 from app.services.credit_card_bills import map_conciliated_bank_payment_signals
 
-from .helpers import render_admin, templates
+from .helpers import is_htmx_request, render_admin, templates, trigger_admin_toast
 
 router = APIRouter()
 
@@ -71,6 +72,52 @@ def _transactions_page_context(
         "bulk_actions_href": "/admin/transactions/bulk",
         "transactions_list_href": "/admin/transactions",
     }
+
+
+def _transaction_detail_context(
+    db: Session,
+    *,
+    transaction_id: int,
+    return_to: str | None,
+) -> dict:
+    tx = db.get(Transaction, transaction_id)
+    if tx is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    signal = map_conciliated_bank_payment_signals(db, transaction_ids=[tx.id]).get(tx.id)
+    setattr(tx, "conciliation_signal", signal)
+    setattr(tx, "is_conciliated_bank_payment", signal is not None)
+    return_to_value = unquote(return_to or "/admin/transactions")
+    current_rule = db.get(CategorizationRule, tx.categorization_rule_id) if tx.categorization_rule_id else None
+    return {
+        "transaction": tx,
+        "categories": list_categories(db),
+        "current_rule": current_rule,
+        "return_to": return_to_value,
+        "encoded_return_to": quote(return_to_value, safe=""),
+    }
+
+
+def _render_transaction_detail_shell(
+    request: Request,
+    db: Session,
+    *,
+    transaction_id: int,
+    return_to: str | None,
+    status_code: int = 200,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/transaction_detail_shell.html",
+        {
+            "request": request,
+            **_transaction_detail_context(
+                db,
+                transaction_id=transaction_id,
+                return_to=return_to,
+            ),
+        },
+        status_code=status_code,
+    )
 
 
 @router.get("/transactions", response_class=HTMLResponse)
@@ -147,21 +194,11 @@ def admin_transaction_detail(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    tx = db.get(Transaction, transaction_id)
-    if tx is None:
-        raise HTTPException(status_code=404, detail="Transaction not found")
-    signal = map_conciliated_bank_payment_signals(db, transaction_ids=[tx.id]).get(tx.id)
-    setattr(tx, "conciliation_signal", signal)
-    setattr(tx, "is_conciliated_bank_payment", signal is not None)
-    return_to_value = unquote(return_to or "/admin/transactions")
-    current_rule = db.get(CategorizationRule, tx.categorization_rule_id) if tx.categorization_rule_id else None
-    context = {
-        "transaction": tx,
-        "categories": list_categories(db),
-        "current_rule": current_rule,
-        "return_to": return_to_value,
-        "encoded_return_to": quote(return_to_value, safe=""),
-    }
+    context = _transaction_detail_context(
+        db,
+        transaction_id=transaction_id,
+        return_to=return_to,
+    )
     return render_admin(request, "admin/transaction_detail.html", context)
 
 
@@ -225,8 +262,53 @@ def admin_update_transaction(
         )
         tx.categorization_rule_id = rule.id
         db.commit()
+    resolved_return_to = unquote(return_to)
+    if is_htmx_request(request):
+        response = _render_transaction_detail_shell(
+            request,
+            db,
+            transaction_id=transaction_id,
+            return_to=resolved_return_to,
+        )
+        return trigger_admin_toast(response, "Lançamento atualizado.", level="success")
     request.session["flash"] = "Lançamento atualizado."
-    return RedirectResponse(url=unquote(return_to), status_code=303)
+    return RedirectResponse(url=resolved_return_to, status_code=303)
+
+
+@router.post("/transactions/{transaction_id}/quick-category")
+def admin_transaction_quick_category(
+    transaction_id: int,
+    request: Request,
+    name: str = Form(...),
+    transaction_kind: str = Form(...),
+    return_to: str = Form("/admin/transactions"),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    tx = db.get(Transaction, transaction_id)
+    if tx is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    category = upsert_category(
+        db,
+        category_id=None,
+        name=name,
+        transaction_kind=transaction_kind,
+        is_active=True,
+    )
+    resolved_return_to = unquote(return_to)
+    if is_htmx_request(request):
+        response = _render_transaction_detail_shell(
+            request,
+            db,
+            transaction_id=transaction_id,
+            return_to=resolved_return_to,
+        )
+        return trigger_admin_toast(response, f"Categoria criada: {category.name}.", level="success")
+    request.session["flash"] = "Categoria criada."
+    return RedirectResponse(
+        url=f"/admin/transactions/{transaction_id}?return_to={quote(resolved_return_to, safe='')}",
+        status_code=303,
+    )
 
 
 @router.post("/transactions/bulk-preview", response_class=HTMLResponse)

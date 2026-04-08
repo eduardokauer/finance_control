@@ -31,7 +31,7 @@ from app.services.credit_card_bills import (
     unlink_credit_card_invoice_bank_payment,
 )
 
-from .helpers import render_admin
+from .helpers import is_htmx_request, render_admin, templates, trigger_admin_toast
 
 router = APIRouter()
 
@@ -142,10 +142,54 @@ def _render_invoice_item_category_editor(
     if resolved_category is None and editor.available_categories:
         resolved_category = editor.available_categories[0].name
     resolved_rule_pattern = selected_rule_pattern or editor.item.description_normalized or editor.item.description_raw
+    context = {
+        "editor": editor,
+        "selected_category": resolved_category,
+        "selected_apply_mode": selected_apply_mode,
+        "selected_rule_pattern": resolved_rule_pattern,
+        "selected_rule_match_mode": selected_rule_match_mode,
+        "return_to": return_to,
+        "single_preview": single_preview,
+        "base_preview": base_preview,
+        "form_error": form_error,
+        "status_variant": _status_variant,
+    }
     return render_admin(
         request,
         "admin/credit_card_invoice_item_category_edit.html",
+        context,
+        status_code=status_code,
+    )
+
+
+def _render_invoice_item_category_shell(
+    *,
+    invoice_id: int,
+    item_id: int,
+    request: Request,
+    db: Session,
+    selected_category: str | None = None,
+    selected_apply_mode: str = "single",
+    selected_rule_pattern: str | None = None,
+    selected_rule_match_mode: str = "exact_normalized",
+    return_to: str | None = None,
+    single_preview=None,
+    base_preview=None,
+    form_error: str | None = None,
+    status_code: int = 200,
+):
+    editor = get_credit_card_invoice_item_category_editor(db, invoice_id=invoice_id, item_id=item_id)
+    if editor is None:
+        raise HTTPException(status_code=404, detail="Invoice item not found")
+    resolved_category = selected_category or editor.item.category
+    if resolved_category is None and editor.available_categories:
+        resolved_category = editor.available_categories[0].name
+    resolved_rule_pattern = selected_rule_pattern or editor.item.description_normalized or editor.item.description_raw
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/credit_card_invoice_item_category_shell.html",
         {
+            "request": request,
             "editor": editor,
             "selected_category": resolved_category,
             "selected_apply_mode": selected_apply_mode,
@@ -156,6 +200,40 @@ def _render_invoice_item_category_editor(
             "base_preview": base_preview,
             "form_error": form_error,
             "status_variant": _status_variant,
+        },
+        status_code=status_code,
+    )
+
+
+def _invoice_detail_context(db: Session, *, invoice_id: int, conciliation_error: str | None = None) -> dict:
+    detail = get_credit_card_invoice_detail(db, invoice_id=invoice_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return {
+        "detail": detail,
+        "status_variant": _status_variant,
+        "conciliation_error": conciliation_error,
+    }
+
+
+def _render_invoice_detail_shell(
+    request: Request,
+    db: Session,
+    *,
+    invoice_id: int,
+    conciliation_error: str | None = None,
+    status_code: int = 200,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/credit_card_invoice_detail_shell.html",
+        {
+            "request": request,
+            **_invoice_detail_context(
+                db,
+                invoice_id=invoice_id,
+                conciliation_error=conciliation_error,
+            ),
         },
         status_code=status_code,
     )
@@ -297,17 +375,10 @@ def admin_credit_card_invoice_detail(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    detail = get_credit_card_invoice_detail(db, invoice_id=invoice_id)
-    if detail is None:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-
     return render_admin(
         request,
         "admin/credit_card_invoice_detail.html",
-        {
-            "detail": detail,
-            "status_variant": _status_variant,
-        },
+        _invoice_detail_context(db, invoice_id=invoice_id),
     )
 
 
@@ -342,6 +413,7 @@ def admin_credit_card_invoice_item_category_preview(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
+    renderer = _render_invoice_item_category_shell if is_htmx_request(request) else _render_invoice_item_category_editor
     try:
         if apply_mode == "base":
             base_preview = preview_manual_credit_card_invoice_item_category_rule_application(
@@ -362,7 +434,7 @@ def admin_credit_card_invoice_item_category_preview(
             )
             base_preview = None
     except CreditCardInvoiceCategoryEditError as exc:
-        return _render_invoice_item_category_editor(
+        return renderer(
             invoice_id=invoice_id,
             item_id=item_id,
             request=request,
@@ -375,7 +447,7 @@ def admin_credit_card_invoice_item_category_preview(
             form_error=str(exc),
             status_code=exc.status_code,
         )
-    return _render_invoice_item_category_editor(
+    return renderer(
         invoice_id=invoice_id,
         item_id=item_id,
         request=request,
@@ -404,8 +476,9 @@ def admin_credit_card_invoice_item_category_apply(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
+    renderer = _render_invoice_item_category_shell if is_htmx_request(request) else _render_invoice_item_category_editor
     if not confirm_apply:
-        return _render_invoice_item_category_editor(
+        return renderer(
             invoice_id=invoice_id,
             item_id=item_id,
             request=request,
@@ -436,7 +509,7 @@ def admin_credit_card_invoice_item_category_apply(
             )
             result = None
     except CreditCardInvoiceCategoryEditError as exc:
-        return _render_invoice_item_category_editor(
+        return renderer(
             invoice_id=invoice_id,
             item_id=item_id,
             request=request,
@@ -450,11 +523,19 @@ def admin_credit_card_invoice_item_category_apply(
         )
 
     if apply_mode == "base" and result is not None:
-        request.session["flash"] = (
-            f"Regra aplicada na base. {result.reapply_result['updated_count']} item(ns) existente(s) foram reavaliados."
-        )
+        success_message = f"Regra aplicada na base. {result.reapply_result['updated_count']} item(ns) existente(s) foram reavaliados."
     else:
-        request.session["flash"] = "Categoria do item de fatura atualizada."
+        success_message = "Categoria do item de fatura atualizada."
+    if is_htmx_request(request):
+        response = _render_invoice_item_category_shell(
+            invoice_id=invoice_id,
+            item_id=item_id,
+            request=request,
+            db=db,
+            return_to=return_to,
+        )
+        return trigger_admin_toast(response, success_message, level="success")
+    request.session["flash"] = success_message
     return RedirectResponse(url=f"/admin/credit-card-invoices/{invoice_id}", status_code=303)
 
 
@@ -473,20 +554,32 @@ def admin_credit_card_invoice_reconcile(
             bank_transaction_ids=selected_transaction_ids,
         )
     except CreditCardInvoiceConciliationError as exc:
-        detail = get_credit_card_invoice_detail(db, invoice_id=invoice_id)
-        if detail is None:
-            raise HTTPException(status_code=404, detail="Invoice not found") from exc
+        if is_htmx_request(request):
+            return _render_invoice_detail_shell(
+                request,
+                db,
+                invoice_id=invoice_id,
+                conciliation_error=str(exc),
+                status_code=exc.status_code,
+            )
         return render_admin(
             request,
             "admin/credit_card_invoice_detail.html",
-            {
-                "detail": detail,
-                "status_variant": _status_variant,
-                "conciliation_error": str(exc),
-            },
+            _invoice_detail_context(
+                db,
+                invoice_id=invoice_id,
+                conciliation_error=str(exc),
+            ),
             status_code=exc.status_code,
         )
 
+    if is_htmx_request(request):
+        response = _render_invoice_detail_shell(
+            request,
+            db,
+            invoice_id=invoice_id,
+        )
+        return trigger_admin_toast(response, "Conciliação atualizada.", level="success")
     request.session["flash"] = "Conciliação atualizada."
     return RedirectResponse(url=f"/admin/credit-card-invoices/{invoice_id}", status_code=303)
 
@@ -506,19 +599,31 @@ def admin_credit_card_invoice_unlink_payment(
             conciliation_item_id=conciliation_item_id,
         )
     except CreditCardInvoiceConciliationError as exc:
-        detail = get_credit_card_invoice_detail(db, invoice_id=invoice_id)
-        if detail is None:
-            raise HTTPException(status_code=404, detail="Invoice not found") from exc
+        if is_htmx_request(request):
+            return _render_invoice_detail_shell(
+                request,
+                db,
+                invoice_id=invoice_id,
+                conciliation_error=str(exc),
+                status_code=exc.status_code,
+            )
         return render_admin(
             request,
             "admin/credit_card_invoice_detail.html",
-            {
-                "detail": detail,
-                "status_variant": _status_variant,
-                "conciliation_error": str(exc),
-            },
+            _invoice_detail_context(
+                db,
+                invoice_id=invoice_id,
+                conciliation_error=str(exc),
+            ),
             status_code=exc.status_code,
         )
 
+    if is_htmx_request(request):
+        response = _render_invoice_detail_shell(
+            request,
+            db,
+            invoice_id=invoice_id,
+        )
+        return trigger_admin_toast(response, "Vínculo de pagamento removido.", level="success")
     request.session["flash"] = "Vínculo de pagamento removido."
     return RedirectResponse(url=f"/admin/credit-card-invoices/{invoice_id}", status_code=303)
