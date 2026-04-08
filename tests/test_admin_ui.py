@@ -535,6 +535,55 @@ def test_admin_transactions_bulk_list_supports_htmx_pagination(client, db_sessio
     assert "ITEM BULK HTMX 24" not in response.text
 
 
+def test_admin_transactions_bulk_apply_supports_htmx_shell_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    first_tx = _seed_transaction(
+        db_session,
+        description="PIX BULK MORADIA A",
+        normalized="pix bulk moradia a",
+        amount=-1200.0,
+        transaction_kind="expense",
+        category="Outros",
+    )
+    second_tx = _seed_transaction(
+        db_session,
+        description="PIX BULK MORADIA B",
+        normalized="pix bulk moradia b",
+        amount=-900.0,
+        transaction_kind="expense",
+        category="Outros",
+    )
+    _login(client)
+
+    response = client.post(
+        "/admin/transactions/bulk/apply",
+        data={
+            "selected_ids": [str(first_tx.id), str(second_tx.id)],
+            "category": "Moradia",
+            "transaction_kind": "expense",
+            "save_rule": "true",
+            "rule_pattern": "pix bulk moradia",
+            "rule_match_mode": "contains",
+            "return_to": "/admin/transactions/bulk?period_start=2026-03-01&period_end=2026-03-31",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="transactions-bulk-shell"' in response.text
+    assert "Última aplicação" in response.text
+    assert "Moradia" in response.text
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "2 lançamento(s) atualizados. Regra salva para uso futuro."
+
+    db_session.refresh(first_tx)
+    db_session.refresh(second_tx)
+    assert first_tx.category == "Moradia"
+    assert second_tx.category == "Moradia"
+    assert db_session.scalar(select(CategorizationRule).where(CategorizationRule.pattern == "pix bulk moradia")) is not None
+
+
 def test_admin_invoice_item_preview_supports_htmx_partial_refresh(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
@@ -1946,6 +1995,46 @@ def test_admin_reapply_rules_updates_transactions_and_runs_analysis(client, db_s
 
     run = db_session.scalar(select(AnalysisRun))
     assert run is not None
+
+
+def test_admin_reapply_apply_supports_htmx_shell_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(db_session, description="UBER HTMX REAPPLY", normalized="uber htmx reapply")
+    db_session.add(
+        CategorizationRule(
+            rule_type="contains",
+            pattern="uber",
+            category_name="Transporte",
+            kind_mode="flow",
+            priority=0,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+    _login(client)
+
+    response = client.post(
+        "/admin/reapply",
+        data={
+            "period_start": "2026-03-01",
+            "period_end": "2026-03-31",
+            "run_analysis_after": "true",
+            "selected_transaction_ids": str(tx.id),
+            "selection_present": "true",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="reapply-page-shell"' in response.text
+    assert "Última reaplicação" in response.text
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "Reaplicação concluída: 1 alterados de 1 avaliados. Nova análise gerada para o período informado."
+
+    db_session.refresh(tx)
+    assert tx.category == "Transporte"
+    assert db_session.scalar(select(AnalysisRun)) is not None
 
 
 def test_admin_reapply_preview_and_apply_can_limit_selected_rules(client, db_session, monkeypatch):
