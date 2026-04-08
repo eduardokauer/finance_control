@@ -426,17 +426,37 @@ def _credit_card_invoice_manage_context(db: Session) -> dict:
     }
 
 
+def _render_credit_card_invoice_manage_shell(
+    request: Request,
+    db: Session,
+    *,
+    invoice_upload_error: str | None = None,
+    invoice_upload_result: dict | None = None,
+    status_code: int = 200,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/credit_card_invoices_manage_shell.html",
+        {
+            "request": request,
+            **_credit_card_invoice_manage_context(db),
+            "invoice_upload_error": invoice_upload_error,
+            "invoice_upload_result": invoice_upload_result,
+        },
+        status_code=status_code,
+    )
+
+
 @router.get("/credit-card-invoices/manage", response_class=HTMLResponse)
 def admin_credit_card_invoice_manage(
     request: Request,
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    return render_admin(
-        request,
-        "admin/credit_card_invoices_manage.html",
-        _credit_card_invoice_manage_context(db),
-    )
+    context = _credit_card_invoice_manage_context(db)
+    if is_htmx_request(request):
+        return _render_credit_card_invoice_manage_shell(request, db)
+    return render_admin(request, "admin/credit_card_invoices_manage.html", context)
 
 
 @router.get("/credit-card-invoices/{invoice_id}", response_class=HTMLResponse)

@@ -5,7 +5,15 @@
       <a href="{{ analysis_back_href }}" class="button button-ghost" data-return-summary-link>Voltar ao resumo</a>
     {% endif %}
     {% if analysis_show_generate %}
-      <form method="post" action="/admin/analysis/run">
+      <form
+        method="post"
+        action="/admin/analysis/run"
+        {% if analysis_shell_target %}
+          hx-post="/admin/analysis/run"
+          hx-target="{{ analysis_shell_target }}"
+          hx-swap="outerHTML"
+        {% endif %}
+      >
         <input type="hidden" name="period_start" value="{{ period_start }}">
         <input type="hidden" name="period_end" value="{{ period_end }}">
         <input type="hidden" name="return_to" value="{{ analysis_urls.return_to }}">

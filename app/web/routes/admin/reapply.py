@@ -149,5 +149,12 @@ def admin_run_analysis(
     parsed_period_start = parse_optional_date(period_start)
     parsed_period_end = parse_optional_date(period_end)
     run = run_analysis_for_period(db, period_start=parsed_period_start, period_end=parsed_period_end)
-    request.session["flash"] = f"Nova análise gerada (run #{run.id})."
-    return RedirectResponse(url=unquote(return_to), status_code=303)
+    message = f"Nova análise gerada (run #{run.id})."
+    resolved_return_to = unquote(return_to)
+    if is_htmx_request(request):
+        from .analysis import render_analysis_shell_for_return_to
+
+        response = render_analysis_shell_for_return_to(request, db, resolved_return_to)
+        return trigger_admin_toast(response, message, level="success")
+    request.session["flash"] = message
+    return RedirectResponse(url=resolved_return_to, status_code=303)
