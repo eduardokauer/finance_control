@@ -86,6 +86,10 @@ def _normalized_category_name(value: str | None) -> str:
     return normalize_description(value or "")
 
 
+def _analysis_category_key(value: str | None) -> str:
+    return normalize_description(_analysis_category_name(value))
+
+
 def _is_transfer_technical(tx: Transaction) -> bool:
     return tx.transaction_kind == "transfer" or _normalized_category_name(tx.category) in TECHNICAL_TRANSFER_KEYS
 
@@ -1258,7 +1262,7 @@ def build_statement_category_monthly_series(
     seen_names: set[str] = set()
     for raw_name in category_names or []:
         normalized_name = _analysis_category_name(raw_name)
-        normalized_key = normalized_name.casefold()
+        normalized_key = _analysis_category_key(normalized_name)
         if normalized_key in seen_names:
             continue
         seen_names.add(normalized_key)
@@ -1285,8 +1289,8 @@ def build_statement_category_monthly_series(
         for row in snapshot["rows"]:
             if row["expense_total"] <= 0 or row["is_technical"]:
                 continue
-            category_key = row["name"].casefold()
-            category_labels[category_key] = row["name"]
+            category_key = _analysis_category_key(row["name"])
+            category_labels.setdefault(category_key, row["name"])
             category_totals[category_key] += row["expense_total"]
 
     resolved_names = selected_names or [
@@ -1300,12 +1304,12 @@ def build_statement_category_monthly_series(
     datasets = [{"label": name, "values": []} for name in resolved_names]
     for snapshot in month_snapshots:
         row_lookup = {
-            row["name"].casefold(): row
+            _analysis_category_key(row["name"]): row
             for row in snapshot["rows"]
             if row["expense_total"] > 0 and not row["is_technical"]
         }
         for dataset in datasets:
-            row = row_lookup.get(dataset["label"].casefold())
+            row = row_lookup.get(_analysis_category_key(dataset["label"]))
             dataset["values"].append(round(row["expense_total"], 2) if row else 0.0)
     return {
         "labels": labels,
@@ -1323,7 +1327,7 @@ def build_invoice_category_monthly_series(
     seen_names: set[str] = set()
     for raw_name in category_names or []:
         normalized_name = _analysis_category_name(raw_name)
-        normalized_key = normalized_name.casefold()
+        normalized_key = _analysis_category_key(normalized_name)
         if normalized_key in seen_names:
             continue
         seen_names.add(normalized_key)
@@ -1349,8 +1353,8 @@ def build_invoice_category_monthly_series(
         for row in snapshot["category_breakdown"]["rows"]:
             if row["expense_total"] <= 0 or row["is_technical"]:
                 continue
-            category_key = row["name"].casefold()
-            category_labels[category_key] = row["name"]
+            category_key = _analysis_category_key(row["name"])
+            category_labels.setdefault(category_key, row["name"])
             category_totals[category_key] += row["expense_total"]
 
     resolved_names = selected_names or [
@@ -1364,12 +1368,12 @@ def build_invoice_category_monthly_series(
     datasets = [{"label": name, "values": []} for name in resolved_names]
     for snapshot in month_snapshots:
         row_lookup = {
-            row["name"].casefold(): row
+            _analysis_category_key(row["name"]): row
             for row in snapshot["rows"]
             if row["expense_total"] > 0 and not row["is_technical"]
         }
         for dataset in datasets:
-            row = row_lookup.get(dataset["label"].casefold())
+            row = row_lookup.get(_analysis_category_key(dataset["label"]))
             dataset["values"].append(round(row["expense_total"], 2) if row else 0.0)
     return {
         "labels": labels,
@@ -1490,6 +1494,28 @@ def _materialize_category_rows(grouped: dict[str, dict], *, expense_total: float
         )
     rows.sort(key=lambda item: (item["expense_total"], item["movement_total"], item["income_total"]), reverse=True)
     return rows
+
+
+def _build_category_period_totals_chart(rows: list[dict]) -> dict:
+    chart_rows = [
+        {
+            "label": row["name"],
+            "value": round(float(row["movement_total"]), 2),
+            "value_display": row["display_total"],
+            "flow_label": row["flow_label"],
+            "is_technical": row["is_technical"],
+        }
+        for row in rows
+        if float(row["movement_total"]) > 0
+    ]
+    chart_rows.sort(key=lambda item: (-item["value"], item["label"].casefold()))
+    return {
+        "labels": [item["label"] for item in chart_rows],
+        "values": [item["value"] for item in chart_rows],
+        "value_displays": [item["value_display"] for item in chart_rows],
+        "flow_labels": [item["flow_label"] for item in chart_rows],
+        "technical": [item["is_technical"] for item in chart_rows],
+    }
 
 
 def _build_category_rows(txs: list[Transaction], *, expense_total: float) -> list[dict]:
@@ -2039,7 +2065,7 @@ def build_category_consumption_monthly_series(
     seen_names: set[str] = set()
     for raw_name in category_names or []:
         normalized_name = _analysis_category_name(raw_name)
-        normalized_key = normalized_name.casefold()
+        normalized_key = _analysis_category_key(normalized_name)
         if normalized_key in seen_names:
             continue
         seen_names.add(normalized_key)
@@ -2056,8 +2082,8 @@ def build_category_consumption_monthly_series(
         for row in snapshot["breakdown"]["rows"]:
             if row["expense_total"] <= 0 or row["is_technical"]:
                 continue
-            category_key = row["name"].casefold()
-            category_labels[category_key] = row["name"]
+            category_key = _analysis_category_key(row["name"])
+            category_labels.setdefault(category_key, row["name"])
             category_totals[category_key] += row["expense_total"]
 
     resolved_names = selected_names or [
@@ -2071,12 +2097,12 @@ def build_category_consumption_monthly_series(
     datasets = [{"label": name, "values": []} for name in resolved_names]
     for snapshot in month_snapshots:
         row_lookup = {
-            row["name"].casefold(): row
+            _analysis_category_key(row["name"]): row
             for row in snapshot["breakdown"]["rows"]
             if row["expense_total"] > 0 and not row["is_technical"]
         }
         for dataset in datasets:
-            row = row_lookup.get(dataset["label"].casefold())
+            row = row_lookup.get(_analysis_category_key(dataset["label"]))
             dataset["values"].append(round(row["expense_total"], 2) if row else 0.0)
     return {
         "labels": labels,
@@ -2091,7 +2117,7 @@ def build_category_consumption_total_for_selection(
     category_names: list[str] | None = None,
 ) -> list[dict]:
     selected_categories = {
-        _analysis_category_name(name).casefold()
+        _analysis_category_key(name)
         for name in (category_names or [])
         if name
     }
@@ -2106,7 +2132,7 @@ def build_category_consumption_total_for_selection(
             if row["expense_total"] > 0 and not row["is_technical"]
         ]
         if selected_categories:
-            rows = [row for row in rows if row["name"].casefold() in selected_categories]
+            rows = [row for row in rows if _analysis_category_key(row["name"]) in selected_categories]
         consumption_total = sum(row["expense_total"] for row in rows)
         items.append(
             {
@@ -2132,13 +2158,13 @@ def build_category_composition_for_period(
     seen_names: set[str] = set()
     for raw_name in [*(category_names or []), *( [category_name] if category_name else [])]:
         normalized_name = _analysis_category_name(raw_name)
-        normalized_key = normalized_name.casefold()
+        normalized_key = _analysis_category_key(normalized_name)
         if normalized_key in seen_names:
             continue
         seen_names.add(normalized_key)
         selected_names.append(normalized_name)
 
-    selected_name_keys = {name.casefold() for name in selected_names}
+    selected_name_keys = {_analysis_category_key(name) for name in selected_names}
     current_txs = _load_transactions_for_period(db, period_start=period_start, period_end=period_end)
     signal_map = map_conciliated_bank_payment_signals(db, transaction_ids=[tx.id for tx in current_txs])
     excluded_payment_ids = {
@@ -2150,7 +2176,9 @@ def build_category_composition_for_period(
     rows: list[dict] = []
     for tx in current_txs:
         tx_category_name = _analysis_category_name(tx.category)
-        if tx.id in excluded_payment_ids or (selected_name_keys and tx_category_name.casefold() not in selected_name_keys):
+        if tx.id in excluded_payment_ids or (
+            selected_name_keys and _analysis_category_key(tx_category_name) not in selected_name_keys
+        ):
             continue
         expense_amount = _expense_amount(tx)
         income_amount = _income_amount(tx)
@@ -2181,7 +2209,7 @@ def build_category_composition_for_period(
     for item, invoice_id in invoice_item_rows:
         item_category_name = _analysis_category_name(item.category)
         if classify_credit_card_invoice_item(item) != "charge" or (
-            selected_name_keys and item_category_name.casefold() not in selected_name_keys
+            selected_name_keys and _analysis_category_key(item_category_name) not in selected_name_keys
         ):
             continue
         rows.append(
@@ -2410,6 +2438,124 @@ def build_invoice_operational_snapshot(
         "rows": item_rows,
         "item_count": len(item_rows),
         "visible_count": sum(1 for row in item_rows if row["is_visible_in_conciliated"]),
+    }
+
+
+def build_conciliated_operational_snapshot(
+    db: Session,
+    *,
+    period_start: date,
+    period_end: date,
+) -> dict:
+    statement_snapshot = build_statement_operational_snapshot(
+        db,
+        period_start=period_start,
+        period_end=period_end,
+        conciliated_view=True,
+    )
+    invoice_snapshot = build_invoice_operational_snapshot(
+        db,
+        period_start=period_start,
+        period_end=period_end,
+        conciliated_only=True,
+    )
+
+    rows: list[dict] = []
+    for row in statement_snapshot["rows"]:
+        if not row["is_included"]:
+            continue
+        impact_amount = float(row["amount"])
+        analytic_type = "income" if impact_amount > 0 else "expense"
+        rows.append(
+            {
+                "source": "statement",
+                "source_label": "Extrato",
+                "record_id": row["id"],
+                "event_date": row["transaction_date"],
+                "event_date_display": row["transaction_date_display"],
+                "secondary_date_display": None,
+                "description": row["description"],
+                "description_normalized": row["description_normalized"],
+                "category": row["category"],
+                "analytic_type": analytic_type,
+                "analytic_type_label": "Receita" if analytic_type == "income" else "Despesa",
+                "source_kind": row["transaction_kind"],
+                "source_kind_label": row["transaction_kind"],
+                "reference": row["invoice_reference"] or "Conta",
+                "impact_amount": impact_amount,
+                "impact_display": format_signed_currency_br(impact_amount),
+                "impact_abs_display": row["amount_display"],
+                "reason": row["conciliation_reason"],
+                "primary_action_href": f"/admin/transactions/{row['id']}",
+                "primary_action_label": "Abrir",
+                "secondary_action_href": (
+                    f"/admin/credit-card-invoices/{row['invoice_id']}#invoice-conciliation-section"
+                    if row["invoice_id"]
+                    else None
+                ),
+                "secondary_action_label": "Fatura" if row["invoice_id"] else None,
+            }
+        )
+
+    for row in invoice_snapshot["rows"]:
+        if not row["is_visible_in_conciliated"]:
+            continue
+        if row["item_type"] == "charge":
+            impact_amount = -abs(float(row["amount"]))
+            analytic_type = "expense"
+            analytic_type_label = "Despesa"
+        elif row["item_type"] == "credit":
+            impact_amount = abs(float(row["amount"]))
+            analytic_type = "credit"
+            analytic_type_label = "Crédito"
+        else:
+            continue
+        rows.append(
+            {
+                "source": "invoice",
+                "source_label": "Fatura",
+                "record_id": row["id"],
+                "event_date": row["purchase_date"],
+                "event_date_display": row["purchase_date_display"],
+                "secondary_date_display": f"venc. {row['due_date_display']}",
+                "description": row["description"],
+                "description_normalized": row["description_normalized"],
+                "category": row["category"],
+                "analytic_type": analytic_type,
+                "analytic_type_label": analytic_type_label,
+                "source_kind": row["item_type"],
+                "source_kind_label": row["item_type"],
+                "reference": f"{row['card_label']} · fatura #{row['invoice_id']}",
+                "impact_amount": impact_amount,
+                "impact_display": format_signed_currency_br(impact_amount),
+                "impact_abs_display": row["amount_display"],
+                "reason": row["visibility_reason"],
+                "primary_action_href": f"/admin/credit-card-invoices/{row['invoice_id']}/items/{row['id']}/category",
+                "primary_action_label": "Editar item",
+                "secondary_action_href": f"/admin/credit-card-invoices/{row['invoice_id']}",
+                "secondary_action_label": "Fatura",
+            }
+        )
+
+    rows.sort(
+        key=lambda row: (
+            row["event_date"],
+            abs(row["impact_amount"]),
+            row["description"].casefold(),
+            row["record_id"],
+        ),
+        reverse=True,
+    )
+    return {
+        "rows": rows,
+        "row_count": len(rows),
+        "statement_count": sum(1 for row in rows if row["source"] == "statement"),
+        "invoice_count": sum(1 for row in rows if row["source"] == "invoice"),
+        "income_count": sum(1 for row in rows if row["analytic_type"] == "income"),
+        "expense_count": sum(1 for row in rows if row["analytic_type"] == "expense"),
+        "credit_count": sum(1 for row in rows if row["analytic_type"] == "credit"),
+        "net_impact_total": round(sum(row["impact_amount"] for row in rows), 2),
+        "net_impact_display": format_signed_currency_br(sum(row["impact_amount"] for row in rows)),
     }
 
 
@@ -2675,6 +2821,12 @@ def build_analysis_snapshot(
         period_end=current_month_end,
         current_txs=current_month_txs,
     )
+    period_category_breakdown = _build_conciliated_category_breakdown(
+        db,
+        period_start=period_start,
+        period_end=period_end,
+        current_txs=current_txs,
+    )
     category_history = _build_conciliated_category_history(db, anchor_month=anchor_month)
     home_cards = _build_home_cards(
         db,
@@ -2725,11 +2877,11 @@ def build_analysis_snapshot(
     )
     monthly_series = _build_monthly_series(db, anchor_month=anchor_month)
     conciliated_monthly_series = _build_conciliated_monthly_series(db, anchor_month=anchor_month)
-    statement_category_breakdown = _build_statement_category_breakdown(current_txs=current_month_txs)
+    statement_category_breakdown = _build_statement_category_breakdown(current_txs=current_txs)
     invoice_month_snapshot = _build_invoice_month_snapshot(
         db,
-        period_start=current_month_start,
-        period_end=current_month_end,
+        period_start=period_start,
+        period_end=period_end,
     )
     invoice_monthly_series = _build_invoice_monthly_series(db, anchor_month=anchor_month)
     consumption_monthly_series = _build_consumption_monthly_series(db, anchor_month=anchor_month)
@@ -2815,18 +2967,22 @@ def build_analysis_snapshot(
                 "technical": [item["is_technical"] for item in top_expense_categories],
             },
             "categories_monthly": category_consumption_monthly_series,
+            "conciliated_categories_period": _build_category_period_totals_chart(period_category_breakdown["rows"]),
             "statement_categories_monthly": statement_category_monthly_series,
+            "statement_categories_period": _build_category_period_totals_chart(statement_category_breakdown["rows"]),
             "statement_categories": {
                 "labels": [item["name"] for item in statement_category_breakdown["top_expense_categories"]],
                 "values": [round(item["expense_total"], 2) for item in statement_category_breakdown["top_expense_categories"]],
                 "technical": [item["is_technical"] for item in statement_category_breakdown["top_expense_categories"]],
             },
             "invoice_categories_monthly": invoice_category_monthly_series,
+            "invoice_categories_period": _build_category_period_totals_chart(invoice_month_snapshot["category_breakdown"]["rows"]),
             "invoice_categories": {
                 "labels": [item["name"] for item in invoice_month_snapshot["category_breakdown"]["top_expense_categories"]],
                 "values": [round(item["expense_total"], 2) for item in invoice_month_snapshot["category_breakdown"]["top_expense_categories"]],
                 "technical": [item["is_technical"] for item in invoice_month_snapshot["category_breakdown"]["top_expense_categories"]],
             },
+            "overview_categories_period": _build_category_period_totals_chart(period_category_breakdown["rows"]),
         },
     }
 

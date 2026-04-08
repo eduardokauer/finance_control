@@ -455,6 +455,12 @@
     align-content: end;
     margin-top: auto;
   }
+  .home-kpi-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 2px;
+  }
   .home-kpi-card .metric-value {
     margin-top: 0;
     font-size: clamp(1.7rem, 2vw, 2.1rem);
@@ -524,6 +530,14 @@
   }
   .overview-chart-card {
     align-content: start;
+  }
+  .overview-chart-stack {
+    display: grid;
+    gap: 16px;
+  }
+  .overview-subchart-block {
+    display: grid;
+    gap: 8px;
   }
   .overview-chart-header {
     display: flex;
@@ -610,6 +624,12 @@
   }
   .chart-shell-tall canvas {
     height: 340px !important;
+  }
+  .chart-shell-medium {
+    min-height: 260px;
+  }
+  .chart-shell-medium canvas {
+    height: 260px !important;
   }
   .chart-legend-checkboxes {
     display: flex;
@@ -1184,6 +1204,12 @@
     }
     .chart-shell-tall canvas {
       height: 280px !important;
+    }
+    .chart-shell-medium {
+      min-height: 240px;
+    }
+    .chart-shell-medium canvas {
+      height: 240px !important;
     }
     .home-executive-grid {
       grid-template-columns: 1fr;

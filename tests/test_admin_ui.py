@@ -38,6 +38,15 @@ def _extract_return_summary_href(page_html: str) -> str:
     return html_lib.unescape(match.group(1))
 
 
+def _extract_section_html(page_html: str, section_id: str) -> str:
+    marker = f'id="{section_id}"'
+    start = page_html.index(marker)
+    next_section = page_html.find('<section ', start + len(marker))
+    if next_section == -1:
+        next_section = len(page_html)
+    return page_html[start:next_section]
+
+
 def _seed_categories(db_session):
     for name, kind in [
         ("N\u00e3o Categorizado", "expense"),
@@ -204,9 +213,7 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert "Configuração" in home.text
     assert "Visão Geral" in home.text
     assert "Resumo das leituras do período." in home.text
-    assert 'data-analysis-breadcrumbs' in home.text
-    assert 'data-context-chip="period"' in home.text
-    assert 'data-context-chip="lens"' not in home.text
+    assert 'data-return-summary-link' not in home.text
     assert "Controles globais da página" in home.text
     assert 'class="analysis-period-bar"' in home.text
     assert "Último mês fechado disponível" in home.text
@@ -463,6 +470,55 @@ def test_admin_summary_page_exposes_contextual_ctas_with_preserved_state(client,
     assert categories_href.startswith("/admin/categories")
 
 
+def test_admin_summary_cards_expose_drilldown_links(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR",
+        normalized="salario mar drilldown",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Salário",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR",
+        normalized="aluguel mar drilldown",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _login(client)
+
+    response = client.get("/admin?selection_mode=month&month=2026-03")
+
+    assert response.status_code == 200
+
+    income_href = _extract_href_by_data_attr(response.text, "data-context-card", "real-income")
+    assert income_href.startswith("/admin/analysis?")
+    assert "origin=summary" in income_href
+    assert "origin_block=cards" in income_href
+    assert "statement_transaction_kind=income" in income_href
+    assert "statement_scope=included" in income_href
+    assert income_href.endswith("#conciliated-bank-table")
+
+    expense_href = _extract_href_by_data_attr(response.text, "data-context-card", "real-expense")
+    assert expense_href.startswith("/admin/analysis?")
+    assert "origin=summary" in expense_href
+    assert expense_href.endswith("#conciliated-composition")
+
+    balance_href = _extract_href_by_data_attr(response.text, "data-context-card", "real-balance")
+    assert balance_href.startswith("/admin/analysis?")
+    assert balance_href.endswith("#conciliated-composition")
+
+    invoices_href = _extract_href_by_data_attr(response.text, "data-context-card", "conciliated-invoices")
+    assert invoices_href.startswith("/admin/analysis?")
+    assert invoices_href.endswith("#conciliated-invoices-section")
+
+
 def test_admin_summary_page_shows_overview_categories_chart_without_redundant_list(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
@@ -562,7 +618,6 @@ def test_admin_summary_page_shows_overview_categories_chart_without_redundant_li
 
     assert response.status_code == 200
     assert "Categorias do período" in response.text
-    assert "Ver composição" not in response.text
     assert 'data-category-row="' not in response.text
     assert 'id="overview-categories-legend"' in response.text
     assert "mountAdminStackedCategoryChart" in response.text
@@ -581,6 +636,88 @@ def test_admin_summary_page_shows_overview_categories_chart_without_redundant_li
         "Transporte",
         "Outros",
     ]
+
+
+def test_admin_summary_page_renders_period_category_charts_with_drilldown_payloads(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR",
+        normalized="salario mar period categories",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Sal\u00e1rio",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR",
+        normalized="aluguel mar period categories",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    invoice = _seed_credit_card_invoice(
+        db_session,
+        card_label="Ita\u00fa Visa final 4321",
+        card_final="4321",
+        item_specs=[
+            ("SUPERMERCADO TESTE", "450.00"),
+            ("CURSO TESTE", "120.00"),
+        ],
+    )
+    invoice_items = db_session.scalars(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == invoice.id)
+        .order_by(CreditCardInvoiceItem.id.asc())
+    ).all()
+    for item in invoice_items:
+        if item.description_raw == "SUPERMERCADO TESTE":
+            item.category = "Supermercado"
+        elif item.description_raw == "CURSO TESTE":
+            item.category = "Educa\u00e7\u00e3o"
+        item.categorization_method = "manual"
+        item.categorization_confidence = 1.0
+    db_session.commit()
+    _login(client)
+
+    response = client.get("/admin?selection_mode=month&month=2026-03")
+
+    assert response.status_code == 200
+    for canvas_id in (
+        "overview-conciliated-period-categories-chart",
+        "overview-statement-period-categories-chart",
+        "overview-invoice-period-categories-chart",
+        "overview-categories-period-categories-chart",
+    ):
+        assert f'id="{canvas_id}"' in response.text
+    assert response.text.count("window.mountAdminCategoryPeriodChart(") == 4
+
+    chart_payloads = {}
+    for canvas_id, payload in re.findall(
+        r"window\.mountAdminCategoryPeriodChart\(\s*(\"[^\"]+\")\s*,\s*(\{.*?\})\s*,\s*\{ datasetLabel:",
+        response.text,
+        re.S,
+    ):
+        chart_payloads[json.loads(canvas_id)] = json.loads(payload)
+
+    assert chart_payloads["overview-statement-period-categories-chart"]["labels"][0] == "Sal\u00e1rio"
+    assert chart_payloads["overview-statement-period-categories-chart"]["hrefs"][1].startswith("/admin/conference?")
+    assert "selection_mode=month" in chart_payloads["overview-statement-period-categories-chart"]["hrefs"][1]
+    assert "statement_category=Moradia" in chart_payloads["overview-statement-period-categories-chart"]["hrefs"][1]
+    assert chart_payloads["overview-statement-period-categories-chart"]["hrefs"][1].endswith("#statement-table")
+
+    assert chart_payloads["overview-invoice-period-categories-chart"]["labels"] == ["Supermercado", "Educa\u00e7\u00e3o"]
+    assert chart_payloads["overview-invoice-period-categories-chart"]["hrefs"][0].startswith("/admin/credit-card-invoices?")
+    assert "category=Supermercado" in chart_payloads["overview-invoice-period-categories-chart"]["hrefs"][0]
+    assert chart_payloads["overview-invoice-period-categories-chart"]["hrefs"][0].endswith("#invoice-items-table")
+
+    categories_chart = chart_payloads["overview-categories-period-categories-chart"]
+    category_href_map = dict(zip(categories_chart["labels"], categories_chart["hrefs"]))
+    assert category_href_map["Moradia"].startswith("/admin/categories?")
+    assert "selected_category=Moradia" in category_href_map["Moradia"]
 
 
 def test_admin_summary_categories_cta_opens_categories_with_same_period(client, db_session, monkeypatch):
@@ -679,7 +816,6 @@ def test_admin_categories_page_filters_by_multiple_selected_categories(client, d
     assert "Categoria" in response.text
     assert "Editar lançamento" in response.text
     assert "/admin/transactions/" in response.text
-    assert 'data-context-chip="selected_categories"' in response.text
     assert 'data-sort-key="amount"' in response.text
     assert 'data-sort-direction="desc"' in response.text
     assert 'id="categories-main-monthly-legend"' in response.text
@@ -740,7 +876,6 @@ def test_admin_categories_page_treats_empty_selection_as_all_categories(client, 
     assert response.status_code == 200
     assert "Selecionar todas" in response.text
     assert "Limpar selecao" in response.text
-    assert 'data-context-chip="selected_categories"' in response.text
     assert "Todas as categorias" in response.text
     assert "ALUGUEL MAR TODAS" in response.text
     assert "MERCADO MAR TODAS" in response.text
@@ -945,6 +1080,53 @@ def test_admin_categories_composition_supports_inline_invoice_item_category_edit
     assert refreshed.categorization_method == "manual"
 
 
+def test_admin_categories_composition_matches_legacy_invoice_category_aliases(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    db_session.add(Category(name="Alimentação", transaction_kind="expense", is_active=True))
+    db_session.commit()
+    invoice = _seed_credit_card_invoice(
+        db_session,
+        card_label="Itaú Visa final 4545",
+        card_final="4545",
+        billing_year=2026,
+        billing_month=3,
+        total_amount="120.00",
+        status="imported",
+        item_specs=[("RESTAURANTE LEGADO FATURA", "120.00", date(2026, 3, 10))],
+    )
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem).where(
+            CreditCardInvoiceItem.invoice_id == invoice.id,
+            CreditCardInvoiceItem.description_raw == "RESTAURANTE LEGADO FATURA",
+        )
+    )
+    assert item is not None
+    item.category = "Alimentacao"
+    item.categorization_method = "manual"
+    item.categorization_confidence = 1.0
+    db_session.add(
+        CreditCardInvoiceConciliation(
+            invoice_id=invoice.id,
+            status="conciliated",
+            gross_amount_brl="120.00",
+            invoice_credit_total_brl="0.00",
+            bank_payment_total_brl="0.00",
+            conciliated_total_brl="120.00",
+            remaining_balance_brl="0.00",
+        )
+    )
+    db_session.commit()
+    _login(client)
+
+    response = client.get("/admin/categories?selection_mode=month&month=2026-03&selected_category=Alimentação")
+
+    assert response.status_code == 200
+    assert "RESTAURANTE LEGADO FATURA" in response.text
+    assert "R$ 120,00" in response.text
+    assert "Alimentação" in response.text
+
+
 def test_admin_categories_composition_keeps_all_selected_categories_even_with_focus(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
@@ -1028,7 +1210,6 @@ def test_admin_summary_page_switches_home_lenses_and_hides_top_categories_in_cas
     assert "Visão conciliada" in competence_response.text
     assert 'data-context-cta="categories"' in competence_response.text
     assert 'id="overview-categories-legend"' in competence_response.text
-    assert 'data-context-chip="lens"' not in competence_response.text
 
 
 def test_admin_summary_page_shows_local_chart_controls_for_both_lenses(client, db_session, monkeypatch):
@@ -1163,13 +1344,11 @@ def test_admin_analysis_page_restores_summary_context_from_chart_navigation(clie
     )
 
     assert response.status_code == 200
-    assert 'data-analysis-breadcrumbs' in response.text
     assert "Visão conciliada" in response.text
     assert "Composição da leitura" in response.text
     assert "12 meses conciliado" in response.text
-    assert 'data-origin-banner="chart"' in response.text
-    assert 'data-context-chip="origin_block"' in response.text
-    assert "#conciliated-cashflow-chart" in response.text
+    assert 'data-return-summary-link' in response.text
+    assert 'id="conciliated-cashflow-chart"' in response.text
 
     return_href = _extract_return_summary_href(response.text)
     assert return_href.startswith("/admin?")
@@ -1200,13 +1379,11 @@ def test_admin_conference_page_restores_summary_context(client, db_session, monk
     )
 
     assert response.status_code == 200
-    assert 'data-analysis-breadcrumbs' in response.text
     assert "Visão de Extrato" in response.text
     assert "Itens do extrato" in response.text
     assert "12 meses de extrato" in response.text
     assert "Auditoria técnica" in response.text
-    assert 'data-origin-banner="conference"' in response.text
-    assert 'data-context-chip="origin_block"' in response.text
+    assert 'data-return-summary-link' in response.text
 
     return_href = _extract_return_summary_href(response.text)
     assert return_href.startswith("/admin?")
@@ -1902,6 +2079,99 @@ def test_admin_analysis_page_shows_conciliated_category_breakdown(client, db_ses
     assert "Moradia" in response.text
     assert "Créditos de fatura" in response.text
     assert "Pagamentos bancários conciliados removidos" in response.text
+
+
+def test_admin_analysis_page_shows_unified_considered_table_and_filters_it(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR",
+        normalized="salario mar unified conciliated",
+        amount=5000.0,
+        transaction_kind="income",
+        category="Sal\u00e1rio",
+    )
+    payment = _seed_transaction(
+        db_session,
+        description="PAGAMENTO FATURA MAR",
+        normalized="pagamento fatura mar unified conciliated",
+        amount=-120.45,
+        transaction_kind="expense",
+        category="Pagamento de Fatura",
+    )
+    invoice = _seed_credit_card_invoice(
+        db_session,
+        card_label="Ita\u00fa Visa final 3333",
+        card_final="3333",
+        item_specs=[
+            ("SUPERMERCADO TESTE", "130.45"),
+            ("DESCONTO NA FATURA - PO", "-10.00"),
+            ("PAGAMENTO EFETUADO", "-120.45"),
+        ],
+    )
+    invoice_items = db_session.scalars(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id).order_by(CreditCardInvoiceItem.id.asc())
+    ).all()
+    invoice_items[0].category = "Supermercado"
+    invoice_items[0].categorization_method = "manual"
+    invoice_items[0].categorization_confidence = 1.0
+    conciliation = CreditCardInvoiceConciliation(
+        invoice_id=invoice.id,
+        status="conciliated",
+        gross_amount_brl="130.45",
+        invoice_credit_total_brl="10.00",
+        bank_payment_total_brl="120.45",
+        conciliated_total_brl="130.45",
+        remaining_balance_brl="0.00",
+    )
+    db_session.add(conciliation)
+    db_session.flush()
+    db_session.add_all(
+        [
+            CreditCardInvoiceConciliationItem(
+                conciliation_id=conciliation.id,
+                item_type="invoice_credit",
+                amount_brl="10.00",
+                bank_transaction_id=None,
+                invoice_item_id=invoice_items[1].id,
+                notes="credito tecnico",
+            ),
+            CreditCardInvoiceConciliationItem(
+                conciliation_id=conciliation.id,
+                item_type="bank_payment",
+                amount_brl="120.45",
+                bank_transaction_id=payment.id,
+                invoice_item_id=None,
+                notes="pagamento conciliado",
+            ),
+        ]
+    )
+    db_session.commit()
+    _login(client)
+
+    response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+
+    assert response.status_code == 200
+    assert "Registros considerados na leitura" in response.text
+    section_html = _extract_section_html(response.text, "conciliated-considered-table")
+    assert "SALARIO MAR" in section_html
+    assert "SUPERMERCADO TESTE" in section_html
+    assert "DESCONTO NA FATURA - PO" in section_html
+    assert "Extrato: 1" in section_html
+    assert "Fatura: 2" in section_html
+
+    filtered = client.get(
+        "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31"
+        "&conciliated_origin=invoice&conciliated_analytic_type=expense#conciliated-considered-table"
+    )
+
+    assert filtered.status_code == 200
+    filtered_section = _extract_section_html(filtered.text, "conciliated-considered-table")
+    assert "SUPERMERCADO TESTE" in filtered_section
+    assert "DESCONTO NA FATURA - PO" not in filtered_section
+    assert "SALARIO MAR" not in filtered_section
+    assert "Fatura: 1" in filtered_section
 
 
 def test_admin_analysis_page_anchors_card_consumption_by_purchase_date(client, db_session, monkeypatch):

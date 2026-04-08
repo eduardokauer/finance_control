@@ -12,7 +12,12 @@ from app.repositories.models import (
     Transaction,
 )
 from app.services.credit_card_bills import ensure_credit_card_invoice_conciliation, reconcile_credit_card_invoice_bank_payments
-from app.services.analysis import build_analysis_snapshot, run_analysis
+from app.services.analysis import (
+    build_analysis_snapshot,
+    build_category_composition_for_period,
+    build_category_consumption_monthly_series,
+    run_analysis,
+)
 
 
 def _add_tx(db_session, *, tx_date: date, description: str, amount: float, category: str, transaction_kind: str, should_count_in_spending: bool = True, is_card_bill_payment: bool = False):
@@ -202,6 +207,68 @@ def test_top_categories_of_month_are_ranked_by_expense_total(db_session):
     assert "Sal\u00e1rio" not in [item["name"] for item in snapshot["top_expense_categories"]]
     assert snapshot["charts"]["categories"]["labels"][0] == "Moradia"
     assert snapshot["charts"]["categories"]["values"][0] == 1800.0
+
+
+def test_analysis_snapshot_period_category_charts_follow_selected_period(db_session):
+    _add_tx(db_session, tx_date=date(2026, 2, 5), description="SALARIO FEV", amount=4500.0, category="Sal\u00e1rio", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 2, 8), description="ALUGUEL FEV", amount=-1500.0, category="Moradia", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 2, 12), description="MERCADO FEV", amount=-700.0, category="Supermercado", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Sal\u00e1rio", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 3, 12), description="MERCADO MAR", amount=-900.0, category="Supermercado", transaction_kind="expense")
+
+    invoice_february = _add_invoice(
+        db_session,
+        due_date=date(2026, 2, 20),
+        card_final="2222",
+        item_specs=[
+            ("SUPERMERCADO FEV", "700.00"),
+        ],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice_february.id,
+        categories_by_description={"SUPERMERCADO FEV": "Supermercado"},
+    )
+
+    invoice_march = _add_invoice(
+        db_session,
+        due_date=date(2026, 3, 20),
+        card_final="3333",
+        item_specs=[
+            ("SUPERMERCADO MAR", "900.00"),
+            ("CURSO MAR", "300.00"),
+        ],
+    )
+    _assign_invoice_item_categories(
+        db_session,
+        invoice_id=invoice_march.id,
+        categories_by_description={
+            "SUPERMERCADO MAR": "Supermercado",
+            "CURSO MAR": "Educa\u00e7\u00e3o",
+        },
+    )
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 2, 1), period_end=date(2026, 3, 31))
+
+    statement_period_map = dict(
+        zip(
+            snapshot["charts"]["statement_categories_period"]["labels"],
+            snapshot["charts"]["statement_categories_period"]["values"],
+        )
+    )
+    invoice_period_map = dict(
+        zip(
+            snapshot["charts"]["invoice_categories_period"]["labels"],
+            snapshot["charts"]["invoice_categories_period"]["values"],
+        )
+    )
+
+    assert statement_period_map["Moradia"] == 3300.0
+    assert statement_period_map["Supermercado"] == 1600.0
+    assert snapshot["invoice_month_snapshot"]["charge_total"] == 1900.0
+    assert invoice_period_map["Supermercado"] == 1600.0
+    assert invoice_period_map["Educa\u00e7\u00e3o"] == 300.0
 
 
 def test_analysis_snapshot_exposes_conciliation_signals_without_changing_main_totals(db_session):
@@ -985,6 +1052,55 @@ def test_analysis_snapshot_manual_invoice_item_category_edit_affects_purchase_mo
     assert "Educação" not in january_categories
     assert january_categories["Outros"]["expense_total"] == 250.0
     assert "Outros" not in february_categories
+
+
+def test_category_selection_matches_legacy_category_aliases_in_invoice_consumption(db_session):
+    invoice = _add_invoice(
+        db_session,
+        due_date=date(2026, 3, 20),
+        card_final="7878",
+        item_specs=[("RESTAURANTE LEGADO", "120.00", date(2026, 3, 10))],
+    )
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem).where(
+            CreditCardInvoiceItem.invoice_id == invoice.id,
+            CreditCardInvoiceItem.description_raw == "RESTAURANTE LEGADO",
+        )
+    )
+    assert item is not None
+    item.category = "Alimentacao"
+    item.categorization_method = "manual"
+    item.categorization_confidence = 1.0
+    db_session.add(
+        CreditCardInvoiceConciliation(
+            invoice_id=invoice.id,
+            status="conciliated",
+            gross_amount_brl="120.00",
+            invoice_credit_total_brl="0.00",
+            bank_payment_total_brl="0.00",
+            conciliated_total_brl="120.00",
+            remaining_balance_brl="0.00",
+        )
+    )
+    db_session.commit()
+
+    composition = build_category_composition_for_period(
+        db_session,
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        category_name="Alimentação",
+    )
+    series = build_category_consumption_monthly_series(
+        db_session,
+        anchor_month=date(2026, 3, 31),
+        category_names=["Alimentação"],
+    )
+
+    assert composition["total"] == 120.0
+    assert [row["description"] for row in composition["rows"]] == ["RESTAURANTE LEGADO"]
+    assert series["datasets"][0]["label"] == "Alimentação"
+    march_index = series["labels"].index("mar/2026")
+    assert series["datasets"][0]["values"][march_index] == 120.0
 
 
 def test_analysis_snapshot_builds_conciliated_category_history_from_same_base(db_session):

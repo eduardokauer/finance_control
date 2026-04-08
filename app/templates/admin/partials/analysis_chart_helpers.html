@@ -1,6 +1,10 @@
 <script>
   (() => {
-    if (window.mountAdminCashFlowChart && window.mountAdminInvoiceMonthlyChart) {
+    if (
+      window.mountAdminCashFlowChart &&
+      window.mountAdminInvoiceMonthlyChart &&
+      window.mountAdminCategoryPeriodChart
+    ) {
       return;
     }
 
@@ -161,6 +165,91 @@
               callbacks: {
                 label(context) {
                   return `${context.dataset.label}: ${fullCurrency.format(context.parsed.y || 0)}`;
+                },
+              },
+            },
+          },
+        },
+      });
+    };
+
+    window.mountAdminCategoryPeriodChart = function mountAdminCategoryPeriodChart(canvasId, data, options = {}) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas || !window.Chart) {
+        return null;
+      }
+
+      const hrefs = data.hrefs || [];
+      const labels = data.labels || [];
+      const values = data.values || [];
+      const technical = data.technical || [];
+      const flowLabels = data.flow_labels || [];
+      const valueDisplays = data.value_displays || [];
+
+      return new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: options.datasetLabel || 'Valor no período',
+              data: values,
+              backgroundColor: values.map((_value, index) => (
+                technical[index]
+                  ? (options.technicalColor || 'rgba(100, 116, 139, 0.55)')
+                  : (options.barColor || 'rgba(37, 99, 235, 0.72)')
+              )),
+              borderColor: values.map((_value, index) => (
+                technical[index]
+                  ? (options.technicalBorderColor || 'rgba(100, 116, 139, 0.92)')
+                  : (options.barBorderColor || 'rgba(37, 99, 235, 0.92)')
+              )),
+              borderRadius: 8,
+              borderSkipped: false,
+              maxBarThickness: options.maxBarThickness || 38,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          onClick(_event, elements) {
+            if (!elements?.length) return;
+            const href = hrefs[elements[0].index];
+            if (href) {
+              window.location.href = href;
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: {
+                autoSkip: false,
+                maxRotation: 58,
+                minRotation: 36,
+              },
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback(value) {
+                  return compactCurrency.format(value || 0);
+                },
+              },
+            },
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title(items) {
+                  return items[0]?.label || '';
+                },
+                label(context) {
+                  const index = context.dataIndex;
+                  const flowLabel = flowLabels[index];
+                  const display = valueDisplays[index] || fullCurrency.format(context.parsed.y || 0);
+                  return flowLabel ? `${flowLabel}: ${display}` : display;
                 },
               },
             },

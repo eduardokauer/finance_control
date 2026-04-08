@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -19,6 +19,7 @@ from app.services.admin import (
 from app.services.analysis import (
     build_analysis_snapshot,
     build_conciliated_composition_snapshot,
+    build_conciliated_operational_snapshot,
     build_invoice_operational_snapshot,
     build_statement_operational_snapshot,
     format_currency_br,
@@ -51,6 +52,31 @@ def _url_with_query(path: str, params: dict[str, str | int | None]) -> str:
     return f"{path}?{urlencode(filtered)}"
 
 
+def _extend_url(
+    url: str,
+    *,
+    params: dict[str, str | int | None] | None = None,
+    fragment: str | None = None,
+) -> str:
+    split_url = urlsplit(url)
+    merged_params = dict(parse_qsl(split_url.query, keep_blank_values=True))
+    if params:
+        for key, value in params.items():
+            if value in (None, ""):
+                merged_params.pop(key, None)
+            else:
+                merged_params[key] = str(value)
+    return urlunsplit(
+        (
+            split_url.scheme,
+            split_url.netloc,
+            split_url.path,
+            urlencode(merged_params),
+            fragment or split_url.fragment,
+        )
+    )
+
+
 def _lens_label(lens: str | None) -> str | None:
     return HOME_LENS_LABELS.get(lens or "")
 
@@ -76,7 +102,12 @@ def _merge_payload_section_defaults(
         payload_snapshot[section_name] = live_section
 
 
-def _build_overview_cards(*, conciliated_month: dict, period_label: str) -> list[dict]:
+def _build_overview_cards(
+    *,
+    conciliated_month: dict,
+    period_label: str,
+    cards_detail_href: str,
+) -> list[dict]:
     return [
         {
             "eyebrow": f"Conciliado | {period_label}",
@@ -85,6 +116,18 @@ def _build_overview_cards(*, conciliated_month: dict, period_label: str) -> list
             "value": conciliated_month["real_bank_income_display"],
             "value_class": "amount-positive",
             "detail": f"Entradas totais: {conciliated_month['bank_income_display']}",
+            "action": {
+                "label": "Ver lançamentos",
+                "href": _extend_url(
+                    cards_detail_href,
+                    params={
+                        "statement_transaction_kind": "income",
+                        "statement_scope": "included",
+                    },
+                    fragment="conciliated-bank-table",
+                ),
+                "key": "real-income",
+            },
         },
         {
             "eyebrow": period_label,
@@ -93,6 +136,11 @@ def _build_overview_cards(*, conciliated_month: dict, period_label: str) -> list
             "value": conciliated_month["real_conciliated_expense_display"],
             "value_class": "amount-negative",
             "detail": f"Saídas totais: {conciliated_month['total_bank_outflow_display']}",
+            "action": {
+                "label": "Ver composição",
+                "href": _extend_url(cards_detail_href, fragment="conciliated-composition"),
+                "key": "real-expense",
+            },
         },
         {
             "eyebrow": period_label,
@@ -105,6 +153,11 @@ def _build_overview_cards(*, conciliated_month: dict, period_label: str) -> list
                 f"{conciliated_month['transfer_income_display']} em entradas | "
                 f"{conciliated_month['transfer_expense_display']} em saídas"
             ),
+            "action": {
+                "label": "Ver fórmula",
+                "href": _extend_url(cards_detail_href, fragment="conciliated-composition"),
+                "key": "real-balance",
+            },
         },
         {
             "eyebrow": period_label,
@@ -113,6 +166,11 @@ def _build_overview_cards(*, conciliated_month: dict, period_label: str) -> list
             "value": str(conciliated_month["included_invoice_count"]),
             "value_class": "trend-stable",
             "detail": f"{conciliated_month['outside_invoices_total']} fora da leitura principal",
+            "action": {
+                "label": "Ver faturas",
+                "href": _extend_url(cards_detail_href, fragment="conciliated-invoices-section"),
+                "key": "conciliated-invoices",
+            },
         },
     ]
 
@@ -156,7 +214,27 @@ def _build_alerts_with_links(alerts: list[dict], state: dict[str, str | int | No
     return linked_alerts
 
 
-def _build_overview_charts(analysis_data: dict) -> dict[str, dict]:
+def _build_period_category_chart(
+    *,
+    title: str,
+    note: str,
+    canvas_id: str,
+    data: dict,
+    href_builder,
+) -> dict:
+    labels = data.get("labels", [])
+    return {
+        "title": title,
+        "note": note,
+        "canvas_id": canvas_id,
+        "data": {
+            **data,
+            "hrefs": [href_builder(label) for label in labels],
+        },
+    }
+
+
+def _build_overview_charts(analysis_data: dict, analysis_urls: dict) -> dict[str, dict]:
     period_label = analysis_data["period"]["month_reference_label"]
     return {
         "conciliated": {
@@ -165,6 +243,20 @@ def _build_overview_charts(analysis_data: dict) -> dict[str, dict]:
             "canvas_id": "overview-conciliated-chart",
             "kind": "cash-flow",
             "data": analysis_data["charts"]["conciliated"],
+            "period_categories": _build_period_category_chart(
+                title="Categorias no período",
+                note="Totais da leitura conciliada no recorte atual, do maior para o menor, com drill down por categoria.",
+                canvas_id="overview-conciliated-period-categories-chart",
+                data=analysis_data["charts"]["conciliated_categories_period"],
+                href_builder=lambda category_name: _extend_url(
+                    analysis_urls["contextual"]["chart_detail"],
+                    params={
+                        "statement_category": category_name,
+                        "invoice_category": category_name,
+                    },
+                    fragment="conciliated-bank-table",
+                ),
+            ),
         },
         "statement": {
             "title": "Visão de Extrato",
@@ -172,6 +264,17 @@ def _build_overview_charts(analysis_data: dict) -> dict[str, dict]:
             "canvas_id": "overview-statement-chart",
             "kind": "cash-flow",
             "data": analysis_data["charts"]["monthly"],
+            "period_categories": _build_period_category_chart(
+                title="Categorias do período",
+                note="Totais do extrato no recorte atual, do maior para o menor, preservando categorias de receita, despesa e transferência.",
+                canvas_id="overview-statement-period-categories-chart",
+                data=analysis_data["charts"]["statement_categories_period"],
+                href_builder=lambda category_name: _extend_url(
+                    analysis_urls["contextual"]["conference"],
+                    params={"statement_category": category_name},
+                    fragment="statement-table",
+                ),
+            ),
         },
         "invoice": {
             "title": "Visão de Faturas",
@@ -179,6 +282,17 @@ def _build_overview_charts(analysis_data: dict) -> dict[str, dict]:
             "canvas_id": "overview-invoice-chart",
             "kind": "invoice",
             "data": analysis_data["charts"]["invoice_monthly"],
+            "period_categories": _build_period_category_chart(
+                title="Categorias do período",
+                note="Totais dos itens de fatura no recorte atual, ordenados do maior para o menor.",
+                canvas_id="overview-invoice-period-categories-chart",
+                data=analysis_data["charts"]["invoice_categories_period"],
+                href_builder=lambda category_name: _extend_url(
+                    analysis_urls["invoice_view"],
+                    params={"category": category_name},
+                    fragment="invoice-items-table",
+                ),
+            ),
         },
         "categories": {
             "title": "Categorias do período",
@@ -186,6 +300,20 @@ def _build_overview_charts(analysis_data: dict) -> dict[str, dict]:
             "canvas_id": "overview-categories-chart",
             "kind": "categories",
             "data": analysis_data["charts"]["categories_monthly"],
+            "period_categories": _build_period_category_chart(
+                title="Valor por categoria no período",
+                note="Mesma leitura consolidada da área de categorias, ordenada do maior para o menor no recorte atual.",
+                canvas_id="overview-categories-period-categories-chart",
+                data=analysis_data["charts"]["overview_categories_period"],
+                href_builder=lambda category_name: _extend_url(
+                    analysis_urls["contextual"]["categories_detail"],
+                    params={
+                        "focus_category": category_name,
+                        "selected_category": category_name,
+                    },
+                    fragment="category-composition-section",
+                ),
+            ),
         },
     }
 
@@ -317,6 +445,60 @@ def _filter_invoice_rows(
         filtered_rows = sorted(
             filtered_rows,
             key=lambda row: (row["purchase_date"], row["id"]),
+            reverse=True,
+        )
+    return filtered_rows
+
+
+def _filter_conciliated_rows(
+    rows: list[dict],
+    *,
+    category: str | None,
+    description: str | None,
+    origin: str | None,
+    analytic_type: str | None,
+    sort: str | None,
+) -> list[dict]:
+    filtered_rows = rows
+    if category:
+        filtered_rows = [row for row in filtered_rows if row["category"] == category]
+    if origin:
+        filtered_rows = [row for row in filtered_rows if row["source"] == origin]
+    if analytic_type:
+        filtered_rows = [row for row in filtered_rows if row["analytic_type"] == analytic_type]
+    if description:
+        filtered_rows = [
+            row
+            for row in filtered_rows
+            if _matches_description(row["description"], description)
+            or _matches_description(row["description_normalized"], description)
+            or _matches_description(row["reference"], description)
+        ]
+    sort_key = sort or "recent"
+    if sort_key == "amount_desc":
+        filtered_rows = sorted(
+            filtered_rows,
+            key=lambda row: (abs(row["impact_amount"]), row["event_date"], row["record_id"]),
+            reverse=True,
+        )
+    elif sort_key == "amount_asc":
+        filtered_rows = sorted(
+            filtered_rows,
+            key=lambda row: (abs(row["impact_amount"]), row["event_date"], row["record_id"]),
+        )
+    elif sort_key == "description":
+        filtered_rows = sorted(
+            filtered_rows,
+            key=lambda row: (
+                row["description_normalized"].casefold(),
+                row["event_date"],
+                row["record_id"],
+            ),
+        )
+    else:
+        filtered_rows = sorted(
+            filtered_rows,
+            key=lambda row: (row["event_date"], abs(row["impact_amount"]), row["record_id"]),
             reverse=True,
         )
     return filtered_rows
@@ -557,14 +739,6 @@ def _analysis_page_context(
         "origin_block": origin_block,
     }
 
-    priority_alerts_source = home_dashboard.get("alerts") if base_path == "/admin" else None
-    priority_actions_source = home_dashboard.get("actions") if base_path == "/admin" else None
-    overview_alerts = _build_alerts_with_links((priority_alerts_source or analysis_data.get("alerts", []))[:4], overview_state)
-    overview_cards = _build_overview_cards(
-        conciliated_month=conciliated_composition["summary"],
-        period_label=analysis_data["period"]["month_reference_label"],
-    )
-    overview_charts = _build_overview_charts(analysis_data)
     analysis_urls = {
         "summary": _url_with_query("/admin", overview_state),
         "detail": _url_with_query("/admin/analysis", page_query_params),
@@ -582,6 +756,15 @@ def _analysis_page_context(
             "conference": _url_with_query("/admin/conference", {**overview_state, "origin": "summary", "origin_block": "conference"}),
         },
     }
+    priority_alerts_source = home_dashboard.get("alerts") if base_path == "/admin" else None
+    priority_actions_source = home_dashboard.get("actions") if base_path == "/admin" else None
+    overview_alerts = _build_alerts_with_links((priority_alerts_source or analysis_data.get("alerts", []))[:4], overview_state)
+    overview_cards = _build_overview_cards(
+        conciliated_month=conciliated_composition["summary"],
+        period_label=analysis_data["period"]["month_reference_label"],
+        cards_detail_href=analysis_urls["contextual"]["cards_detail"],
+    )
+    overview_charts = _build_overview_charts(analysis_data, analysis_urls)
     analysis_context_chips = _build_context_chips(
         period_label=analysis_data["period"]["label"],
         active_lens=active_lens,
@@ -791,6 +974,59 @@ def _invoice_view_context(
     }
 
 
+def _conciliated_operational_context(
+    db: Session,
+    *,
+    period_start: date,
+    period_end: date,
+    category: str | None,
+    description: str | None,
+    origin: str | None,
+    analytic_type: str | None,
+    sort: str | None,
+) -> dict:
+    operational_snapshot = build_conciliated_operational_snapshot(
+        db,
+        period_start=period_start,
+        period_end=period_end,
+    )
+    filtered_rows = _filter_conciliated_rows(
+        operational_snapshot["rows"],
+        category=category,
+        description=description,
+        origin=origin,
+        analytic_type=analytic_type,
+        sort=sort,
+    )
+    full_rows = operational_snapshot["rows"]
+    return {
+        "conciliated_rows": filtered_rows,
+        "conciliated_filters": {
+            "category": category or "",
+            "description": description or "",
+            "origin": origin or "",
+            "analytic_type": analytic_type or "",
+            "sort": sort or "recent",
+        },
+        "conciliated_filter_options": {
+            "categories": sorted({row["category"] for row in full_rows if row["category"]}),
+            "origins": sorted({row["source"] for row in full_rows if row["source"]}),
+            "analytic_types": sorted({row["analytic_type"] for row in full_rows if row["analytic_type"]}),
+        },
+        "conciliated_stats": {
+            "total_rows": len(filtered_rows),
+            "full_total_rows": operational_snapshot["row_count"],
+            "statement_count": sum(1 for row in filtered_rows if row["source"] == "statement"),
+            "invoice_count": sum(1 for row in filtered_rows if row["source"] == "invoice"),
+            "income_count": sum(1 for row in filtered_rows if row["analytic_type"] == "income"),
+            "expense_count": sum(1 for row in filtered_rows if row["analytic_type"] == "expense"),
+            "credit_count": sum(1 for row in filtered_rows if row["analytic_type"] == "credit"),
+            "net_impact_display": format_currency_br(sum(abs(row["impact_amount"]) for row in filtered_rows)),
+            "net_result_display": format_currency_br(sum(row["impact_amount"] for row in filtered_rows)),
+        },
+    }
+
+
 def admin_summary_page(
     request: Request,
     selection_mode: str | None = None,
@@ -864,6 +1100,11 @@ def admin_analysis_page(
     home_chart_compare: str | None = None,
     origin: str | None = None,
     origin_block: str | None = None,
+    conciliated_category: str | None = None,
+    conciliated_description: str | None = None,
+    conciliated_origin: str | None = None,
+    conciliated_analytic_type: str | None = None,
+    conciliated_sort: str | None = "recent",
     statement_category: str | None = None,
     statement_description: str | None = None,
     statement_transaction_kind: str | None = None,
@@ -891,6 +1132,18 @@ def admin_analysis_page(
         home_chart_compare=home_chart_compare,
         origin=origin,
         origin_block=origin_block,
+    )
+    page_context.update(
+        _conciliated_operational_context(
+            db,
+            period_start=page_context["period_start"],
+            period_end=page_context["period_end"],
+            category=conciliated_category,
+            description=conciliated_description,
+            origin=conciliated_origin,
+            analytic_type=conciliated_analytic_type,
+            sort=conciliated_sort,
+        )
     )
     page_context.update(
         _statement_view_context(
