@@ -1,7 +1,15 @@
 <div class="card stack">
   <div><strong>{{ preview.total_changed }}</strong> lançamento(s) vão mudar de um total de <strong>{{ preview.total_evaluated }}</strong> avaliado(s).</div>
   <div class="subtle">Só mostramos abaixo os lançamentos com mudança efetiva de categoria ou tipo.</div>
-  <form method="post" action="/admin/reapply" class="stack" onsubmit="return confirm('Reaplicar regras para os lançamentos selecionados?');">
+  <form
+    method="post"
+    action="/admin/reapply"
+    hx-post="/admin/reapply"
+    hx-target="#reapply-page-shell"
+    hx-swap="outerHTML"
+    class="stack"
+    onsubmit="return confirm('Reaplicar regras para os lançamentos selecionados?');"
+  >
     <input type="hidden" name="selection_present" value="true">
     {% if period_start %}<input type="hidden" name="period_start" value="{{ period_start }}">{% endif %}
     {% if period_end %}<input type="hidden" name="period_end" value="{{ period_end }}">{% endif %}
@@ -43,7 +51,7 @@
         <input type="checkbox" name="run_analysis_after" value="true" style="width:auto;">
         Gerar nova análise após reaplicar
       </label>
-      <button type="submit" class="button button-primary">Confirmar reaplicação</button>
+      <button type="submit" class="button button-primary" data-loading-button data-loading-label="Reaplicando...">Confirmar reaplicação</button>
     </div>
   </form>
 </div>

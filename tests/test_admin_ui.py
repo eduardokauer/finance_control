@@ -207,6 +207,7 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert home.status_code == 200
     assert "Finance Control Admin" in home.text
     assert 'class="admin-topbar"' in home.text
+    assert 'id="admin-toast-region"' in home.text
     assert 'data-admin-nav' in home.text
     assert "Principal" in home.text
     assert "Operação" in home.text
@@ -412,6 +413,389 @@ def test_admin_categories_manage_blocks_delete_while_category_still_has_usage(cl
 
     assert response.status_code == 400
     assert "Mova lançamentos, itens de fatura e regras antes de excluir a categoria." in response.text
+    assert db_session.get(Category, casa.id) is not None
+
+
+def test_admin_transaction_update_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(
+        db_session,
+        description="ALUGUEL HTMX DETAIL",
+        normalized="aluguel htmx detail",
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _login(client)
+
+    response = client.post(
+        f"/admin/transactions/{tx.id}/update",
+        data={
+            "category": "Outros",
+            "transaction_kind": "expense",
+            "notes": "ajuste htmx",
+            "return_to": "/admin/transactions",
+            "rule_action": "none",
+            "rule_match_mode": "contains",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="transaction-detail-shell"' in response.text
+    assert "Outros" in response.text
+    db_session.refresh(tx)
+    assert tx.category == "Outros"
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "Lançamento atualizado."
+
+
+def test_admin_transaction_quick_category_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(db_session, description="PIX SAUDE PET", normalized="pix saude pet")
+    _login(client)
+
+    response = client.post(
+        f"/admin/transactions/{tx.id}/quick-category",
+        data={
+            "name": "Saude Pet",
+            "transaction_kind": "expense",
+            "return_to": "/admin/transactions",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="transaction-detail-shell"' in response.text
+    assert "Saude Pet" in response.text
+    category = db_session.scalar(select(Category).where(Category.name == "Saude Pet"))
+    assert category is not None
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "Categoria criada: Saude Pet."
+
+
+def test_admin_transactions_list_supports_htmx_filters_and_push_url(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="UBER MAR HTMX",
+        normalized="uber mar htmx",
+        amount=-35.0,
+        transaction_kind="expense",
+        category="Transporte",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR HTMX",
+        normalized="aluguel mar htmx",
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _login(client)
+
+    response = client.get(
+        "/admin/transactions?period_start=2026-03-01&period_end=2026-03-31&category=Moradia",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="transactions-page-shell"' in response.text
+    assert "ALUGUEL MAR HTMX" in response.text
+    assert "UBER MAR HTMX" not in response.text
+    assert response.headers["HX-Push-Url"].endswith("category=Moradia")
+
+
+def test_admin_transactions_bulk_list_supports_htmx_pagination(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    for idx in range(25):
+        _seed_transaction(
+            db_session,
+            description=f"ITEM BULK HTMX {idx}",
+            normalized=f"item bulk htmx {idx}",
+            transaction_date=date(2026, 3, 1 + (idx % 20)),
+            amount=-10.0 - idx,
+            transaction_kind="expense",
+            category="Outros",
+        )
+    _login(client)
+
+    response = client.get(
+        "/admin/transactions/bulk?period_start=2026-03-01&period_end=2026-03-31&limit=20&offset=20",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="transactions-bulk-shell"' in response.text
+    assert "ITEM BULK HTMX 0" in response.text
+    assert "ITEM BULK HTMX 24" not in response.text
+
+
+def test_admin_transactions_bulk_apply_supports_htmx_shell_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    first_tx = _seed_transaction(
+        db_session,
+        description="PIX BULK MORADIA A",
+        normalized="pix bulk moradia a",
+        amount=-1200.0,
+        transaction_kind="expense",
+        category="Outros",
+    )
+    second_tx = _seed_transaction(
+        db_session,
+        description="PIX BULK MORADIA B",
+        normalized="pix bulk moradia b",
+        amount=-900.0,
+        transaction_kind="expense",
+        category="Outros",
+    )
+    _login(client)
+
+    response = client.post(
+        "/admin/transactions/bulk/apply",
+        data={
+            "selected_ids": [str(first_tx.id), str(second_tx.id)],
+            "category": "Moradia",
+            "transaction_kind": "expense",
+            "save_rule": "true",
+            "rule_pattern": "pix bulk moradia",
+            "rule_match_mode": "contains",
+            "return_to": "/admin/transactions/bulk?period_start=2026-03-01&period_end=2026-03-31",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="transactions-bulk-shell"' in response.text
+    assert "Última aplicação" in response.text
+    assert "Moradia" in response.text
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "2 lançamento(s) atualizados. Regra salva para uso futuro."
+
+    db_session.refresh(first_tx)
+    db_session.refresh(second_tx)
+    assert first_tx.category == "Moradia"
+    assert second_tx.category == "Moradia"
+    assert db_session.scalar(select(CategorizationRule).where(CategorizationRule.pattern == "pix bulk moradia")) is not None
+
+
+def test_admin_invoice_item_preview_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    invoice = _seed_credit_card_invoice(db_session, status="pending_review")
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == invoice.id, CreditCardInvoiceItem.description_raw == "SUPERMERCADO TESTE")
+    )
+    assert item is not None
+    _login(client)
+
+    response = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category/preview",
+        data={"category": "Outros"},
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="invoice-item-category-shell"' in response.text
+    assert "Preview antes de aplicar" in response.text
+    assert "Outros" in response.text
+
+
+def test_admin_invoice_item_apply_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    invoice = _seed_credit_card_invoice(db_session, status="pending_review")
+    item = db_session.scalar(
+        select(CreditCardInvoiceItem)
+        .where(CreditCardInvoiceItem.invoice_id == invoice.id, CreditCardInvoiceItem.description_raw == "SUPERMERCADO TESTE")
+    )
+    assert item is not None
+    _login(client)
+
+    response = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category/apply",
+        data={"category": "Outros", "confirm_apply": "true"},
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="invoice-item-category-shell"' in response.text
+    db_session.refresh(item)
+    assert item.category == "Outros"
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "Categoria do item de fatura atualizada."
+
+
+def test_admin_invoice_unlink_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(
+        db_session,
+        description="PAGAMENTO FATURA LINK HTMX",
+        normalized="pagamento fatura link htmx",
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Pagamento de Fatura",
+    )
+    invoice = _seed_conciliated_bank_payment(db_session, tx=tx)
+    conciliation_item = db_session.scalar(
+        select(CreditCardInvoiceConciliationItem)
+        .where(CreditCardInvoiceConciliationItem.bank_transaction_id == tx.id)
+    )
+    assert conciliation_item is not None
+    _login(client)
+
+    response = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/conciliation/items/{conciliation_item.id}/unlink",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="invoice-detail-shell"' in response.text
+    assert "Pagamentos conciliados" in response.text
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "Vínculo de pagamento removido."
+
+
+def test_admin_invoice_conciliation_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    invoice = _seed_credit_card_invoice(db_session, status="pending_review")
+    payment_tx = _seed_transaction(
+        db_session,
+        description="PAGAMENTO FATURA ITAUCARD MAR",
+        normalized="pagamento fatura itaucard mar",
+        transaction_date=date(2026, 3, 20),
+        amount=-130.45,
+        transaction_kind="expense",
+        category="Pagamento de Fatura",
+    )
+    _login(client)
+
+    response = client.post(
+        f"/admin/credit-card-invoices/{invoice.id}/conciliation",
+        data={"selected_transaction_ids": str(payment_tx.id)},
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="invoice-detail-shell"' in response.text
+    assert "Resumo da conciliação" in response.text
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "Conciliação atualizada."
+
+
+def test_admin_invoice_view_supports_htmx_filters_and_push_url(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_credit_card_invoice(db_session, status="pending_review")
+    _login(client)
+
+    response = client.get(
+        "/admin/credit-card-invoices?selection_mode=month&month=2026-03&item_type=charge",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="invoice-view-shell"' in response.text
+    assert "Itens de fatura" in response.text
+    assert response.headers["HX-Push-Url"].endswith("item_type=charge")
+
+
+def test_admin_rules_create_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _login(client)
+
+    response = client.post(
+        "/admin/rules",
+        data={
+            "pattern": "uber htmx",
+            "rule_type": "contains",
+            "category_name": "Moradia",
+            "kind_mode": "flow",
+            "source_scope": "both",
+            "priority": "10",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="rules-page-shell"' in response.text
+    assert "uber htmx" in response.text
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "Regra criada."
+    assert trigger_payload["admin:toast"]["level"] == "success"
+
+
+def test_admin_categories_reassign_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    casa = Category(name="Casa", transaction_kind="expense", is_active=True)
+    db_session.add(casa)
+    db_session.commit()
+    moradia = db_session.scalar(select(Category).where(Category.name == "Moradia"))
+    _seed_transaction(
+        db_session,
+        description="CONTA CASA HTMX",
+        normalized="conta casa htmx",
+        transaction_date=date(2026, 3, 8),
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Casa",
+    )
+    _login(client)
+
+    response = client.post(
+        f"/admin/categories/{casa.id}/reassign",
+        data={
+            "target_category_id": str(moradia.id),
+            "return_to": "/admin/categories/manage",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="categories-manage-shell"' in response.text
+    tx = db_session.scalar(select(Transaction).where(Transaction.description_normalized == "conta casa htmx"))
+    assert tx.category == "Moradia"
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert "Categoria consolidada: Casa -> Moradia." in trigger_payload["admin:toast"]["message"]
+    assert trigger_payload["admin:toast"]["level"] == "success"
+
+
+def test_admin_categories_delete_error_supports_htmx_partial_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    casa = Category(name="Casa", transaction_kind="expense", is_active=True)
+    db_session.add(casa)
+    db_session.commit()
+    _seed_transaction(
+        db_session,
+        description="CONTA CASA BLOQUEIO HTMX",
+        normalized="conta casa bloqueio htmx",
+        transaction_date=date(2026, 3, 8),
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Casa",
+    )
+    _login(client)
+
+    response = client.post(
+        f"/admin/categories/{casa.id}/delete",
+        data={"return_to": "/admin/categories/manage"},
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 400
+    assert 'id="categories-manage-shell"' in response.text
+    assert "Mova lan" in response.text
     assert db_session.get(Category, casa.id) is not None
 
 
@@ -1441,6 +1825,32 @@ def test_admin_can_create_credit_card_and_upload_invoice(client, db_session, mon
     assert db_session.scalar(select(CreditCardInvoiceItem)) is not None
 
 
+def test_admin_create_credit_card_supports_htmx_shell_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _login(client)
+
+    response = client.post(
+        "/admin/credit-cards",
+        data={
+            "issuer": "itau",
+            "card_label": "Ita\u00fa Visa final 5555",
+            "card_final": "5555",
+            "brand": "Visa",
+            "is_active": "true",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="operations-dashboard-shell"' in response.text
+    assert "Ita\u00fa Visa final 5555" in response.text
+    assert "HX-Trigger" in response.headers
+
+    card = db_session.scalar(select(CreditCard).where(CreditCard.card_final == "5555"))
+    assert card is not None
+
+
 def test_admin_invoice_upload_form_is_available_only_on_invoice_page(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
@@ -1530,6 +1940,72 @@ def test_admin_can_upload_bank_statement(client, db_session, monkeypatch, sample
     assert db_session.scalar(select(AnalysisRun).where(AnalysisRun.period_start == date(2026, 3, 7))) is not None
 
 
+def test_admin_invoice_upload_supports_htmx_shell_refresh(client, db_session, monkeypatch, sample_credit_card_csv_file):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    db_session.add(
+        CreditCard(
+            issuer="itau",
+            card_label="Ita\u00fa Visa final 1234",
+            card_final="1234",
+            brand="Visa",
+            is_active=True,
+        )
+    )
+    db_session.commit()
+    card = db_session.scalar(select(CreditCard).where(CreditCard.card_final == "1234"))
+    _login(client)
+
+    with sample_credit_card_csv_file.open("rb") as handle:
+        response = client.post(
+            "/admin/credit-card-bills/upload",
+            data={
+                "billing_month": "3",
+                "billing_year": "2026",
+                "due_date": "2026-03-20",
+                "card_id": str(card.id),
+                "total_amount_brl": "130,45",
+                "closing_date": "2026-03-12",
+                "notes": "Upload HTMX",
+                "return_to": "/admin/credit-card-invoices/manage",
+            },
+            files={"file": (sample_credit_card_csv_file.name, handle, "text/csv")},
+            headers={"HX-Request": "true"},
+        )
+
+    assert response.status_code == 200
+    assert 'id="invoice-manage-shell"' in response.text
+    assert "Abrir detalhe da fatura" in response.text
+    assert "HX-Trigger" in response.headers
+    assert db_session.scalar(select(CreditCardInvoice)) is not None
+    assert db_session.scalar(select(CreditCardInvoiceItem)) is not None
+
+
+def test_admin_bank_statement_upload_supports_htmx_shell_refresh(client, db_session, monkeypatch, sample_ofx_file):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _login(client)
+
+    with sample_ofx_file.open("rb") as handle:
+        response = client.post(
+            "/admin/bank-statements/upload",
+            data={
+                "reference_id": "admin-ofx-mar-2026-htmx",
+                "return_to": "/admin/conference/manage",
+            },
+            files={"file": (sample_ofx_file.name, handle, "application/octet-stream")},
+            headers={"HX-Request": "true"},
+        )
+
+    assert response.status_code == 200
+    assert 'id="statement-manage-shell"' in response.text
+    assert "Abrir vis\u00e3o de extrato" in response.text
+    assert "HX-Trigger" in response.headers
+    assert db_session.scalar(select(SourceFile).where(SourceFile.source_type == "bank_statement")) is not None
+    assert db_session.scalar(select(Transaction).where(Transaction.source_type == "bank_statement")) is not None
+    assert db_session.scalar(select(AnalysisRun).where(AnalysisRun.period_start == date(2026, 3, 7))) is not None
+
+
 def test_admin_manual_edit_creates_audit_and_rule(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
@@ -1611,6 +2087,46 @@ def test_admin_reapply_rules_updates_transactions_and_runs_analysis(client, db_s
 
     run = db_session.scalar(select(AnalysisRun))
     assert run is not None
+
+
+def test_admin_reapply_apply_supports_htmx_shell_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(db_session, description="UBER HTMX REAPPLY", normalized="uber htmx reapply")
+    db_session.add(
+        CategorizationRule(
+            rule_type="contains",
+            pattern="uber",
+            category_name="Transporte",
+            kind_mode="flow",
+            priority=0,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+    _login(client)
+
+    response = client.post(
+        "/admin/reapply",
+        data={
+            "period_start": "2026-03-01",
+            "period_end": "2026-03-31",
+            "run_analysis_after": "true",
+            "selected_transaction_ids": str(tx.id),
+            "selection_present": "true",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="reapply-page-shell"' in response.text
+    assert "Última reaplicação" in response.text
+    trigger_payload = json.loads(response.headers["HX-Trigger"])
+    assert trigger_payload["admin:toast"]["message"] == "Reaplicação concluída: 1 alterados de 1 avaliados. Nova análise gerada para o período informado."
+
+    db_session.refresh(tx)
+    assert tx.category == "Transporte"
+    assert db_session.scalar(select(AnalysisRun)) is not None
 
 
 def test_admin_reapply_preview_and_apply_can_limit_selected_rules(client, db_session, monkeypatch):
@@ -1958,6 +2474,80 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     assert run is not None
     assert run.html_output
     assert "An\u00e1lise financeira determin\u00edstica" in run.html_output
+
+
+def test_admin_summary_page_supports_htmx_shell_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(db_session, description="SALARIO MAR", normalized="salario mar htmx summary", amount=5000.0, transaction_kind="income", category="Sal\u00e1rio")
+    _login(client)
+
+    response = client.get(
+        "/admin?selection_mode=custom&period_start=2026-03-01&period_end=2026-03-31",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="summary-view-shell"' in response.text
+    assert response.headers["HX-Push-Url"].endswith("period_start=2026-03-01&period_end=2026-03-31")
+    assert "Leituras especializadas" in response.text
+
+
+def test_admin_analysis_page_supports_htmx_shell_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(db_session, description="ALUGUEL MAR", normalized="aluguel mar htmx analysis", amount=-1800.0, transaction_kind="expense", category="Moradia")
+    _login(client)
+
+    response = client.get(
+        "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31&statement_scope=included",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="analysis-view-shell"' in response.text
+    assert response.headers["HX-Push-Url"].endswith("statement_scope=included")
+    assert "Registros considerados na leitura" in response.text
+
+
+def test_admin_conference_page_supports_htmx_shell_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(db_session, description="UBER MAR", normalized="uber mar htmx conference", amount=-40.0, transaction_kind="expense", category="Transporte")
+    _login(client)
+
+    response = client.get(
+        "/admin/conference?period_start=2026-03-01&period_end=2026-03-31&statement_transaction_kind=expense",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="conference-view-shell"' in response.text
+    assert response.headers["HX-Push-Url"].endswith("statement_transaction_kind=expense")
+    assert "Itens do extrato" in response.text
+
+
+def test_admin_run_analysis_supports_htmx_shell_refresh(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(db_session, description="SALARIO MAR", normalized="salario mar htmx run", amount=5000.0, transaction_kind="income", category="Sal\u00e1rio")
+    _seed_transaction(db_session, description="UBER MAR", normalized="uber mar htmx run", amount=-120.0, transaction_kind="expense", category="Transporte")
+    _login(client)
+
+    response = client.post(
+        "/admin/analysis/run",
+        data={
+            "period_start": "2026-03-01",
+            "period_end": "2026-03-31",
+            "return_to": "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="analysis-view-shell"' in response.text
+    assert "HX-Trigger" in response.headers
+    assert "Registros considerados na leitura" in response.text
 
 
 def test_admin_conference_page_shows_auxiliary_conciliation_signals(client, db_session, monkeypatch):
@@ -3086,7 +3676,7 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
 
     assert categories_manage.status_code == 200
     assert "Administrar categorias" in categories_manage.text
-    assert "Painel de configuracao das categorias" in categories_manage.text
+    assert 'id="categories-manage-shell"' in categories_manage.text
     assert "Criar categoria" in categories_manage.text
 
     assert reapply.status_code == 200

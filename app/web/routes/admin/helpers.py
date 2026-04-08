@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+import json
 from pathlib import Path
 
 from fastapi import HTTPException, Request
@@ -162,9 +163,71 @@ def _build_shell_context(request: Request) -> dict:
     }
 
 
-def render_admin(request: Request, template_name: str, context: dict, status_code: int = 200) -> HTMLResponse:
+def is_htmx_request(request: Request) -> bool:
+    return request.headers.get("HX-Request", "").lower() == "true"
+
+
+def build_admin_toast_payload(message: str, *, level: str = "info") -> dict:
+    return {
+        "message": message,
+        "level": level,
+    }
+
+
+def merge_hx_trigger_headers(existing: str | None, new_events: dict) -> str:
+    if not existing:
+        return json.dumps(new_events)
+    try:
+        merged = json.loads(existing)
+    except json.JSONDecodeError:
+        merged = {}
+    if not isinstance(merged, dict):
+        merged = {}
+    merged.update(new_events)
+    return json.dumps(merged)
+
+
+def apply_htmx_response_headers(
+    response: HTMLResponse,
+    *,
+    triggers: dict | None = None,
+    push_url: str | None = None,
+    replace_url: str | None = None,
+    reswap: str | None = None,
+    retarget: str | None = None,
+) -> HTMLResponse:
+    if triggers:
+        response.headers["HX-Trigger"] = merge_hx_trigger_headers(
+            response.headers.get("HX-Trigger"),
+            triggers,
+        )
+    if push_url is not None:
+        response.headers["HX-Push-Url"] = push_url
+    if replace_url is not None:
+        response.headers["HX-Replace-Url"] = replace_url
+    if reswap is not None:
+        response.headers["HX-Reswap"] = reswap
+    if retarget is not None:
+        response.headers["HX-Retarget"] = retarget
+    return response
+
+
+def trigger_admin_toast(response: HTMLResponse, message: str, *, level: str = "info") -> HTMLResponse:
+    return apply_htmx_response_headers(
+        response,
+        triggers={"admin:toast": build_admin_toast_payload(message, level=level)},
+    )
+
+
+def render_admin(
+    request: Request,
+    template_name: str,
+    context: dict,
+    status_code: int = 200,
+    headers: dict | None = None,
+) -> HTMLResponse:
     flash = request.session.pop("flash", None)
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request,
         template_name,
         {
@@ -176,6 +239,10 @@ def render_admin(request: Request, template_name: str, context: dict, status_cod
         },
         status_code=status_code,
     )
+    if headers:
+        for key, value in headers.items():
+            response.headers[key] = value
+    return response
 
 
 def parse_optional_date(value: str | None) -> date | None:
