@@ -40,6 +40,15 @@
         {% endif %}
         <div class="home-kpi-value-block">
           <div class="metric-value {{ card.value_class }}">{{ card.value }}</div>
+          {% if card.action %}
+            <div class="home-kpi-actions">
+              <a
+                class="button button-ghost"
+                href="{{ card.action.href }}"
+                data-context-card="{{ card.action.key }}"
+              >{{ card.action.label }}</a>
+            </div>
+          {% endif %}
         </div>
       </article>
     {% endfor %}
@@ -86,6 +95,15 @@
       </div>
       <a class="button button-ghost" href="{{ analysis_urls.detail }}" data-context-cta="conciliated">Abrir visão conciliada</a>
     </div>
+    <div class="overview-chart-stack">
+      <div class="overview-subchart-block">
+        <strong>{{ overview_charts.conciliated.period_categories.title }}</strong>
+        <div class="subtle">{{ overview_charts.conciliated.period_categories.note }}</div>
+        <div class="chart-shell chart-shell-medium">
+          <canvas id="{{ overview_charts.conciliated.period_categories.canvas_id }}" aria-label="{{ overview_charts.conciliated.period_categories.title }}"></canvas>
+        </div>
+      </div>
+    </div>
     <div class="chart-shell chart-shell-tall">
       <canvas id="{{ overview_charts.conciliated.canvas_id }}" aria-label="{{ overview_charts.conciliated.title }}"></canvas>
     </div>
@@ -98,6 +116,15 @@
         <div class="subtle">{{ overview_charts.statement.note }}</div>
       </div>
       <a class="button button-ghost" href="{{ analysis_urls.conference }}" data-context-cta="statement">Abrir visão de extrato</a>
+    </div>
+    <div class="overview-chart-stack">
+      <div class="overview-subchart-block">
+        <strong>{{ overview_charts.statement.period_categories.title }}</strong>
+        <div class="subtle">{{ overview_charts.statement.period_categories.note }}</div>
+        <div class="chart-shell chart-shell-medium">
+          <canvas id="{{ overview_charts.statement.period_categories.canvas_id }}" aria-label="{{ overview_charts.statement.period_categories.title }}"></canvas>
+        </div>
+      </div>
     </div>
     <div class="chart-shell chart-shell-tall">
       <canvas id="{{ overview_charts.statement.canvas_id }}" aria-label="{{ overview_charts.statement.title }}"></canvas>
@@ -112,6 +139,15 @@
       </div>
       <a class="button button-ghost" href="{{ analysis_urls.invoice_view }}" data-context-cta="invoice">Abrir visão de faturas</a>
     </div>
+    <div class="overview-chart-stack">
+      <div class="overview-subchart-block">
+        <strong>{{ overview_charts.invoice.period_categories.title }}</strong>
+        <div class="subtle">{{ overview_charts.invoice.period_categories.note }}</div>
+        <div class="chart-shell chart-shell-medium">
+          <canvas id="{{ overview_charts.invoice.period_categories.canvas_id }}" aria-label="{{ overview_charts.invoice.period_categories.title }}"></canvas>
+        </div>
+      </div>
+    </div>
     <div class="chart-shell chart-shell-tall">
       <canvas id="{{ overview_charts.invoice.canvas_id }}" aria-label="{{ overview_charts.invoice.title }}"></canvas>
     </div>
@@ -125,6 +161,15 @@
           <div class="subtle">{{ overview_charts.categories.note }}</div>
         </div>
         <a class="button button-ghost" href="{{ analysis_urls.categories_view }}" data-context-cta="categories">Abrir categorias</a>
+      </div>
+      <div class="overview-chart-stack">
+        <div class="overview-subchart-block">
+          <strong>{{ overview_charts.categories.period_categories.title }}</strong>
+          <div class="subtle">{{ overview_charts.categories.period_categories.note }}</div>
+          <div class="chart-shell chart-shell-medium">
+            <canvas id="{{ overview_charts.categories.period_categories.canvas_id }}" aria-label="{{ overview_charts.categories.period_categories.title }}"></canvas>
+          </div>
+        </div>
       </div>
       <div id="overview-categories-legend" class="chart-legend-checkboxes" aria-label="Categorias visíveis na overview"></div>
       <div class="chart-shell chart-shell-tall">
@@ -164,166 +209,16 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% include "admin/partials/category_stacked_chart_script.html" %}
+{% include "admin/partials/analysis_chart_helpers.html" %}
 <script>
   (() => {
-    const compactCurrency = new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      maximumFractionDigits: 0,
-    });
-    const tooltipCurrency = new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
+    window.mountAdminCategoryPeriodChart(
+      {{ overview_charts.conciliated.period_categories.canvas_id|tojson }},
+      {{ overview_charts.conciliated.period_categories.data|tojson }},
+      { datasetLabel: 'Total conciliado no período' }
+    );
 
-    function buildCashFlowDatasets(data, palette) {
-      return [
-        {
-          type: 'bar',
-          label: palette.incomeLabel,
-          data: data.income,
-          backgroundColor: palette.incomeColor,
-          borderColor: palette.incomeBorder,
-          borderRadius: 8,
-          borderSkipped: false,
-          maxBarThickness: 28,
-          order: 2,
-        },
-        {
-          type: 'bar',
-          label: palette.expenseLabel,
-          data: data.expense,
-          backgroundColor: palette.expenseColor,
-          borderColor: palette.expenseBorder,
-          borderRadius: 8,
-          borderSkipped: false,
-          maxBarThickness: 28,
-          order: 2,
-        },
-        {
-          type: 'line',
-          label: palette.balanceLabel,
-          data: data.balance,
-          borderColor: palette.balanceColor,
-          backgroundColor: 'transparent',
-          pointBackgroundColor: palette.balanceColor,
-          tension: 0.24,
-          borderWidth: 2.5,
-          pointRadius: 3,
-          pointHoverRadius: 4,
-          fill: false,
-          order: 1,
-        },
-      ];
-    }
-
-    function mountCashFlowChart(canvasId, data, palette) {
-      const canvas = document.getElementById(canvasId);
-      if (!canvas) return;
-      new Chart(canvas, {
-        type: 'bar',
-        data: {
-          labels: data.labels,
-          datasets: buildCashFlowDatasets(data, palette),
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          scales: {
-            x: { grid: { display: false } },
-            y: {
-              ticks: {
-                callback(value) {
-                  return compactCurrency.format(value || 0);
-                },
-              },
-            },
-          },
-          plugins: {
-            tooltip: {
-              callbacks: {
-                label(context) {
-                  return `${context.dataset.label}: ${tooltipCurrency.format(context.parsed.y || 0)}`;
-                },
-              },
-            },
-          },
-        },
-      });
-    }
-
-    function mountInvoiceChart(canvasId, data) {
-      const canvas = document.getElementById(canvasId);
-      if (!canvas) return;
-      new Chart(canvas, {
-        type: 'bar',
-        data: {
-          labels: data.labels,
-          datasets: [
-            {
-              type: 'bar',
-              label: 'Valor faturado',
-              data: data.total_billed,
-              backgroundColor: 'rgba(37, 99, 235, 0.72)',
-              borderColor: 'rgba(37, 99, 235, 0.92)',
-              borderRadius: 8,
-              borderSkipped: false,
-              maxBarThickness: 28,
-            },
-            {
-              type: 'line',
-              label: 'Charges',
-              data: data.charge_total,
-              borderColor: 'rgba(24, 121, 78, 0.92)',
-              backgroundColor: 'transparent',
-              pointBackgroundColor: 'rgba(24, 121, 78, 0.92)',
-              tension: 0.24,
-              borderWidth: 2.4,
-              pointRadius: 3,
-            },
-            {
-              type: 'line',
-              label: 'Créditos',
-              data: data.credit_total,
-              borderColor: 'rgba(181, 71, 8, 0.92)',
-              backgroundColor: 'transparent',
-              pointBackgroundColor: 'rgba(181, 71, 8, 0.92)',
-              tension: 0.24,
-              borderWidth: 2.4,
-              pointRadius: 3,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          scales: {
-            x: { grid: { display: false } },
-            y: {
-              beginAtZero: true,
-              ticks: {
-                callback(value) {
-                  return compactCurrency.format(value || 0);
-                },
-              },
-            },
-          },
-          plugins: {
-            tooltip: {
-              callbacks: {
-                label(context) {
-                  return `${context.dataset.label}: ${tooltipCurrency.format(context.parsed.y || 0)}`;
-                },
-              },
-            },
-          },
-        },
-      });
-    }
-
-    mountCashFlowChart(
+    window.mountAdminCashFlowChart(
       {{ overview_charts.conciliated.canvas_id|tojson }},
       {{ overview_charts.conciliated.data|tojson }},
       {
@@ -338,7 +233,13 @@
       }
     );
 
-    mountCashFlowChart(
+    window.mountAdminCategoryPeriodChart(
+      {{ overview_charts.statement.period_categories.canvas_id|tojson }},
+      {{ overview_charts.statement.period_categories.data|tojson }},
+      { datasetLabel: 'Total do extrato no período' }
+    );
+
+    window.mountAdminCashFlowChart(
       {{ overview_charts.statement.canvas_id|tojson }},
       {{ overview_charts.statement.data|tojson }},
       {
@@ -353,9 +254,21 @@
       }
     );
 
-    mountInvoiceChart(
+    window.mountAdminCategoryPeriodChart(
+      {{ overview_charts.invoice.period_categories.canvas_id|tojson }},
+      {{ overview_charts.invoice.period_categories.data|tojson }},
+      { datasetLabel: 'Total de faturas no período' }
+    );
+
+    window.mountAdminInvoiceMonthlyChart(
       {{ overview_charts.invoice.canvas_id|tojson }},
       {{ overview_charts.invoice.data|tojson }}
+    );
+
+    window.mountAdminCategoryPeriodChart(
+      {{ overview_charts.categories.period_categories.canvas_id|tojson }},
+      {{ overview_charts.categories.period_categories.data|tojson }},
+      { datasetLabel: 'Valor por categoria no período' }
     );
 
     window.mountAdminStackedCategoryChart(

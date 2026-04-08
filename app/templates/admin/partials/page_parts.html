@@ -1,17 +1,15 @@
 {% macro page_header(eyebrow, title, intro='', actions_class='') -%}
+  {% set actions_markup = caller()|trim if caller is defined else '' %}
   <section class="page-header">
     <div class="page-header-copy">
-      {% if eyebrow %}
-        <div class="page-eyebrow">{{ eyebrow }}</div>
-      {% endif %}
       <h1 class="page-title">{{ title }}</h1>
       {% if intro %}
         <p class="page-intro">{{ intro }}</p>
       {% endif %}
     </div>
-    {% if caller is defined %}
+    {% if actions_markup %}
       <div class="page-actions{% if actions_class %} {{ actions_class }}{% endif %}">
-        {{ caller() }}
+        {{ actions_markup|safe }}
       </div>
     {% endif %}
   </section>

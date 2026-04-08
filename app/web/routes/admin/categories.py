@@ -32,6 +32,7 @@ from app.services.credit_card_bills import (
     apply_manual_credit_card_invoice_item_category_change,
     get_credit_card_invoice_item_category_editor,
 )
+from app.utils.normalization import normalize_description
 
 from .helpers import render_admin, templates
 
@@ -39,7 +40,7 @@ router = APIRouter()
 
 
 def _normalize_focus_category(value: str | None) -> str:
-    return " ".join((value or "").split()).casefold()
+    return normalize_description(" ".join((value or "").split()))
 
 
 def _summarize_selected_categories(category_names: list[str]) -> str:
@@ -370,10 +371,14 @@ def _categories_page_context(
         for category_name in available_category_names
         if _normalize_focus_category(category_name) in selected_category_keys
     ]
+    selected_category_name_keys = {
+        _normalize_focus_category(category_name)
+        for category_name in selected_category_names
+    }
     filtered_ranking_rows = [
         row
         for row in ranking_rows
-        if not selected_category_names or row["name"] in selected_category_names
+        if not selected_category_names or _normalize_focus_category(row["name"]) in selected_category_name_keys
     ]
 
     normalized_focus = _normalize_focus_category(focus_category)

@@ -1,24 +1,9 @@
 {% from "admin/partials/page_parts.html" import page_header %}
 <section class="analysis-context-stack">
-  <div class="analysis-breadcrumb-row">
-    <nav class="analysis-breadcrumbs" aria-label="Navegação contextual" data-analysis-breadcrumbs>
-      {% for item in analysis_breadcrumb_items %}
-        {% if item.href %}
-          <a href="{{ item.href }}">{{ item.label }}</a>
-        {% else %}
-          <span aria-current="page">{{ item.label }}</span>
-        {% endif %}
-        {% if not loop.last %}
-          <span class="analysis-breadcrumb-separator" aria-hidden="true">&rsaquo;</span>
-        {% endif %}
-      {% endfor %}
-    </nav>
+  {% call page_header(active_nav_section_label, analysis_page_title, analysis_page_intro, "analysis-page-header") %}
     {% if analysis_back_href %}
       <a href="{{ analysis_back_href }}" class="button button-ghost" data-return-summary-link>Voltar ao resumo</a>
     {% endif %}
-  </div>
-
-  {% call page_header(active_nav_section_label, analysis_page_title, analysis_page_intro, "analysis-page-header") %}
     {% if analysis_show_generate %}
       <form method="post" action="/admin/analysis/run">
         <input type="hidden" name="period_start" value="{{ period_start }}">
@@ -146,26 +131,4 @@
     </div>
   </details>
 
-  {% if analysis_context_chips %}
-    <div class="analysis-context-chips" aria-label="Contexto atual da leitura">
-      {% for chip in analysis_context_chips %}
-        <span class="analysis-context-chip" data-context-chip="{{ chip.key }}">
-          <strong>{{ chip.label }}</strong>
-          <span>{{ chip.value }}</span>
-        </span>
-      {% endfor %}
-    </div>
-  {% endif %}
-
-  {% if analysis_focus_banner %}
-    <section class="card analysis-focus-banner" data-origin-banner="{{ analysis_focus_banner.key }}">
-      <div class="stack" style="gap:6px;">
-        <strong>{{ analysis_focus_banner.title }}</strong>
-        <div class="subtle">{{ analysis_focus_banner.body }}</div>
-      </div>
-      {% if analysis_focus_banner.href %}
-        <a href="{{ analysis_focus_banner.href }}" class="text-link">{{ analysis_focus_banner.link_label }}</a>
-      {% endif %}
-    </section>
-  {% endif %}
 </section>

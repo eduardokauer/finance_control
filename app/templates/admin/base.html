@@ -381,15 +381,15 @@
 
     .page-header {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
-      gap: 18px;
-      padding: 6px 2px 0;
+      gap: 12px;
+      padding: 2px 0 0;
     }
 
     .page-header-copy {
       display: grid;
-      gap: 8px;
+      gap: 4px;
       min-width: 0;
     }
 
@@ -403,9 +403,9 @@
 
     .page-title {
       margin: 0;
-      font-size: clamp(1.85rem, 2.8vw, 2.55rem);
-      line-height: 1.08;
-      letter-spacing: -0.03em;
+      font-size: clamp(1.6rem, 2.35vw, 2.1rem);
+      line-height: 1.1;
+      letter-spacing: -0.025em;
       overflow-wrap: anywhere;
     }
 
@@ -502,7 +502,7 @@
       display: inline-flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 8px;
       justify-content: flex-end;
     }
 
@@ -1642,6 +1642,29 @@
       }
 
       initializeInlineHelp();
+
+      function openAccordionFromHash() {
+        const hash = window.location.hash;
+        if (!hash || hash === "#") return;
+        const targetId = decodeURIComponent(hash.slice(1));
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        const accordions = [];
+        if (target.matches("details")) {
+          accordions.push(target);
+        }
+        let parentAccordion = target.parentElement?.closest("details");
+        while (parentAccordion) {
+          accordions.push(parentAccordion);
+          parentAccordion = parentAccordion.parentElement?.closest("details");
+        }
+        accordions.forEach((accordion) => {
+          accordion.open = true;
+        });
+      }
+
+      openAccordionFromHash();
+      window.addEventListener("hashchange", openAccordionFromHash);
 
       function closeInlineHelp(except) {
         document.querySelectorAll(".inline-help.is-open").forEach((wrapper) => {
