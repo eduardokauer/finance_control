@@ -8,20 +8,50 @@ from sqlalchemy.orm import Session
 
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
-from app.services.admin import list_active_rules, preview_reapply_rules, reapply_rules_for_period, run_analysis_for_period
+from app.services.admin import (
+    list_active_rules,
+    preview_reapply_rules,
+    reapply_rules_for_period,
+    run_analysis_for_period,
+)
 
-from .helpers import parse_optional_date, render_admin, templates
+from .helpers import is_htmx_request, parse_optional_date, render_admin, templates, trigger_admin_toast
 
 router = APIRouter()
 
 
+def _reapply_page_context(db: Session, *, reapply_result: dict | None = None) -> dict:
+    return {
+        "preview": None,
+        "rules": list_active_rules(db),
+        "reapply_result": reapply_result,
+    }
+
+
+def _render_reapply_shell(
+    request: Request,
+    db: Session,
+    *,
+    reapply_result: dict | None = None,
+    status_code: int = 200,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/reapply_page_shell.html",
+        {
+            "request": request,
+            **_reapply_page_context(db, reapply_result=reapply_result),
+        },
+        status_code=status_code,
+    )
+
+
 @router.get("/reapply", response_class=HTMLResponse)
 def admin_reapply_page(request: Request, db: Session = Depends(get_db), _: bool = Depends(require_admin_session)):
-    return render_admin(
-        request,
-        "admin/reapply.html",
-        {"preview": None, "rules": list_active_rules(db)},
-    )
+    context = _reapply_page_context(db)
+    if is_htmx_request(request):
+        return _render_reapply_shell(request, db)
+    return render_admin(request, "admin/reapply.html", context)
 
 
 @router.post("/reapply/preview", response_class=HTMLResponse)
@@ -91,9 +121,19 @@ def admin_reapply(
         analysis_message = " Nova análise gerada para o período informado."
     elif run_analysis_after:
         analysis_message = " Nova análise não foi gerada porque aplicar na base toda não define um período único."
-    request.session["flash"] = (
-        f"Reaplicação concluída: {result['updated_count']} alterados de {result['checked_count']} avaliados.{analysis_message}"
-    )
+    message = f"Reaplicação concluída: {result['updated_count']} alterados de {result['checked_count']} avaliados.{analysis_message}"
+    if is_htmx_request(request):
+        response = _render_reapply_shell(
+            request,
+            db,
+            reapply_result={
+                "updated_count": result["updated_count"],
+                "checked_count": result["checked_count"],
+                "analysis_message": analysis_message.strip(),
+            },
+        )
+        return trigger_admin_toast(response, message, level="success")
+    request.session["flash"] = message
     return RedirectResponse(url="/admin/reapply", status_code=303)
 
 
@@ -109,5 +149,12 @@ def admin_run_analysis(
     parsed_period_start = parse_optional_date(period_start)
     parsed_period_end = parse_optional_date(period_end)
     run = run_analysis_for_period(db, period_start=parsed_period_start, period_end=parsed_period_end)
-    request.session["flash"] = f"Nova análise gerada (run #{run.id})."
-    return RedirectResponse(url=unquote(return_to), status_code=303)
+    message = f"Nova análise gerada (run #{run.id})."
+    resolved_return_to = unquote(return_to)
+    if is_htmx_request(request):
+        from .analysis import render_analysis_shell_for_return_to
+
+        response = render_analysis_shell_for_return_to(request, db, resolved_return_to)
+        return trigger_admin_toast(response, message, level="success")
+    request.session["flash"] = message
+    return RedirectResponse(url=resolved_return_to, status_code=303)

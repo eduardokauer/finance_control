@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from fastapi import Depends, File, Form, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -24,7 +24,7 @@ from app.services.credit_card_bills import (
 from app.services.ingestion import ingest_bytes
 from app.services.admin import admin_dashboard_metrics, list_recent_source_files
 
-from .helpers import render_admin
+from .helpers import is_htmx_request, render_admin, templates, trigger_admin_toast
 
 
 CENT_VALUE = Decimal("0.01")
@@ -50,6 +50,25 @@ def _dashboard_context(db: Session) -> dict:
         "credit_cards": list_credit_cards(db),
         "recent_credit_card_invoices": list_recent_credit_card_invoices(db),
     }
+
+
+def _render_dashboard_shell(
+    request: Request,
+    db: Session,
+    *,
+    credit_card_error: str | None = None,
+    status_code: int = 200,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/dashboard_shell.html",
+        {
+            "request": request,
+            **_dashboard_context(db),
+            "credit_card_error": credit_card_error,
+        },
+        status_code=status_code,
+    )
 
 
 def _get_source_file_period(db: Session, source_file_id: int):
@@ -117,19 +136,63 @@ def _credit_card_invoice_manage_page_context(db: Session) -> dict:
     }
 
 
+def _render_statement_manage_shell(
+    request: Request,
+    db: Session,
+    *,
+    statement_upload_error: str | None = None,
+    statement_upload_result: dict | None = None,
+    status_code: int = 200,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/statement_manage_shell.html",
+        {
+            "request": request,
+            **_statement_manage_page_context(db),
+            "statement_upload_error": statement_upload_error,
+            "statement_upload_result": statement_upload_result,
+        },
+        status_code=status_code,
+    )
+
+
+def _render_credit_card_invoice_manage_shell(
+    request: Request,
+    db: Session,
+    *,
+    invoice_upload_error: str | None = None,
+    invoice_upload_result: dict | None = None,
+    status_code: int = 200,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/credit_card_invoices_manage_shell.html",
+        {
+            "request": request,
+            **_credit_card_invoice_manage_page_context(db),
+            "invoice_upload_error": invoice_upload_error,
+            "invoice_upload_result": invoice_upload_result,
+        },
+        status_code=status_code,
+    )
+
+
 def admin_statements_manage(
     request: Request,
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    return render_admin(
-        request,
-        "admin/statement_manage.html",
-        _statement_manage_page_context(db),
-    )
+    context = _statement_manage_page_context(db)
+    if is_htmx_request(request):
+        return _render_statement_manage_shell(request, db)
+    return render_admin(request, "admin/statement_manage.html", context)
 
 def admin_operations(request: Request, db: Session = Depends(get_db), _: bool = Depends(require_admin_session)):
-    return render_admin(request, "admin/dashboard.html", _dashboard_context(db))
+    context = _dashboard_context(db)
+    if is_htmx_request(request):
+        return _render_dashboard_shell(request, db)
+    return render_admin(request, "admin/dashboard.html", context)
 
 
 def admin_create_credit_card(
@@ -152,12 +215,23 @@ def admin_create_credit_card(
             is_active=is_active,
         )
     except CreditCardBillError as exc:
+        if is_htmx_request(request):
+            response = _render_dashboard_shell(
+                request,
+                db,
+                credit_card_error=str(exc),
+                status_code=exc.status_code if exc.status_code >= 400 else 422,
+            )
+            return trigger_admin_toast(response, "Nao foi possivel salvar o cartao.", level="danger")
         return render_admin(
             request,
             "admin/dashboard.html",
             {**_dashboard_context(db), "credit_card_error": str(exc)},
             status_code=exc.status_code if exc.status_code >= 400 else 422,
         )
+    if is_htmx_request(request):
+        response = _render_dashboard_shell(request, db)
+        return trigger_admin_toast(response, "Cartao salvo.", level="success")
     request.session["flash"] = "Cartao salvo."
     return RedirectResponse(url=CONTROL_CENTER_URL, status_code=303)
 
@@ -193,6 +267,14 @@ async def admin_upload_credit_card_bill(
             ),
         )
     except ValueError:
+        if is_htmx_request(request):
+            response = _render_credit_card_invoice_manage_shell(
+                request,
+                db,
+                invoice_upload_error="Estrutura invalida: datas do formulario estao invalidas.",
+                status_code=422,
+            )
+            return trigger_admin_toast(response, "Nao foi possivel importar a fatura.", level="danger")
         return render_admin(
             request,
             "admin/credit_card_invoices_manage.html",
@@ -204,6 +286,14 @@ async def admin_upload_credit_card_bill(
             status_code=422,
         )
     except CreditCardBillError as exc:
+        if is_htmx_request(request):
+            response = _render_credit_card_invoice_manage_shell(
+                request,
+                db,
+                invoice_upload_error=str(exc),
+                status_code=exc.status_code,
+            )
+            return trigger_admin_toast(response, "Nao foi possivel importar a fatura.", level="danger")
         return render_admin(
             request,
             "admin/credit_card_invoices_manage.html",
@@ -215,6 +305,17 @@ async def admin_upload_credit_card_bill(
             status_code=exc.status_code,
         )
 
+    if is_htmx_request(request):
+        response = _render_credit_card_invoice_manage_shell(
+            request,
+            db,
+            invoice_upload_result={
+                "message": result["message"],
+                "invoice_id": result["invoice_id"],
+                "imported_items": result["imported_items"],
+            },
+        )
+        return trigger_admin_toast(response, result["message"], level="success")
     request.session["flash"] = result["message"]
     return RedirectResponse(url="/admin/credit-card-invoices", status_code=303)
 
@@ -240,6 +341,14 @@ async def admin_upload_bank_statement(
             reference_id=reference_id,
         )
     except CreditCardBillError as exc:
+        if is_htmx_request(request):
+            response = _render_statement_manage_shell(
+                request,
+                db,
+                statement_upload_error=str(exc),
+                status_code=exc.status_code,
+            )
+            return trigger_admin_toast(response, "Nao foi possivel importar o extrato.", level="danger")
         return render_admin(
             request,
             "admin/statement_manage.html",
@@ -251,6 +360,14 @@ async def admin_upload_bank_statement(
             status_code=exc.status_code,
         )
     except Exception as exc:
+        if is_htmx_request(request):
+            response = _render_statement_manage_shell(
+                request,
+                db,
+                statement_upload_error=str(exc),
+                status_code=422,
+            )
+            return trigger_admin_toast(response, "Nao foi possivel importar o extrato.", level="danger")
         return render_admin(
             request,
             "admin/statement_manage.html",
@@ -273,6 +390,18 @@ async def admin_upload_bank_statement(
             trigger_source_file_id=result["source_file_id"],
         )
 
+    if is_htmx_request(request):
+        response = _render_statement_manage_shell(
+            request,
+            db,
+            statement_upload_result={
+                "message": result["message"],
+                "source_file_id": result["source_file_id"],
+                "period_start": period_start,
+                "period_end": period_end,
+            },
+        )
+        return trigger_admin_toast(response, result["message"], level="success")
     request.session["flash"] = result["message"]
     if period_start and period_end:
         return RedirectResponse(

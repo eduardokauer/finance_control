@@ -1,0 +1,352 @@
+<div id="invoice-detail-shell">
+  <section class="ops-shell-grid">
+    <div class="card ops-hero-card">
+      <div class="detail-hero-meta">
+        <span class="badge">#{{ detail.invoice.id }}</span>
+        <span class="badge {{ status_variant(detail.invoice.import_status) }}">{{ detail.invoice.import_status }}</span>
+      </div>
+      <div class="ops-panel-header">
+        <strong>Painel da fatura</strong>
+        <div class="subtle">{{ detail.card.card_label }} · competência {{ "%02d/%04d"|format(detail.invoice.billing_month, detail.invoice.billing_year) }} · visão completa de importação, conciliação e revisão dos itens da fatura.</div>
+      </div>
+      <div><strong>Fatura #{{ detail.invoice.id }}</strong></div>
+      <div class="ops-stat-grid">
+        <div class="ops-stat-card">
+          <div class="subtle">Valor informado</div>
+          <strong>R$ {{ "%.2f"|format(detail.invoice.total_amount_brl) }}</strong>
+          <div class="subtle">Total declarado na fatura</div>
+        </div>
+        <div class="ops-stat-card">
+          <div class="subtle">Itens importados</div>
+          <strong>{{ detail.item_count }}</strong>
+          <div class="subtle">Lançamento(s) visíveis</div>
+        </div>
+        <div class="ops-stat-card">
+          <div class="subtle">Total conciliado</div>
+          <strong>R$ {{ "%.2f"|format(detail.conciliation_summary.conciliated_total_brl) }}</strong>
+          <div class="subtle">Pagamentos + créditos técnicos</div>
+        </div>
+        <div class="ops-stat-card">
+          <div class="subtle">Saldo restante</div>
+          <strong>R$ {{ "%.2f"|format(detail.conciliation_summary.remaining_balance_brl) }}</strong>
+          <div class="subtle">Antes de nova seleção</div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="card stack">
+      <div class="ops-panel-header">
+        <strong>Caminhos desta tela</strong>
+        <div class="help-copy">A tela continua densa, mas agora separa melhor resumo, conciliação, candidatos e itens da fatura em blocos previsíveis.</div>
+      </div>
+      <div class="ops-guide-list">
+        <a class="ops-guide-link" href="#invoice-summary-section">
+          <span>Resumo</span>
+          <strong>Ver dados da fatura</strong>
+        </a>
+        <a class="ops-guide-link" href="#invoice-conciliation-section">
+          <span>Conciliação</span>
+          <strong>Ver status e itens</strong>
+        </a>
+        <a class="ops-guide-link" href="#invoice-candidates-section">
+          <span>Pagamentos</span>
+          <strong>Ver candidatos</strong>
+        </a>
+        <a class="ops-guide-link" href="#invoice-items-section">
+          <span>Itens importados</span>
+          <strong>Ver detalhe da fatura</strong>
+        </a>
+      </div>
+    </aside>
+  </section>
+
+  {% if conciliation_error %}
+    <section class="flash flash-danger section-gap-md">
+      {{ conciliation_error }}
+    </section>
+  {% endif %}
+
+  <section class="split-layout-wide section-gap-md">
+    <div class="split-main">
+      <section id="invoice-candidates-section" class="card stack">
+        <div class="ops-panel-header">
+          <h2 class="section-title">Pagamentos candidatos do extrato</h2>
+          <p class="section-intro">A seleção continua manual. Os sinais abaixo ajudam a revisão, mas não substituem a decisão humana.</p>
+        </div>
+        <div class="subtle">
+          Já conciliado: R$ {{ "%.2f"|format(detail.conciliation_summary.conciliated_total_brl) }} ·
+          Falta antes da nova seleção: R$ {{ "%.2f"|format(detail.conciliation_summary.remaining_balance_brl) }}
+        </div>
+        <div class="subtle">
+          {{ detail.candidate_overview.summary_text }}
+          Disponíveis: {{ detail.candidate_overview.available_count }} ·
+          Fortes/boas: {{ detail.candidate_overview.strong_count }} ·
+          Fracas: {{ detail.candidate_overview.weak_count }} ·
+          Já usadas em outra fatura: {{ detail.candidate_overview.linked_elsewhere_count }}
+        </div>
+        {% if detail.payment_candidates %}
+          <form
+            method="post"
+            action="/admin/credit-card-invoices/{{ detail.invoice.id }}/conciliation"
+            hx-post="/admin/credit-card-invoices/{{ detail.invoice.id }}/conciliation"
+            hx-target="#invoice-detail-shell"
+            hx-swap="outerHTML"
+            class="stack"
+          >
+            <div class="table-wrap">
+              <table class="responsive-stack">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>data</th>
+                    <th>descrição</th>
+                    <th>valor</th>
+                    <th>sinais</th>
+                    <th>força</th>
+                    <th>vínculo atual</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for candidate in detail.payment_candidates %}
+                    <tr>
+                      <td data-label="Selecionar">
+                        <input
+                          type="checkbox"
+                          name="selected_transaction_ids"
+                          value="{{ candidate.transaction.id }}"
+                          style="width: auto;"
+                          {% if candidate.linked_invoice_id %}disabled{% endif %}
+                        >
+                      </td>
+                      <td data-label="data">{{ candidate.transaction.transaction_date }}</td>
+                      <td data-label="descrição">
+                        {{ candidate.transaction.description_raw }}
+                        <div class="subtle">gap para saldo: R$ {{ "%.2f"|format(candidate.amount_gap_brl) }} · {{ candidate.days_from_due_date }} dia(s) do vencimento</div>
+                        <div class="subtle">descrição: {{ candidate.description_signal }} · data: {{ candidate.date_signal }}</div>
+                      </td>
+                      <td data-label="valor">R$ {{ "%.2f"|format(candidate.transaction.amount) }}</td>
+                      <td data-label="sinais">
+                        <span class="badge">{{ candidate.fit_label }}</span>
+                        {% if candidate.fit_label == 'match_saldo' %}
+                          <div class="subtle">bate exatamente com o saldo restante</div>
+                        {% elif candidate.fit_label == 'match_total' %}
+                          <div class="subtle">bate com o total informado da fatura</div>
+                        {% elif candidate.fit_label == 'proximo_do_saldo' %}
+                          <div class="subtle">valor próximo do saldo restante</div>
+                        {% else %}
+                          <div class="subtle">sinal mais fraco, revisão manual recomendada</div>
+                        {% endif %}
+                      </td>
+                      <td data-label="força">
+                        {% if candidate.strength_label in ['muito_forte', 'forte', 'boa'] %}
+                          <span class="badge ok">{{ candidate.strength_label }}</span>
+                        {% else %}
+                          <span class="badge warn">{{ candidate.strength_label }}</span>
+                        {% endif %}
+                      </td>
+                      <td data-label="vínculo atual">
+                        {% if candidate.linked_invoice_id %}
+                          <span class="badge danger">já vinculada à fatura #{{ candidate.linked_invoice_id }}</span>
+                        {% else %}
+                          <span class="badge ok">disponível</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <div class="actions">
+              <button type="submit" class="button button-primary" data-loading-button data-loading-label="Conciliando...">Conciliar pagamentos selecionados</button>
+            </div>
+          </form>
+        {% else %}
+          <div class="subtle">Nenhum candidato de pagamento foi encontrado na janela operacional desta fatura.</div>
+        {% endif %}
+      </section>
+
+      <section id="invoice-items-section" class="card stack">
+        <div class="ops-panel-header">
+          <h2 class="section-title">Lançamentos da fatura</h2>
+          <p class="section-intro">A tabela continua completa no desktop e empilhada no mobile, mantendo a edição de categoria dentro do mesmo fluxo contextual.</p>
+        </div>
+        {% if detail.items %}
+          <div class="table-wrap">
+            <table class="invoice-items-table responsive-stack">
+              <thead>
+                <tr>
+                  <th class="invoice-item-date">data</th>
+                  <th>descrição</th>
+                  <th>tipo</th>
+                  <th class="invoice-item-category-cell">categoria</th>
+                  <th>valor</th>
+                  <th>parcelado</th>
+                  <th>parcela atual</th>
+                  <th>total de parcelas</th>
+                  <th>observação derivada</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item_detail in detail.items %}
+                  <tr>
+                    <td data-label="data" class="invoice-item-date">{{ item_detail.item.purchase_date }}</td>
+                    <td data-label="descrição">{{ item_detail.item.description_raw }}</td>
+                    <td data-label="tipo"><span class="badge">{{ item_detail.item_type }}</span></td>
+                    <td data-label="categoria" class="invoice-item-category-cell">
+                      <div class="invoice-item-category">
+                        <div class="invoice-item-category-line">
+                          {% if item_detail.item.category %}
+                            <span>{{ item_detail.item.category }}</span>
+                          {% elif item_detail.item_type == 'charge' %}
+                            <span class="subtle">Não Categorizado</span>
+                          {% else %}
+                            <span class="subtle">-</span>
+                          {% endif %}
+                          {% if item_detail.item_type == 'charge' %}
+                            <a
+                              class="invoice-item-category-edit"
+                              href="/admin/credit-card-invoices/{{ detail.invoice.id }}/items/{{ item_detail.item.id }}/category"
+                              aria-label="Editar categoria"
+                              title="Editar categoria">&#9998;</a>
+                          {% endif %}
+                        </div>
+                        {% if item_detail.item.category %}
+                          <div class="subtle">
+                            {{ item_detail.item.categorization_method or '-' }}
+                            {% if item_detail.item.applied_rule %}| regra: {{ item_detail.item.applied_rule }}{% endif %}
+                          </div>
+                        {% elif item_detail.item_type != 'charge' %}
+                          <div class="subtle">item técnico</div>
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td data-label="valor">R$ {{ "%.2f"|format(item_detail.item.amount_brl) }}</td>
+                    <td data-label="parcelado">{{ 'sim' if item_detail.item.is_installment else 'não' }}</td>
+                    <td data-label="parcela atual">{{ item_detail.item.installment_current or '-' }}</td>
+                    <td data-label="total de parcelas">{{ item_detail.item.installment_total or '-' }}</td>
+                    <td data-label="observação derivada">{{ item_detail.item.derived_note or '-' }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="subtle">Esta fatura não possui itens importados.</div>
+        {% endif %}
+      </section>
+    </div>
+
+    <aside class="split-aside">
+      <section id="invoice-summary-section" class="card stack">
+        <div class="ops-panel-header">
+          <h2 class="section-title">Dados da fatura</h2>
+          <p class="section-intro">Metadados centrais da importação, sem misturar esses dados com a leitura operacional dos itens e da conciliação.</p>
+        </div>
+        <div class="kv-grid">
+          <div class="subtle">ID</div><div>#{{ detail.invoice.id }}</div>
+          <div class="subtle">Cartão</div><div>{{ detail.card.card_label }}</div>
+          <div class="subtle">Emissor</div><div>{{ detail.invoice.issuer }}</div>
+          <div class="subtle">Competência</div><div>{{ "%02d/%04d"|format(detail.invoice.billing_month, detail.invoice.billing_year) }}</div>
+          <div class="subtle">Vencimento</div><div>{{ detail.invoice.due_date }}</div>
+          <div class="subtle">Fechamento</div><div>{{ detail.invoice.closing_date or '-' }}</div>
+          <div class="subtle">Valor total informado</div><div>R$ {{ "%.2f"|format(detail.invoice.total_amount_brl) }}</div>
+          <div class="subtle">Status da importação</div><div><span class="badge {{ status_variant(detail.invoice.import_status) }}">{{ detail.invoice.import_status }}</span></div>
+          <div class="subtle">Arquivo</div><div>{{ detail.invoice.source_file_name }}</div>
+          <div class="subtle">Hash</div><div><code>{{ detail.invoice.source_file_hash }}</code></div>
+          <div class="subtle">Observação</div><div>{{ detail.invoice.notes or '-' }}</div>
+          <div class="subtle">Importada em</div><div>{{ detail.invoice.imported_at or '-' }}</div>
+          <div class="subtle">Criada em</div><div>{{ detail.invoice.created_at or '-' }}</div>
+          <div class="subtle">Arquivo criado em</div><div>{{ detail.source_file.created_at if detail.source_file else '-' }}</div>
+        </div>
+      </section>
+
+      <section class="card stack">
+        <div class="ops-panel-header">
+          <h2 class="section-title">Resumo operacional</h2>
+          <p class="section-intro">Síntese dos itens da fatura antes de entrar no detalhe de conciliação.</p>
+        </div>
+        <div class="kv-grid">
+          <div class="subtle">Quantidade de lançamentos</div><div>{{ detail.item_count }}</div>
+          <div class="subtle">Total de cobranças</div><div>R$ {{ "%.2f"|format(detail.summary.charge_total_brl) }}</div>
+          <div class="subtle">Total de créditos/descontos</div><div>R$ {{ "%.2f"|format(detail.summary.credit_total_brl) }}</div>
+          <div class="subtle">Total de pagamentos identificados na fatura</div><div>R$ {{ "%.2f"|format(detail.summary.payment_total_brl) }}</div>
+          <div class="subtle">Total composto da fatura</div><div>R$ {{ "%.2f"|format(detail.summary.composed_total_brl) }}</div>
+          <div class="subtle">Diferença para o total informado</div><div class="{{ 'amount-negative' if detail.summary.difference_to_invoice_total_brl < 0 else 'amount-positive' if detail.summary.difference_to_invoice_total_brl > 0 else '' }}">R$ {{ "%.2f"|format(detail.summary.difference_to_invoice_total_brl) }}</div>
+          <div class="subtle">Soma bruta de todos os itens</div><div>R$ {{ "%.2f"|format(detail.summary.items_total_brl) }}</div>
+        </div>
+        <div class="subtle">Itens <code>payment</code> dentro da própria fatura continuam visíveis para auditoria, mas não são a fonte oficial da liquidação.</div>
+      </section>
+
+      <section id="invoice-conciliation-section" class="card stack">
+        <div class="ops-panel-header">
+          <h2 class="section-title">Resumo da conciliação</h2>
+          <p class="section-intro">Situação atual do vínculo entre a fatura e os pagamentos oficiais vindos do extrato.</p>
+        </div>
+        <div class="kv-grid">
+          <div class="subtle">Status</div><div><span class="badge {{ status_variant(detail.conciliation_summary.status) }}">{{ detail.conciliation_summary.status }}</span></div>
+          <div class="subtle">Total bruto de cobranças</div><div>R$ {{ "%.2f"|format(detail.conciliation_summary.gross_amount_brl) }}</div>
+          <div class="subtle">Créditos técnicos da fatura</div><div>R$ {{ "%.2f"|format(detail.conciliation_summary.invoice_credit_total_brl) }}</div>
+          <div class="subtle">Pagamentos bancários conciliados</div><div>R$ {{ "%.2f"|format(detail.conciliation_summary.bank_payment_total_brl) }}</div>
+          <div class="subtle">Total conciliado</div><div>R$ {{ "%.2f"|format(detail.conciliation_summary.conciliated_total_brl) }}</div>
+          <div class="subtle">Saldo restante</div><div class="{{ 'amount-negative' if detail.conciliation_summary.remaining_balance_brl < 0 else 'amount-positive' if detail.conciliation_summary.remaining_balance_brl > 0 else '' }}">R$ {{ "%.2f"|format(detail.conciliation_summary.remaining_balance_brl) }}</div>
+        </div>
+        <div class="subtle">Os descontos da própria fatura entram automaticamente como <code>invoice_credit</code>. O usuário só escolhe pagamentos oficiais vindos do extrato bancário.</div>
+      </section>
+
+      <section class="card stack">
+        <div class="ops-panel-header">
+          <h2 class="section-title">Pagamentos conciliados</h2>
+          <p class="section-intro">Itens já vinculados à fatura no fluxo oficial de conciliação.</p>
+        </div>
+        {% if detail.conciliation_items %}
+          <div class="table-wrap">
+            <table class="responsive-stack">
+              <thead>
+                <tr>
+                  <th>item_type</th>
+                  <th>origem</th>
+                  <th>valor</th>
+                  <th>notes</th>
+                  <th class="invoice-detail-table-actions"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item_detail in detail.conciliation_items %}
+                  <tr>
+                    <td data-label="item_type"><span class="badge">{{ item_detail.conciliation_item.item_type }}</span></td>
+                    <td data-label="origem">
+                      {% if item_detail.bank_transaction %}
+                        {{ item_detail.bank_transaction.transaction_date }} · {{ item_detail.bank_transaction.description_raw }}
+                      {% elif item_detail.invoice_item %}
+                        {{ item_detail.invoice_item.purchase_date }} · {{ item_detail.invoice_item.description_raw }}
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                    <td data-label="valor">R$ {{ "%.2f"|format(item_detail.conciliation_item.amount_brl) }}</td>
+                    <td data-label="notes">{{ item_detail.conciliation_item.notes or '-' }}</td>
+                    <td data-label="ação" class="invoice-detail-table-actions">
+                      {% if item_detail.conciliation_item.item_type == 'bank_payment' %}
+                        <form
+                          method="post"
+                          action="/admin/credit-card-invoices/{{ detail.invoice.id }}/conciliation/items/{{ item_detail.conciliation_item.id }}/unlink"
+                          hx-post="/admin/credit-card-invoices/{{ detail.invoice.id }}/conciliation/items/{{ item_detail.conciliation_item.id }}/unlink"
+                          hx-target="#invoice-detail-shell"
+                          hx-swap="outerHTML"
+                        >
+                          <button type="submit" class="button button-danger" data-loading-button data-loading-label="Desfazendo...">Desfazer vínculo</button>
+                        </form>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="subtle">Ainda não há itens conciliados para esta fatura.</div>
+        {% endif %}
+      </section>
+    </aside>
+  </section>
+</div>

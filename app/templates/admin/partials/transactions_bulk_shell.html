@@ -1,0 +1,197 @@
+{% from "admin/partials/transactions_table.html" import transactions_table %}
+<div id="transactions-bulk-shell" class="stack section-gap-md">
+  {% if bulk_result %}
+    <section class="card ops-hero-card">
+      <div class="ops-panel-header">
+        <strong>Última aplicação</strong>
+      </div>
+      <div class="ops-stat-grid">
+        <div class="ops-stat-card">
+          <div class="subtle">Atualizados</div>
+          <strong>{{ bulk_result.updated_count }}</strong>
+          <div class="subtle">de {{ bulk_result.selected_count }} selecionado(s)</div>
+        </div>
+        <div class="ops-stat-card">
+          <div class="subtle">Nova categoria</div>
+          <strong>{{ bulk_result.category }}</strong>
+          <div class="subtle">Tipo {{ bulk_result.transaction_kind }}</div>
+        </div>
+        <div class="ops-stat-card">
+          <div class="subtle">Regra futura</div>
+          <strong>{% if bulk_result.rule_created %}Criada{% else %}Não criada{% endif %}</strong>
+          <div class="subtle">Resultado da última aplicação</div>
+        </div>
+      </div>
+    </section>
+  {% endif %}
+
+  <details class="toolbar-card top-filter-accordion" data-top-filter-accordion>
+    <summary class="top-filter-summary">
+      <span class="top-filter-summary-copy">
+        <span class="top-filter-summary-title">
+          <strong>Filtros da seleção</strong>
+          <span class="help-copy">A seleção da ação em lote nasce do mesmo recorte da base operacional.</span>
+        </span>
+        <span class="top-filter-summary-meta">
+          <span class="top-filter-summary-chip"><strong>Período</strong>{{ filters.period_start.strftime('%d/%m/%Y') }} a {{ filters.period_end.strftime('%d/%m/%Y') }}</span>
+          <span class="top-filter-summary-chip"><strong>Ordenação</strong>{{ 'Mais recentes' if filters.sort == 'recent' else 'Maior valor' }}</span>
+          {% if filters.category %}
+            <span class="top-filter-summary-chip"><strong>Categoria</strong>{{ filters.category }}</span>
+          {% endif %}
+          {% if filters.transaction_kind %}
+            <span class="top-filter-summary-chip"><strong>Tipo</strong>{{ filters.transaction_kind }}</span>
+          {% endif %}
+          {% if filters.description %}
+            <span class="top-filter-summary-chip"><strong>Busca</strong>{{ filters.description }}</span>
+          {% endif %}
+          {% if filters.uncategorized_only %}
+            <span class="top-filter-summary-chip"><strong>Modo</strong>Não categorizados</span>
+          {% endif %}
+        </span>
+      </span>
+    </summary>
+    <div class="top-filter-body">
+      <form
+        method="get"
+        action="/admin/transactions/bulk"
+        hx-get="/admin/transactions/bulk"
+        hx-target="#transactions-bulk-shell"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        class="toolbar-grid"
+      >
+        <label>Mês fechado
+          <input type="month" name="month" value="{{ filters.period_start.strftime('%Y-%m') }}">
+        </label>
+        <label>Categoria
+          <select name="category">
+            <option value="">Todas</option>
+            {% for category in categories %}
+              <option value="{{ category.name }}" {% if filters.category == category.name %}selected{% endif %}>{{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Data inicial
+          <input type="date" name="period_start" value="{{ filters.period_start }}">
+        </label>
+        <label>Data final
+          <input type="date" name="period_end" value="{{ filters.period_end }}">
+        </label>
+        <label>Buscar descrição
+          <input type="text" name="description" value="{{ filters.description or '' }}" placeholder="Ex.: pix, uber, aluguel">
+        </label>
+        <label>Tipo
+          <select name="transaction_kind">
+            <option value="">Todos</option>
+            {% for kind in ['income', 'expense', 'transfer', 'credit_card_payment', 'adjustment', 'tax'] %}
+              <option value="{{ kind }}" {% if filters.transaction_kind == kind %}selected{% endif %}>{{ kind }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Ordenação
+          <select name="sort">
+            <option value="recent" {% if filters.sort == 'recent' %}selected{% endif %}>Mais recentes</option>
+            <option value="amount_desc" {% if filters.sort == 'amount_desc' %}selected{% endif %}>Maior valor</option>
+          </select>
+        </label>
+        <label class="inline toolbar-inline-toggle">
+          <input type="checkbox" name="uncategorized_only" value="true" {% if filters.uncategorized_only %}checked{% endif %} style="width:auto;">
+          Somente não categorizados
+        </label>
+        <div class="toolbar-actions">
+          <button type="submit" class="button button-primary" data-loading-button data-loading-label="Aplicando...">Aplicar filtros</button>
+        </div>
+      </form>
+    </div>
+  </details>
+
+  <form
+    method="post"
+    action="/admin/transactions/bulk/apply"
+    hx-post="/admin/transactions/bulk/apply"
+    hx-target="#transactions-bulk-shell"
+    hx-swap="outerHTML"
+    class="stack section-gap-md"
+  >
+    <section class="toolbar-card">
+      <div class="ops-panel-header">
+        <strong>Configuração da ação</strong>
+      </div>
+      <div class="toolbar-grid">
+        <label>Nova categoria
+          <select name="category" required>
+            <option value="">Selecione</option>
+            {% for category in categories if category.is_active %}
+              <option value="{{ category.name }}">{{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Novo tipo
+          <select name="transaction_kind" required>
+            <option value="expense">expense</option>
+            <option value="income">income</option>
+            <option value="transfer">transfer</option>
+          </select>
+        </label>
+        <label>Padrão opcional para regra futura
+          <input type="text" name="rule_pattern" placeholder="Ex.: uber ou pix mercado pago">
+        </label>
+        <label>Modo do match da regra
+          <select name="rule_match_mode">
+            <option value="contains">contains</option>
+            <option value="exact_normalized">exact_normalized</option>
+          </select>
+        </label>
+      </div>
+      <label>Observação
+        <textarea name="notes" placeholder="Motivo da reclassificação"></textarea>
+      </label>
+      <label class="inline">
+        <input type="checkbox" name="save_rule" value="true" style="width:auto;">
+        Salvar regra para uso futuro
+      </label>
+      <input type="hidden" name="return_to" value="{{ current_relative_url }}">
+      <div id="bulk-preview"></div>
+      <div class="toolbar-actions">
+        <button
+          type="button"
+          class="button button-ghost"
+          hx-post="/admin/transactions/bulk/preview"
+          hx-include="closest form"
+          hx-target="#bulk-preview"
+          hx-swap="innerHTML"
+          data-loading-button
+          data-loading-label="Gerando..."
+        >Pré-visualizar seleção</button>
+        <button type="submit" class="button button-primary" onclick="return confirm('Aplicar reclassificação em massa?');" data-loading-button data-loading-label="Aplicando...">Aplicar aos selecionados</button>
+      </div>
+    </section>
+
+    {% if transactions %}
+      <section class="card stack">
+        <div class="ops-panel-header">
+          <strong>Seleção operacional da base</strong>
+        </div>
+        {{ transactions_table(transactions, encoded_current_url, True, filters.sort, transactions_sort_urls, '#transactions-bulk-shell') }}
+      </section>
+    {% else %}
+      <div class="empty-state">
+        <strong>Nenhum lançamento encontrado</strong>
+        <div class="subtle">Ajuste os filtros acima para montar outra seleção antes de aplicar reclassificação em massa.</div>
+      </div>
+    {% endif %}
+  </form>
+
+  {% if next_page_href %}
+    <div class="toolbar-actions">
+      <a
+        class="button button-ghost"
+        href="{{ next_page_href }}"
+        hx-get="{{ next_page_href }}"
+        hx-target="#transactions-bulk-shell"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+      >Ver mais</a>
+    </div>
+  {% endif %}
+</div>
