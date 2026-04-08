@@ -476,6 +476,65 @@ def test_admin_transaction_quick_category_supports_htmx_partial_refresh(client, 
     assert trigger_payload["admin:toast"]["message"] == "Categoria criada: Saude Pet."
 
 
+def test_admin_transactions_list_supports_htmx_filters_and_push_url(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="UBER MAR HTMX",
+        normalized="uber mar htmx",
+        amount=-35.0,
+        transaction_kind="expense",
+        category="Transporte",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR HTMX",
+        normalized="aluguel mar htmx",
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _login(client)
+
+    response = client.get(
+        "/admin/transactions?period_start=2026-03-01&period_end=2026-03-31&category=Moradia",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="transactions-page-shell"' in response.text
+    assert "ALUGUEL MAR HTMX" in response.text
+    assert "UBER MAR HTMX" not in response.text
+    assert response.headers["HX-Push-Url"].endswith("category=Moradia")
+
+
+def test_admin_transactions_bulk_list_supports_htmx_pagination(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    for idx in range(25):
+        _seed_transaction(
+            db_session,
+            description=f"ITEM BULK HTMX {idx}",
+            normalized=f"item bulk htmx {idx}",
+            transaction_date=date(2026, 3, 1 + (idx % 20)),
+            amount=-10.0 - idx,
+            transaction_kind="expense",
+            category="Outros",
+        )
+    _login(client)
+
+    response = client.get(
+        "/admin/transactions/bulk?period_start=2026-03-01&period_end=2026-03-31&limit=20&offset=20",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="transactions-bulk-shell"' in response.text
+    assert "ITEM BULK HTMX 0" in response.text
+    assert "ITEM BULK HTMX 24" not in response.text
+
+
 def test_admin_invoice_item_preview_supports_htmx_partial_refresh(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
@@ -581,6 +640,23 @@ def test_admin_invoice_conciliation_supports_htmx_partial_refresh(client, db_ses
     assert "Resumo da conciliação" in response.text
     trigger_payload = json.loads(response.headers["HX-Trigger"])
     assert trigger_payload["admin:toast"]["message"] == "Conciliação atualizada."
+
+
+def test_admin_invoice_view_supports_htmx_filters_and_push_url(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_credit_card_invoice(db_session, status="pending_review")
+    _login(client)
+
+    response = client.get(
+        "/admin/credit-card-invoices?selection_mode=month&month=2026-03&item_type=charge",
+        headers={"HX-Request": "true"},
+    )
+
+    assert response.status_code == 200
+    assert 'id="invoice-view-shell"' in response.text
+    assert "Itens de fatura" in response.text
+    assert response.headers["HX-Push-Url"].endswith("item_type=charge")
 
 
 def test_admin_rules_create_supports_htmx_partial_refresh(client, db_session, monkeypatch):
@@ -3345,7 +3421,7 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
 
     assert categories_manage.status_code == 200
     assert "Administrar categorias" in categories_manage.text
-    assert "Painel de configuracao das categorias" in categories_manage.text
+    assert 'id="categories-manage-shell"' in categories_manage.text
     assert "Criar categoria" in categories_manage.text
 
     assert reapply.status_code == 200

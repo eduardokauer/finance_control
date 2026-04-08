@@ -33,7 +33,17 @@
         </div>
       {% endif %}
 
-      <form method="get" action="{{ analysis_form_action }}" class="analysis-period-form" id="analysis-period-form">
+      <form
+        method="get"
+        action="{{ analysis_form_action }}"
+        {% if analysis_shell_target %}
+          hx-get="{{ analysis_form_action }}"
+          hx-target="{{ analysis_shell_target }}"
+          hx-swap="outerHTML"
+          hx-push-url="true"
+        {% endif %}
+        class="analysis-period-form"
+        id="analysis-period-form">
         <input type="hidden" name="selection_mode" id="selection-mode-input" value="{{ selection_mode }}">
         {% for field in analysis_extra_hidden_fields or [] %}
           {% if field.value is not none %}

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from urllib.parse import quote, unquote
+from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -29,6 +29,21 @@ from app.services.credit_card_bills import map_conciliated_bank_payment_signals
 from .helpers import is_htmx_request, render_admin, templates, trigger_admin_toast
 
 router = APIRouter()
+
+
+def _relative_request_url(request: Request) -> str:
+    return request.url.path + (f"?{request.url.query}" if request.url.query else "")
+
+
+def _extend_relative_url(url: str, *, params: dict[str, str | int | None]) -> str:
+    split_url = urlsplit(url)
+    merged_params = dict(parse_qsl(split_url.query, keep_blank_values=True))
+    for key, value in params.items():
+        if value in (None, ""):
+            merged_params.pop(key, None)
+        else:
+            merged_params[key] = str(value)
+    return urlunsplit(("", "", split_url.path, urlencode(merged_params), split_url.fragment))
 
 
 def _transactions_page_context(
@@ -60,15 +75,33 @@ def _transactions_page_context(
     )
     transactions, total = list_transactions_for_admin(db, filters, limit=limit, offset=offset)
     current_url = str(request.url)
+    current_relative_url = _relative_request_url(request)
+    base_relative_url = request.url.path
+    sort_urls = {
+        "recent": _extend_relative_url(current_relative_url, params={"sort": "recent", "offset": 0}),
+        "amount_desc": _extend_relative_url(current_relative_url, params={"sort": "amount_desc", "offset": 0}),
+    }
+    next_page_href = (
+        _extend_relative_url(
+            current_relative_url,
+            params={"offset": offset + limit, "limit": limit},
+        )
+        if offset + limit < total
+        else None
+    )
     return {
         "filters": filters,
         "transactions": transactions,
         "pagination": build_pagination(total, limit=limit, offset=offset),
         "categories": list_categories(db),
         "current_url": current_url,
+        "current_relative_url": current_relative_url,
         "encoded_current_url": quote(current_url, safe=""),
         "current_path": request.url.path,
         "current_query": request.url.query,
+        "base_relative_url": base_relative_url,
+        "transactions_sort_urls": sort_urls,
+        "next_page_href": next_page_href,
         "bulk_actions_href": "/admin/transactions/bulk",
         "transactions_list_href": "/admin/transactions",
     }
@@ -120,6 +153,86 @@ def _render_transaction_detail_shell(
     )
 
 
+def _render_transactions_shell(
+    request: Request,
+    db: Session,
+    *,
+    month: str | None,
+    period_start: date | None,
+    period_end: date | None,
+    category: str | None,
+    description: str | None,
+    uncategorized_only: bool,
+    transaction_kind: str | None,
+    sort: str | None,
+    limit: int,
+    offset: int,
+    status_code: int = 200,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/transactions_page_shell.html",
+        {
+            "request": request,
+            **_transactions_page_context(
+                request,
+                db,
+                month=month,
+                period_start=period_start,
+                period_end=period_end,
+                category=category,
+                description=description,
+                uncategorized_only=uncategorized_only,
+                transaction_kind=transaction_kind,
+                sort=sort,
+                limit=limit,
+                offset=offset,
+            ),
+        },
+        status_code=status_code,
+    )
+
+
+def _render_transactions_bulk_shell(
+    request: Request,
+    db: Session,
+    *,
+    month: str | None,
+    period_start: date | None,
+    period_end: date | None,
+    category: str | None,
+    description: str | None,
+    uncategorized_only: bool,
+    transaction_kind: str | None,
+    sort: str | None,
+    limit: int,
+    offset: int,
+    status_code: int = 200,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/transactions_bulk_shell.html",
+        {
+            "request": request,
+            **_transactions_page_context(
+                request,
+                db,
+                month=month,
+                period_start=period_start,
+                period_end=period_end,
+                category=category,
+                description=description,
+                uncategorized_only=uncategorized_only,
+                transaction_kind=transaction_kind,
+                sort=sort,
+                limit=limit,
+                offset=offset,
+            ),
+        },
+        status_code=status_code,
+    )
+
+
 @router.get("/transactions", response_class=HTMLResponse)
 def admin_transactions(
     request: Request,
@@ -136,6 +249,23 @@ def admin_transactions(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
+    if is_htmx_request(request):
+        response = _render_transactions_shell(
+            request,
+            db,
+            month=month,
+            period_start=period_start,
+            period_end=period_end,
+            category=category,
+            description=description,
+            uncategorized_only=uncategorized_only,
+            transaction_kind=transaction_kind,
+            sort=sort,
+            limit=limit,
+            offset=offset,
+        )
+        response.headers["HX-Push-Url"] = _relative_request_url(request)
+        return response
     context = _transactions_page_context(
         request,
         db,
@@ -169,6 +299,23 @@ def admin_transactions_bulk(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
+    if is_htmx_request(request):
+        response = _render_transactions_bulk_shell(
+            request,
+            db,
+            month=month,
+            period_start=period_start,
+            period_end=period_end,
+            category=category,
+            description=description,
+            uncategorized_only=uncategorized_only,
+            transaction_kind=transaction_kind,
+            sort=sort,
+            limit=limit,
+            offset=offset,
+        )
+        response.headers["HX-Push-Url"] = _relative_request_url(request)
+        return response
     context = _transactions_page_context(
         request,
         db,

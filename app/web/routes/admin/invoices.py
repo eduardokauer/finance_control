@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -34,6 +35,21 @@ from app.services.credit_card_bills import (
 from .helpers import is_htmx_request, render_admin, templates, trigger_admin_toast
 
 router = APIRouter()
+
+
+def _relative_request_url(request: Request) -> str:
+    return request.url.path + (f"?{request.url.query}" if request.url.query else "")
+
+
+def _extend_relative_url(url: str, *, params: dict[str, str | int | None]) -> str:
+    split_url = urlsplit(url)
+    merged_params = dict(parse_qsl(split_url.query, keep_blank_values=True))
+    for key, value in params.items():
+        if value in (None, ""):
+            merged_params.pop(key, None)
+        else:
+            merged_params[key] = str(value)
+    return urlunsplit(("", "", split_url.path, urlencode(merged_params), split_url.fragment))
 
 
 def _status_variant(status: str) -> str:
@@ -116,7 +132,130 @@ def _invoice_period_context(
         "analysis_extra_hidden_fields": [],
         "analysis_urls": {"return_to": str(request.url)},
         "analysis_toolbar_filters": [],
+        "analysis_shell_target": "#invoice-view-shell",
     }
+
+
+def _invoice_view_context(
+    db: Session,
+    *,
+    request: Request,
+    selection_mode: str | None,
+    month: str | None,
+    period_start: date | None,
+    period_end: date | None,
+    card_label: str | None,
+    category: str | None,
+    item_type: str | None,
+    conciliation_status: str | None,
+    description: str | None,
+    sort: str | None,
+) -> dict:
+    period_context = _invoice_period_context(
+        db,
+        request=request,
+        selection_mode=selection_mode,
+        month=month,
+        period_start=period_start,
+        period_end=period_end,
+    )
+    entries = [
+        entry
+        for entry in list_credit_card_invoices(db)
+        if period_context["period_start"] <= entry.invoice.due_date <= period_context["period_end"]
+    ]
+    if conciliation_status:
+        entries = [entry for entry in entries if entry.conciliation_status == conciliation_status]
+    if card_label:
+        entries = [entry for entry in entries if entry.card.card_label == card_label]
+    analysis_snapshot = build_analysis_snapshot(
+        db,
+        period_start=period_context["period_start"],
+        period_end=period_context["period_end"],
+    )
+    all_invoice_rows = build_invoice_operational_snapshot(
+        db,
+        period_start=period_context["period_start"],
+        period_end=period_context["period_end"],
+    )["rows"]
+    invoice_rows = all_invoice_rows
+    if card_label:
+        invoice_rows = [row for row in invoice_rows if row["card_label"] == card_label]
+    if category:
+        invoice_rows = [row for row in invoice_rows if row["category"] == category]
+    if item_type:
+        invoice_rows = [row for row in invoice_rows if row["item_type"] == item_type]
+    if conciliation_status:
+        invoice_rows = [row for row in invoice_rows if row["conciliation_status"] == conciliation_status]
+    if description:
+        lowered_description = description.casefold()
+        invoice_rows = [
+            row
+            for row in invoice_rows
+            if lowered_description in row["description"].casefold()
+            or lowered_description in (row["description_normalized"] or "").casefold()
+        ]
+    if sort == "amount_desc":
+        invoice_rows = sorted(invoice_rows, key=lambda row: (abs(row["amount"]), row["purchase_date"], row["id"]), reverse=True)
+    elif sort == "amount_asc":
+        invoice_rows = sorted(invoice_rows, key=lambda row: (abs(row["amount"]), row["purchase_date"], row["id"]))
+    elif sort == "description":
+        invoice_rows = sorted(invoice_rows, key=lambda row: ((row["description_normalized"] or "").casefold(), row["purchase_date"], row["id"]))
+    else:
+        invoice_rows = sorted(invoice_rows, key=lambda row: (row["purchase_date"], row["id"]), reverse=True)
+
+    chart_data = {
+        "monthly": analysis_snapshot["charts"]["invoice_monthly"],
+        "categories_monthly": analysis_snapshot["charts"]["invoice_categories_monthly"],
+    }
+    return {
+        **period_context,
+        "entries": entries,
+        "invoice_rows": invoice_rows,
+        "chart_data": chart_data,
+        "invoice_period_label": analysis_snapshot["period"]["month_reference_label"],
+        "invoice_snapshot": analysis_snapshot["invoice_month_snapshot"],
+        "invoice_filters": {
+            "card_label": card_label or "",
+            "category": category or "",
+            "item_type": item_type or "",
+            "conciliation_status": conciliation_status or "",
+            "description": description or "",
+            "sort": sort or "recent",
+        },
+        "invoice_filter_options": {
+            "card_labels": sorted({row["card_label"] for row in all_invoice_rows if row["card_label"]}),
+            "categories": sorted({row["category"] for row in all_invoice_rows if row["category"]}),
+            "item_types": sorted({row["item_type"] for row in all_invoice_rows if row["item_type"]}),
+            "conciliation_statuses": sorted({row["conciliation_status"] for row in all_invoice_rows if row["conciliation_status"]}),
+        },
+        "invoice_stats": {
+            "row_count": len(invoice_rows),
+            "full_row_count": len(all_invoice_rows),
+            "invoice_count": len(entries),
+        },
+        "format_currency_br": format_currency_br,
+        "format_date_br": format_date_br,
+        "status_variant": _status_variant,
+        "current_relative_url": _relative_request_url(request),
+    }
+
+
+def _render_invoice_view_shell(
+    request: Request,
+    context: dict,
+    *,
+    status_code: int = 200,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/credit_card_invoices_page_shell.html",
+        {
+            "request": request,
+            **context,
+        },
+        status_code=status_code,
+    )
 
 
 def _render_invoice_item_category_editor(
@@ -255,96 +394,28 @@ def admin_credit_card_invoice_list(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    period_context = _invoice_period_context(
+    context = _invoice_view_context(
         db,
         request=request,
         selection_mode=selection_mode,
         month=month,
         period_start=period_start,
         period_end=period_end,
+        card_label=card_label,
+        category=category,
+        item_type=item_type,
+        conciliation_status=conciliation_status,
+        description=description,
+        sort=sort,
     )
-    entries = [
-        entry
-        for entry in list_credit_card_invoices(db)
-        if period_context["period_start"] <= entry.invoice.due_date <= period_context["period_end"]
-    ]
-    if conciliation_status:
-        entries = [entry for entry in entries if entry.conciliation_status == conciliation_status]
-    if card_label:
-        entries = [entry for entry in entries if entry.card.card_label == card_label]
-    analysis_snapshot = build_analysis_snapshot(
-        db,
-        period_start=period_context["period_start"],
-        period_end=period_context["period_end"],
-    )
-    all_invoice_rows = build_invoice_operational_snapshot(
-        db,
-        period_start=period_context["period_start"],
-        period_end=period_context["period_end"],
-    )["rows"]
-    invoice_rows = all_invoice_rows
-    if card_label:
-        invoice_rows = [row for row in invoice_rows if row["card_label"] == card_label]
-    if category:
-        invoice_rows = [row for row in invoice_rows if row["category"] == category]
-    if item_type:
-        invoice_rows = [row for row in invoice_rows if row["item_type"] == item_type]
-    if conciliation_status:
-        invoice_rows = [row for row in invoice_rows if row["conciliation_status"] == conciliation_status]
-    if description:
-        lowered_description = description.casefold()
-        invoice_rows = [
-            row
-            for row in invoice_rows
-            if lowered_description in row["description"].casefold()
-            or lowered_description in (row["description_normalized"] or "").casefold()
-        ]
-    if sort == "amount_desc":
-        invoice_rows = sorted(invoice_rows, key=lambda row: (abs(row["amount"]), row["purchase_date"], row["id"]), reverse=True)
-    elif sort == "amount_asc":
-        invoice_rows = sorted(invoice_rows, key=lambda row: (abs(row["amount"]), row["purchase_date"], row["id"]))
-    elif sort == "description":
-        invoice_rows = sorted(invoice_rows, key=lambda row: ((row["description_normalized"] or "").casefold(), row["purchase_date"], row["id"]))
-    else:
-        invoice_rows = sorted(invoice_rows, key=lambda row: (row["purchase_date"], row["id"]), reverse=True)
-
-    chart_data = {
-        "monthly": analysis_snapshot["charts"]["invoice_monthly"],
-        "categories_monthly": analysis_snapshot["charts"]["invoice_categories_monthly"],
-    }
+    if is_htmx_request(request):
+        response = _render_invoice_view_shell(request, context)
+        response.headers["HX-Push-Url"] = _relative_request_url(request)
+        return response
     return render_admin(
         request,
         "admin/credit_card_invoices.html",
-        {
-            **period_context,
-            "entries": entries,
-            "invoice_rows": invoice_rows,
-            "chart_data": chart_data,
-            "invoice_period_label": analysis_snapshot["period"]["month_reference_label"],
-            "invoice_snapshot": analysis_snapshot["invoice_month_snapshot"],
-            "invoice_filters": {
-                "card_label": card_label or "",
-                "category": category or "",
-                "item_type": item_type or "",
-                "conciliation_status": conciliation_status or "",
-                "description": description or "",
-                "sort": sort or "recent",
-            },
-            "invoice_filter_options": {
-                "card_labels": sorted({row["card_label"] for row in all_invoice_rows if row["card_label"]}),
-                "categories": sorted({row["category"] for row in all_invoice_rows if row["category"]}),
-                "item_types": sorted({row["item_type"] for row in all_invoice_rows if row["item_type"]}),
-                "conciliation_statuses": sorted({row["conciliation_status"] for row in all_invoice_rows if row["conciliation_status"]}),
-            },
-            "invoice_stats": {
-                "row_count": len(invoice_rows),
-                "full_row_count": len(all_invoice_rows),
-                "invoice_count": len(entries),
-            },
-            "format_currency_br": format_currency_br,
-            "format_date_br": format_date_br,
-            "status_variant": _status_variant,
-        },
+        context,
     )
 
 

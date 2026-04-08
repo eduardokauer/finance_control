@@ -1,4 +1,4 @@
-{% macro transactions_table(transactions, encoded_current_url, selectable=False) %}
+{% macro transactions_table(transactions, encoded_current_url, selectable=False, current_sort='recent', sort_urls=None, shell_target=None) %}
 <div class="table-wrap">
   <table class="responsive-stack">
     <thead>
@@ -6,13 +6,25 @@
         {% if selectable %}
           <th></th>
         {% endif %}
-        <th>data</th>
+        <th>
+          {% if sort_urls %}
+            <a class="text-link" href="{{ sort_urls.recent }}"{% if shell_target %} hx-get="{{ sort_urls.recent }}" hx-target="{{ shell_target }}" hx-swap="outerHTML" hx-push-url="true"{% endif %}>data{% if current_sort == 'recent' %} ↓{% endif %}</a>
+          {% else %}
+            data
+          {% endif %}
+        </th>
         <th>descrição</th>
         <th>origem</th>
         <th>categoria</th>
         <th>tipo</th>
         <th>sinal analítico</th>
-        <th>valor</th>
+        <th>
+          {% if sort_urls %}
+            <a class="text-link" href="{{ sort_urls.amount_desc }}"{% if shell_target %} hx-get="{{ sort_urls.amount_desc }}" hx-target="{{ shell_target }}" hx-swap="outerHTML" hx-push-url="true"{% endif %}>valor{% if current_sort == 'amount_desc' %} ↓{% endif %}</a>
+          {% else %}
+            valor
+          {% endif %}
+        </th>
       </tr>
     </thead>
     <tbody>
