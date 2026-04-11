@@ -32,7 +32,14 @@ from app.services.credit_card_bills import (
     unlink_credit_card_invoice_bank_payment,
 )
 
-from .helpers import is_htmx_request, render_admin, templates, trigger_admin_toast
+from .helpers import (
+    is_htmx_request,
+    persist_admin_period_selection,
+    render_admin,
+    restore_admin_period_selection,
+    templates,
+    trigger_admin_toast,
+)
 
 router = APIRouter()
 
@@ -204,9 +211,48 @@ def _invoice_view_context(
     else:
         invoice_rows = sorted(invoice_rows, key=lambda row: (row["purchase_date"], row["id"]), reverse=True)
 
+    invoice_period_category_data = analysis_snapshot["charts"]["invoice_categories_period"]
+    period_base_url = _extend_relative_url(
+        "/admin/credit-card-invoices",
+        params={
+            "selection_mode": period_context["selection_mode"],
+            "month": period_context["month_value"] if period_context["selection_mode"] == "month" else None,
+            "period_start": period_context["period_start"].isoformat(),
+            "period_end": period_context["period_end"].isoformat(),
+        },
+    )
     chart_data = {
         "monthly": analysis_snapshot["charts"]["invoice_monthly"],
         "categories_monthly": analysis_snapshot["charts"]["invoice_categories_monthly"],
+        "categories_period": {
+            **invoice_period_category_data,
+            "hrefs": [
+                _extend_relative_url(
+                    f"{period_base_url}#invoice-items-table",
+                    params={
+                        "category": (
+                            invoice_period_category_data.get("category_names", invoice_period_category_data.get("labels", []))[index]
+                            if index < len(invoice_period_category_data.get("labels", []))
+                            else None
+                        ),
+                        "item_type": (
+                            "charge"
+                            if (
+                                index < len(invoice_period_category_data.get("flow_kinds", []))
+                                and invoice_period_category_data["flow_kinds"][index] == "expense"
+                            )
+                            else "credit"
+                            if (
+                                index < len(invoice_period_category_data.get("flow_kinds", []))
+                                and invoice_period_category_data["flow_kinds"][index] == "credit"
+                            )
+                            else None
+                        ),
+                    },
+                )
+                for index, _label in enumerate(invoice_period_category_data.get("labels", []))
+            ],
+        },
     }
     return {
         **period_context,
@@ -394,13 +440,20 @@ def admin_credit_card_invoice_list(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
-    context = _invoice_view_context(
-        db,
-        request=request,
+    restored_period = restore_admin_period_selection(
+        request,
         selection_mode=selection_mode,
         month=month,
         period_start=period_start,
         period_end=period_end,
+    )
+    context = _invoice_view_context(
+        db,
+        request=request,
+        selection_mode=restored_period["selection_mode"],
+        month=restored_period["month"],
+        period_start=restored_period["period_start"],
+        period_end=restored_period["period_end"],
         card_label=card_label,
         category=category,
         item_type=item_type,
@@ -408,7 +461,15 @@ def admin_credit_card_invoice_list(
         description=description,
         sort=sort,
     )
+    persist_admin_period_selection(
+        request,
+        selection_mode=context["selection_mode"],
+        month=context["month_value"],
+        period_start=context["period_start"],
+        period_end=context["period_end"],
+    )
     if is_htmx_request(request):
+        context["topbar_period_oob"] = True
         response = _render_invoice_view_shell(request, context)
         response.headers["HX-Push-Url"] = _relative_request_url(request)
         return response

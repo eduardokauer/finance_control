@@ -173,18 +173,82 @@
       });
     };
 
+    const categoryPeriodValueLabelsPlugin = {
+      id: 'adminCategoryPeriodValueLabels',
+      afterDatasetsDraw(chart) {
+        if (!chart?.canvas?.dataset?.categoryPeriodLabels) {
+          return;
+        }
+        const dataset = chart.data.datasets?.[0];
+        const meta = chart.getDatasetMeta(0);
+        if (!dataset || !meta || meta.hidden) {
+          return;
+        }
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.font = '700 11px "Open Sans", sans-serif';
+        ctx.fillStyle = 'rgba(51, 65, 85, 0.92)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        meta.data.forEach((bar, index) => {
+          const rawValue = Number(dataset.data[index] || 0);
+          if (rawValue <= 0) {
+            return;
+          }
+          const display = chart.canvas.dataset.categoryPeriodLabelPrefix === 'compact'
+            ? compactCurrency.format(rawValue)
+            : (dataset.valueDisplays?.[index] || compactCurrency.format(rawValue));
+          ctx.fillText(display, bar.x, Math.max(bar.y - 6, chart.chartArea.top + 10));
+        });
+        ctx.restore();
+      },
+    };
+
+    if (window.Chart && !window.Chart.registry.plugins.get('adminCategoryPeriodValueLabels')) {
+      window.Chart.register(categoryPeriodValueLabelsPlugin);
+    }
+
     window.mountAdminCategoryPeriodChart = function mountAdminCategoryPeriodChart(canvasId, data, options = {}) {
       const canvas = document.getElementById(canvasId);
       if (!canvas || !window.Chart) {
         return null;
       }
+      if (!window.Chart.registry.plugins.get('adminCategoryPeriodValueLabels')) {
+        window.Chart.register(categoryPeriodValueLabelsPlugin);
+      }
+      canvas.dataset.categoryPeriodLabels = options.valueLabels === false ? '' : 'true';
+      canvas.dataset.categoryPeriodLabelPrefix = options.valueLabelMode || 'compact';
 
       const hrefs = data.hrefs || [];
       const labels = data.labels || [];
       const values = data.values || [];
       const technical = data.technical || [];
       const flowLabels = data.flow_labels || [];
+      const flowKinds = data.flow_kinds || [];
       const valueDisplays = data.value_displays || [];
+      const flowKey = (index) => {
+        if (flowKinds[index]) return `${flowKinds[index]}`;
+        if (technical[index]) return 'transfer';
+        const normalizedFlow = `${flowLabels[index] || ''}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        if (normalizedFlow.includes('receita') || normalizedFlow.includes('income')) return 'income';
+        if (normalizedFlow.includes('despesa') || normalizedFlow.includes('expense') || normalizedFlow.includes('charge')) return 'expense';
+        if (normalizedFlow.includes('transfer')) return 'transfer';
+        return 'mixed';
+      };
+      const barFill = (index) => {
+        const flow = flowKey(index);
+        if (flow === 'transfer') return options.transferColor || 'rgba(100, 116, 139, 0.62)';
+        if (flow === 'income') return options.incomeColor || 'rgba(21, 128, 61, 0.74)';
+        if (flow === 'expense') return options.expenseColor || 'rgba(185, 28, 28, 0.72)';
+        return options.mixedColor || options.barColor || 'rgba(37, 99, 235, 0.72)';
+      };
+      const barStroke = (index) => {
+        const flow = flowKey(index);
+        if (flow === 'transfer') return options.transferBorderColor || 'rgba(71, 85, 105, 0.94)';
+        if (flow === 'income') return options.incomeBorderColor || 'rgba(21, 128, 61, 0.95)';
+        if (flow === 'expense') return options.expenseBorderColor || 'rgba(185, 28, 28, 0.95)';
+        return options.mixedBorderColor || options.barBorderColor || 'rgba(37, 99, 235, 0.92)';
+      };
 
       return new Chart(canvas, {
         type: 'bar',
@@ -194,16 +258,9 @@
             {
               label: options.datasetLabel || 'Valor no período',
               data: values,
-              backgroundColor: values.map((_value, index) => (
-                technical[index]
-                  ? (options.technicalColor || 'rgba(100, 116, 139, 0.55)')
-                  : (options.barColor || 'rgba(37, 99, 235, 0.72)')
-              )),
-              borderColor: values.map((_value, index) => (
-                technical[index]
-                  ? (options.technicalBorderColor || 'rgba(100, 116, 139, 0.92)')
-                  : (options.barBorderColor || 'rgba(37, 99, 235, 0.92)')
-              )),
+              valueDisplays,
+              backgroundColor: values.map((_value, index) => barFill(index)),
+              borderColor: values.map((_value, index) => barStroke(index)),
               borderRadius: 8,
               borderSkipped: false,
               maxBarThickness: options.maxBarThickness || 38,
@@ -213,6 +270,9 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: {
+            padding: { top: options.valueLabels === false ? 0 : 26 },
+          },
           onClick(_event, elements) {
             if (!elements?.length) return;
             const href = hrefs[elements[0].index];

@@ -117,6 +117,25 @@
       display: none;
     }
 
+    .admin-topbar-center:has(> #admin-topbar-center-slot:empty) {
+      display: none;
+    }
+
+    #admin-topbar-center-slot {
+      display: contents;
+    }
+
+    .admin-topbar-actions-slot {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .admin-topbar-actions-slot:empty {
+      display: none;
+    }
+
     .admin-topbar-context {
       display: grid;
       gap: 4px;
@@ -432,27 +451,22 @@
     }
 
     .inline-help-trigger {
-      width: 24px;
-      height: 24px;
-      border-radius: 999px;
-      border: 1px solid rgba(148, 163, 184, 0.44);
-      background: linear-gradient(180deg, #ffffff 0%, #eef4ff 100%);
       color: var(--accent);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.8rem;
+      display: inline-block;
+      font-size: 0.92rem;
       font-weight: 800;
       line-height: 1;
-      cursor: pointer;
-      box-shadow: var(--shadow-soft);
+      cursor: help;
       padding: 0;
+      user-select: none;
+      text-decoration: none;
+      text-underline-offset: 2px;
     }
 
     .inline-help-trigger:hover,
     .inline-help-trigger:focus-visible {
-      border-color: rgba(37, 99, 235, 0.45);
-      background: linear-gradient(180deg, #f8fbff 0%, #e0edff 100%);
+      color: #1d4ed8;
+      text-decoration: underline;
       outline: none;
     }
 
@@ -1361,7 +1375,8 @@
 
     @media (max-width: 1199px) {
       .admin-topbar-center {
-        display: none;
+        display: flex;
+        align-items: center;
       }
 
       .admin-topbar-actions {
@@ -1372,8 +1387,27 @@
 
     @media (max-width: 767px) {
       .admin-topbar {
-        height: 64px;
+        min-height: 64px;
+        height: auto;
+        align-items: flex-start;
+        flex-wrap: wrap;
         padding: 0 14px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+      }
+
+      .admin-topbar-leading,
+      .admin-topbar-center,
+      .admin-topbar-actions {
+        width: 100%;
+      }
+
+      .admin-topbar-center {
+        order: 3;
+      }
+
+      .admin-topbar-actions {
+        justify-content: flex-start;
       }
 
       .admin-content {
@@ -1522,9 +1556,11 @@
             <strong class="admin-topbar-title">{{ active_nav_label }}</strong>
           </div>
         </div>
-        <div class="admin-topbar-center">{% block topbar_center %}{% endblock %}</div>
+        <div class="admin-topbar-center">
+          <div id="admin-topbar-center-slot">{% block topbar_center %}{% endblock %}</div>
+        </div>
         <div class="admin-topbar-actions">
-          {% block topbar_actions %}{% endblock %}
+          <div id="admin-topbar-actions-slot" class="admin-topbar-actions-slot">{% block topbar_actions %}{% endblock %}</div>
           <form method="post" action="/admin/logout" class="admin-topbar-logout-form">
             <button type="submit" class="button button-ghost">Sair</button>
           </form>
@@ -1656,18 +1692,21 @@
         wrapper.className = "inline-help";
         wrapper.setAttribute("data-inline-help", "true");
 
-        const trigger = document.createElement("button");
-        trigger.type = "button";
+        const trigger = document.createElement("span");
         trigger.className = "inline-help-trigger";
+        trigger.setAttribute("tabindex", "0");
         trigger.setAttribute("aria-label", label || "Ajuda");
         trigger.setAttribute("aria-expanded", "false");
         trigger.setAttribute("data-inline-help-trigger", "true");
         trigger.textContent = "?";
 
         const bubble = document.createElement("span");
+        const bubbleId = `inline-help-${Math.random().toString(36).slice(2, 10)}`;
         bubble.className = "inline-help-bubble";
+        bubble.id = bubbleId;
         bubble.setAttribute("role", "tooltip");
         bubble.textContent = helpText;
+        trigger.setAttribute("aria-describedby", bubbleId);
 
         wrapper.appendChild(trigger);
         wrapper.appendChild(bubble);
@@ -1763,6 +1802,13 @@
       openAccordionFromHash();
       window.addEventListener("hashchange", openAccordionFromHash);
 
+      function closeAnalysisPeriodPopovers(except) {
+        document.querySelectorAll("[data-analysis-period-popover][open]").forEach((popover) => {
+          if (except && popover === except) return;
+          popover.open = false;
+        });
+      }
+
       function closeInlineHelp(except) {
         document.querySelectorAll(".inline-help.is-open").forEach((wrapper) => {
           if (except && wrapper === except) return;
@@ -1773,6 +1819,21 @@
       }
 
       document.addEventListener("click", (event) => {
+        const summaryPeriodTrigger = event.target.closest(".analysis-topbar-period-trigger");
+        if (summaryPeriodTrigger) {
+          const popover = summaryPeriodTrigger.closest("[data-analysis-period-popover]");
+          if (popover) {
+            event.preventDefault();
+            const willOpen = !popover.open;
+            closeAnalysisPeriodPopovers(popover);
+            popover.open = willOpen;
+          }
+          return;
+        }
+        if (!event.target.closest("[data-analysis-period-popover]")) {
+          closeAnalysisPeriodPopovers();
+        }
+
         const trigger = event.target.closest("[data-inline-help-trigger]");
         if (!trigger) {
           if (!event.target.closest(".inline-help")) {
@@ -1792,9 +1853,18 @@
         trigger.setAttribute("aria-expanded", willOpen ? "true" : "false");
       });
 
+      document.addEventListener("keydown", (event) => {
+        const trigger = event.target.closest?.("[data-inline-help-trigger]");
+        if (!trigger) return;
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        trigger.click();
+      });
+
       document.body.addEventListener("htmx:afterRequest", clearHtmxLoading);
       document.body.addEventListener("htmx:responseError", clearHtmxLoading);
       document.body.addEventListener("htmx:afterSwap", (event) => {
+        closeAnalysisPeriodPopovers();
         initializeInlineHelp(event.target instanceof Element ? event.target : document);
       });
       document.body.addEventListener("admin:toast", (event) => {
@@ -1804,6 +1874,7 @@
       });
       document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {
+          closeAnalysisPeriodPopovers();
           closeInlineHelp();
         }
       });

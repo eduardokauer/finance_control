@@ -1,27 +1,4 @@
-{% from "admin/partials/page_parts.html" import page_header %}
 <section class="analysis-context-stack">
-  {% call page_header(active_nav_section_label, analysis_page_title, analysis_page_intro, "analysis-page-header") %}
-    {% if analysis_back_href %}
-      <a href="{{ analysis_back_href }}" class="button button-ghost" data-return-summary-link>Voltar ao resumo</a>
-    {% endif %}
-    {% if analysis_show_generate %}
-      <form
-        method="post"
-        action="/admin/analysis/run"
-        {% if analysis_shell_target %}
-          hx-post="/admin/analysis/run"
-          hx-target="{{ analysis_shell_target }}"
-          hx-swap="outerHTML"
-        {% endif %}
-      >
-        <input type="hidden" name="period_start" value="{{ period_start }}">
-        <input type="hidden" name="period_end" value="{{ period_end }}">
-        <input type="hidden" name="return_to" value="{{ analysis_urls.return_to }}">
-        <button type="submit" class="button button-ghost" data-loading-button data-loading-label="Gerando análise...">Gerar nova análise</button>
-      </form>
-    {% endif %}
-  {% endcall %}
-
   <details class="toolbar-card analysis-global-toolbar top-filter-accordion" data-top-filter-accordion>
     <summary class="top-filter-summary">
       <span class="top-filter-summary-copy">

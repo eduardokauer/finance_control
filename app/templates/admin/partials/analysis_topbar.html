@@ -1,0 +1,28 @@
+{% macro analysis_topbar_period(period_start, period_end) -%}
+  <div class="analysis-topbar-period">
+    <span class="analysis-topbar-period-label">Período</span>
+    <strong class="analysis-topbar-period-value">{{ period_start.strftime('%d/%m/%Y') }} a {{ period_end.strftime('%d/%m/%Y') }}</strong>
+  </div>
+{%- endmacro %}
+
+{% macro analysis_topbar_actions(analysis_back_href, analysis_show_generate, analysis_shell_target, period_start, period_end, analysis_urls) -%}
+  {% if analysis_back_href %}
+    <a href="{{ analysis_back_href }}" class="button button-ghost" data-return-summary-link>Voltar ao resumo</a>
+  {% endif %}
+  {% if analysis_show_generate %}
+    <form
+      method="post"
+      action="/admin/analysis/run"
+      {% if analysis_shell_target %}
+        hx-post="/admin/analysis/run"
+        hx-target="{{ analysis_shell_target }}"
+        hx-swap="outerHTML"
+      {% endif %}
+    >
+      <input type="hidden" name="period_start" value="{{ period_start }}">
+      <input type="hidden" name="period_end" value="{{ period_end }}">
+      <input type="hidden" name="return_to" value="{{ analysis_urls.return_to }}">
+      <button type="submit" class="button button-ghost" data-loading-button data-loading-label="Gerando análise...">Gerar nova análise</button>
+    </form>
+  {% endif %}
+{%- endmacro %}

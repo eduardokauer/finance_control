@@ -12,6 +12,7 @@ from app.core.admin_auth import admin_ui_enabled
 from app.core.config import settings
 
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parents[3] / "templates"))
+ADMIN_PERIOD_SESSION_KEY = "admin_selected_period"
 
 
 ADMIN_NAV_SECTIONS = [
@@ -255,3 +256,63 @@ def parse_optional_date(value: str | None) -> date | None:
         return date.fromisoformat(value)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="Invalid date format") from exc
+
+
+def _safe_date_from_session(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def restore_admin_period_selection(
+    request: Request,
+    *,
+    selection_mode: str | None,
+    month: str | None,
+    period_start: date | None,
+    period_end: date | None,
+) -> dict[str, str | date | None]:
+    has_explicit_period_params = any(
+        key in request.query_params
+        for key in ("selection_mode", "month", "period_start", "period_end")
+    )
+    if has_explicit_period_params:
+        return {
+            "selection_mode": selection_mode,
+            "month": month,
+            "period_start": period_start,
+            "period_end": period_end,
+        }
+    saved_state = request.session.get(ADMIN_PERIOD_SESSION_KEY)
+    if not isinstance(saved_state, dict):
+        return {
+            "selection_mode": selection_mode,
+            "month": month,
+            "period_start": period_start,
+            "period_end": period_end,
+        }
+    return {
+        "selection_mode": saved_state.get("selection_mode") or selection_mode,
+        "month": saved_state.get("month") or month,
+        "period_start": _safe_date_from_session(saved_state.get("period_start")) or period_start,
+        "period_end": _safe_date_from_session(saved_state.get("period_end")) or period_end,
+    }
+
+
+def persist_admin_period_selection(
+    request: Request,
+    *,
+    selection_mode: str | None,
+    month: str | None,
+    period_start: date | None,
+    period_end: date | None,
+) -> None:
+    request.session[ADMIN_PERIOD_SESSION_KEY] = {
+        "selection_mode": selection_mode,
+        "month": month,
+        "period_start": period_start.isoformat() if period_start else None,
+        "period_end": period_end.isoformat() if period_end else None,
+    }

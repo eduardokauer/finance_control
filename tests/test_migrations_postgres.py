@@ -7,7 +7,7 @@ import psycopg
 import pytest
 
 from app.core.config import settings
-from app.core.migrations import run_sql_migrations
+from app.core.migrations import _connect_with_retry, run_sql_migrations
 
 
 def _to_psycopg_dsn(sqlalchemy_dsn: str) -> str:
@@ -31,6 +31,25 @@ def _postgres_available() -> bool:
 
 def _migration_files() -> list[Path]:
     return sorted((Path(__file__).resolve().parents[1] / "supabase" / "migrations").glob("*.sql"))
+
+
+def test_migration_connection_retries_transient_operational_error(monkeypatch):
+    attempts: list[str] = []
+    expected_connection = object()
+
+    def fake_connect(dsn: str):
+        attempts.append(dsn)
+        if len(attempts) < 3:
+            raise psycopg.OperationalError("temporary name resolution failure")
+        return expected_connection
+
+    monkeypatch.setattr("app.core.migrations.psycopg.connect", fake_connect)
+    monkeypatch.setattr("app.core.migrations.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr(settings, "migration_connect_attempts", 3)
+    monkeypatch.setattr(settings, "migration_connect_retry_seconds", 0.01)
+
+    assert _connect_with_retry("postgresql://example") is expected_connection
+    assert attempts == ["postgresql://example"] * 3
 
 
 @pytest.mark.skipif(not _postgres_available(), reason="requires postgres DATABASE_URL")

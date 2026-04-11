@@ -252,7 +252,7 @@ def test_admin_analysis_and_conference_routes_support_legacy_saved_payload(clien
     _assert_route_ok(conference_response, "/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
     _assert_route_ok(technical_response, "/admin/conference/technical?period_start=2026-03-01&period_end=2026-03-31")
     assert "Composição da leitura" in analysis_response.text
-    assert "Conta no recorte" in analysis_response.text
+    assert "Transações do período" in analysis_response.text
     assert "Itens do extrato" in conference_response.text
     assert "Auditoria técnica" in conference_response.text
     assert "legacy html" in technical_response.text
