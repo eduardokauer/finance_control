@@ -34,7 +34,14 @@ from app.services.credit_card_bills import (
 )
 from app.utils.normalization import normalize_description
 
-from .helpers import is_htmx_request, render_admin, templates, trigger_admin_toast
+from .helpers import (
+    is_htmx_request,
+    persist_admin_period_selection,
+    render_admin,
+    restore_admin_period_selection,
+    templates,
+    trigger_admin_toast,
+)
 
 router = APIRouter()
 
@@ -489,6 +496,7 @@ def _categories_page_context(
         "analysis_extra_hidden_fields": [
             {"name": "focus_category", "value": valid_focus, "clear_on_empty": True},
         ],
+        "analysis_shell_target": "#categories-view-shell",
         "categories": all_categories,
         "category_breakdown": analysis_data["category_breakdown"],
         "category_composition": composition,
@@ -586,14 +594,28 @@ def admin_categories(
     _: bool = Depends(require_admin_session),
 ):
     selected_categories = request.query_params.getlist("selected_category")
-    context = _categories_page_context(
-        db,
+    restored_period = restore_admin_period_selection(
+        request,
         selection_mode=selection_mode,
         month=month,
         period_start=period_start,
         period_end=period_end,
+    )
+    context = _categories_page_context(
+        db,
+        selection_mode=restored_period["selection_mode"],
+        month=restored_period["month"],
+        period_start=restored_period["period_start"],
+        period_end=restored_period["period_end"],
         focus_category=focus_category,
         selected_categories=selected_categories,
+    )
+    persist_admin_period_selection(
+        request,
+        selection_mode=context["selection_mode"],
+        month=context["month_value"],
+        period_start=context["period_start"],
+        period_end=context["period_end"],
     )
     current_relative_url = request.url.path + (f"?{request.url.query}" if request.url.query else "")
     encoded_return_to = quote(current_relative_url, safe="")
@@ -618,6 +640,18 @@ def admin_categories(
             composition.get("rows", []),
             return_to=current_relative_url,
         )
+    if is_htmx_request(request):
+        context["topbar_period_oob"] = True
+        response = templates.TemplateResponse(
+            request,
+            "admin/partials/categories_page_shell.html",
+            {
+                "request": request,
+                **context,
+            },
+        )
+        response.headers["HX-Push-Url"] = current_relative_url
+        return response
     return render_admin(
         request,
         "admin/categories.html",

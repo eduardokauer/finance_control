@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+import time
 
 import psycopg
 
@@ -21,6 +22,28 @@ def _load_migration_sql(path: str) -> str:
     return Path(path).read_text(encoding="utf-8")
 
 
+def _connect_with_retry(dsn: str):
+    attempts = max(1, settings.migration_connect_attempts)
+    retry_seconds = max(0.0, settings.migration_connect_retry_seconds)
+    last_error: psycopg.OperationalError | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return psycopg.connect(dsn)
+        except psycopg.OperationalError as exc:
+            last_error = exc
+            if attempt >= attempts:
+                break
+            print(
+                f"Database unavailable for migrations; retrying "
+                f"({attempt}/{attempts}) in {retry_seconds:g}s: {exc}",
+                flush=True,
+            )
+            time.sleep(retry_seconds)
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("database migration connection failed before any attempt")
+
+
 def run_sql_migrations() -> list[str]:
     migration_files = _load_migration_files()
     if not migration_files:
@@ -29,7 +52,7 @@ def run_sql_migrations() -> list[str]:
     applied: list[str] = []
     dsn = settings.database_url.replace("postgresql+psycopg://", "postgresql://", 1)
 
-    with psycopg.connect(dsn) as conn:
+    with _connect_with_retry(dsn) as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """

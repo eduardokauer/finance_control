@@ -1497,23 +1497,86 @@ def _materialize_category_rows(grouped: dict[str, dict], *, expense_total: float
 
 
 def _build_category_period_totals_chart(rows: list[dict]) -> dict:
-    chart_rows = [
-        {
-            "label": row["name"],
-            "value": round(float(row["movement_total"]), 2),
-            "value_display": row["display_total"],
-            "flow_label": row["flow_label"],
-            "is_technical": row["is_technical"],
-        }
-        for row in rows
-        if float(row["movement_total"]) > 0
-    ]
+    chart_rows: list[dict] = []
+    for row in rows:
+        category_name = row["name"]
+        expense_total = round(float(row["expense_total"]), 2)
+        income_total = round(float(row["income_total"]), 2)
+        movement_total = round(float(row["movement_total"]), 2)
+
+        if row["is_technical"]:
+            if movement_total > 0:
+                chart_rows.append(
+                    {
+                        "label": category_name,
+                        "category_name": category_name,
+                        "value": movement_total,
+                        "value_display": row["display_total"],
+                        "flow_label": row["technical_label"] or row["flow_label"] or "Técnico",
+                        "flow_kind": "transfer",
+                        "is_technical": True,
+                    }
+                )
+            continue
+
+        if income_total > 0 and expense_total > 0:
+            chart_rows.extend(
+                [
+                    {
+                        "label": f"{category_name} · Receita",
+                        "category_name": category_name,
+                        "value": income_total,
+                        "value_display": row["income_display"],
+                        "flow_label": "Receita",
+                        "flow_kind": "income",
+                        "is_technical": False,
+                    },
+                    {
+                        "label": f"{category_name} · Despesa",
+                        "category_name": category_name,
+                        "value": expense_total,
+                        "value_display": row["expense_display"],
+                        "flow_label": row["flow_label"] if row["flow_label"] not in {"Receita", "Misto"} else "Despesa",
+                        "flow_kind": "expense",
+                        "is_technical": False,
+                    },
+                ]
+            )
+            continue
+
+        if income_total > 0:
+            chart_rows.append(
+                {
+                    "label": category_name,
+                    "category_name": category_name,
+                    "value": income_total,
+                    "value_display": row["income_display"],
+                    "flow_label": "Receita",
+                    "flow_kind": "income",
+                    "is_technical": False,
+                }
+            )
+        elif expense_total > 0:
+            chart_rows.append(
+                {
+                    "label": category_name,
+                    "category_name": category_name,
+                    "value": expense_total,
+                    "value_display": row["expense_display"],
+                    "flow_label": row["flow_label"] if row["flow_label"] != "Misto" else "Despesa",
+                    "flow_kind": "expense",
+                    "is_technical": False,
+                }
+            )
+
     chart_rows.sort(key=lambda item: (-item["value"], item["label"].casefold()))
     return {
         "labels": [item["label"] for item in chart_rows],
+        "category_names": [item["category_name"] for item in chart_rows],
         "values": [item["value"] for item in chart_rows],
         "value_displays": [item["value_display"] for item in chart_rows],
         "flow_labels": [item["flow_label"] for item in chart_rows],
+        "flow_kinds": [item["flow_kind"] for item in chart_rows],
         "technical": [item["is_technical"] for item in chart_rows],
     }
 

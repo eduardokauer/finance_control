@@ -1,13 +1,11 @@
 {% extends "admin/base.html" %}
+{% from "admin/partials/analysis_topbar.html" import analysis_topbar_actions %}
 {% block title %}Vis&atilde;o de Extrato{% endblock %}
 {% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
+{% block topbar_center %}{% include "admin/partials/analysis_topbar_period_control.html" %}{% endblock %}
+{% block topbar_actions %}
+  {{ analysis_topbar_actions(analysis_back_href, analysis_show_generate, analysis_shell_target, period_start, period_end, analysis_urls) }}
+{% endblock %}
 {% block content %}
-{% set analysis_page_title = "Visão de Extrato" %}
-{% set analysis_page_intro = "Extrato bruto do período." %}
-{% set analysis_form_action = "/admin/conference" %}
-{% set analysis_submit_label = "Aplicar" %}
-{% set analysis_show_generate = True %}
-{% include "admin/partials/analysis_period_form.html" %}
-
 {% include "admin/partials/conference_page_shell.html" %}
 {% endblock %}

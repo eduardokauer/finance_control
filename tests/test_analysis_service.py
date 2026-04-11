@@ -271,6 +271,28 @@ def test_analysis_snapshot_period_category_charts_follow_selected_period(db_sess
     assert invoice_period_map["Educa\u00e7\u00e3o"] == 300.0
 
 
+def test_analysis_snapshot_period_category_chart_splits_mixed_category_flows(db_session):
+    _add_tx(db_session, tx_date=date(2026, 2, 4), description="TED MORADIA", amount=15849.01, category="Moradia", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 2, 12), description="ALUGUEL", amount=-6452.99, category="Moradia", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 2, 18), description="PIX TRANSF", amount=-14991.00, category="Transfer\u00eancias", transaction_kind="transfer")
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 2, 1), period_end=date(2026, 2, 28))
+
+    chart = snapshot["charts"]["conciliated_categories_period"]
+    values_by_label = dict(zip(chart["labels"], chart["values"]))
+    flows_by_label = dict(zip(chart["labels"], chart["flow_kinds"]))
+    categories_by_label = dict(zip(chart["labels"], chart["category_names"]))
+
+    assert values_by_label["Moradia \u00b7 Receita"] == 15849.01
+    assert values_by_label["Moradia \u00b7 Despesa"] == 6452.99
+    assert flows_by_label["Moradia \u00b7 Receita"] == "income"
+    assert flows_by_label["Moradia \u00b7 Despesa"] == "expense"
+    assert categories_by_label["Moradia \u00b7 Receita"] == "Moradia"
+    assert categories_by_label["Moradia \u00b7 Despesa"] == "Moradia"
+    assert values_by_label["Transfer\u00eancias"] == 14991.0
+    assert flows_by_label["Transfer\u00eancias"] == "transfer"
+
+
 def test_analysis_snapshot_exposes_conciliation_signals_without_changing_main_totals(db_session):
     _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Sal\u00e1rio", transaction_kind="income")
     _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")

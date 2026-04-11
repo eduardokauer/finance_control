@@ -2,8 +2,13 @@
 {% set composition_summary = conciliated_composition.summary %}
 {% set statement_summary = analysis_data.summary %}
 {% set invoice_summary = analysis_data.invoice_month_snapshot %}
+{% if topbar_period_oob %}
+  <div id="admin-topbar-center-slot" hx-swap-oob="innerHTML">
+    {% include "admin/partials/analysis_topbar_period_control.html" %}
+  </div>
+{% endif %}
 <section id="summary-view-shell" class="analysis-page-stack">
-  <section class="home-kpi-strip" aria-label="Blocos principais do mês">
+  <section class="home-kpi-strip" aria-label="Blocos principais do m&ecirc;s">
     {% for card in overview_cards %}
       <article class="card home-kpi-card {% if loop.first %}home-kpi-card-primary{% endif %}">
         <div class="home-kpi-meta">
@@ -24,56 +29,23 @@
             {% endif %}
           </span>
         </div>
+        <div class="home-kpi-value-block">
+          {% if card.action %}
+            <a
+              class="metric-value metric-value-link {{ card.value_class }}"
+              href="{{ card.action.href }}"
+              data-context-card="{{ card.action.key }}"
+              aria-label="Abrir detalhes de {{ card.title }}"
+            >{{ card.value }}</a>
+          {% else %}
+            <div class="metric-value {{ card.value_class }}">{{ card.value }}</div>
+          {% endif %}
+        </div>
         {% if card.detail %}
           <div class="home-kpi-detail" title="{{ card.detail }}">{{ card.detail }}</div>
         {% endif %}
-        <div class="home-kpi-value-block">
-          <div class="metric-value {{ card.value_class }}">{{ card.value }}</div>
-          {% if card.action %}
-            <div class="home-kpi-actions">
-              <a
-                class="button button-ghost"
-                href="{{ card.action.href }}"
-                data-context-card="{{ card.action.key }}"
-              >{{ card.action.label }}</a>
-            </div>
-          {% endif %}
-        </div>
       </article>
     {% endfor %}
-  </section>
-
-  <details id="overview-composition" class="accordion card analysis-section-card">
-    <summary>Composição da leitura</summary>
-    <div class="accordion-body">
-      {{ conciliated_composition_rows(conciliated_composition.rows, analysis_urls.detail) }}
-    </div>
-  </details>
-
-  <section class="card analysis-section-card">
-    <div class="analysis-section-header-row">
-      <div class="analysis-section-header">
-        <strong>Leituras especializadas</strong>
-        <div class="help-copy">A Visão Geral fecha o período e distribui a continuidade para as três leituras operacionais.</div>
-      </div>
-    </div>
-    <div class="summary-shortcuts">
-      <a class="summary-shortcut" href="{{ analysis_urls.detail }}">
-        <strong>Visão conciliada</strong>
-        <span class="subtle">Conta e faturas conciliadas no mesmo recorte, com fórmula aberta e drilldown operacional.</span>
-        <span class="analysis-stat-chip">Receitas {{ composition_summary.real_bank_income_display }} · Despesas {{ composition_summary.real_conciliated_expense_display }}</span>
-      </a>
-      <a class="summary-shortcut" href="{{ analysis_urls.conference }}">
-        <strong>Visão de Extrato</strong>
-        <span class="subtle">Extrato bruto do período com listagem, vínculo de conciliação e leitura isolada da conta.</span>
-        <span class="analysis-stat-chip">Entradas {{ statement_summary.income_display }} · Saídas {{ statement_summary.expense_display }}</span>
-      </a>
-      <a class="summary-shortcut" href="{{ analysis_urls.invoice_view }}">
-        <strong>Visão de Faturas</strong>
-        <span class="subtle">Itens e cabeçalhos de fatura do período, com filtros por cartão, tipo e status.</span>
-        <span class="analysis-stat-chip">Charges {{ invoice_summary.charge_total_display }} · Créditos {{ invoice_summary.credit_total_display }}</span>
-      </a>
-    </div>
   </section>
 
   <section class="card analysis-section-card overview-chart-card">
@@ -82,7 +54,7 @@
         <strong>{{ overview_charts.conciliated.title }}</strong>
         <div class="subtle">{{ overview_charts.conciliated.note }}</div>
       </div>
-      <a class="button button-ghost" href="{{ analysis_urls.detail }}" data-context-cta="conciliated">Abrir visão conciliada</a>
+      <a class="button button-ghost" href="{{ analysis_urls.detail }}" data-context-cta="conciliated">Abrir vis&atilde;o conciliada</a>
     </div>
     <div class="overview-chart-stack">
       <div class="overview-subchart-block">
@@ -104,7 +76,7 @@
         <strong>{{ overview_charts.statement.title }}</strong>
         <div class="subtle">{{ overview_charts.statement.note }}</div>
       </div>
-      <a class="button button-ghost" href="{{ analysis_urls.conference }}" data-context-cta="statement">Abrir visão de extrato</a>
+      <a class="button button-ghost" href="{{ analysis_urls.conference }}" data-context-cta="statement">Abrir vis&atilde;o de extrato</a>
     </div>
     <div class="overview-chart-stack">
       <div class="overview-subchart-block">
@@ -126,7 +98,7 @@
         <strong>{{ overview_charts.invoice.title }}</strong>
         <div class="subtle">{{ overview_charts.invoice.note }}</div>
       </div>
-      <a class="button button-ghost" href="{{ analysis_urls.invoice_view }}" data-context-cta="invoice">Abrir visão de faturas</a>
+      <a class="button button-ghost" href="{{ analysis_urls.invoice_view }}" data-context-cta="invoice">Abrir vis&atilde;o de faturas</a>
     </div>
     <div class="overview-chart-stack">
       <div class="overview-subchart-block">
@@ -160,7 +132,7 @@
           </div>
         </div>
       </div>
-      <div id="overview-categories-legend" class="chart-legend-checkboxes" aria-label="Categorias visíveis na overview"></div>
+      <div id="overview-categories-legend" class="chart-legend-checkboxes" aria-label="Categorias vis&iacute;veis na overview"></div>
       <div class="chart-shell chart-shell-tall">
         <canvas id="{{ overview_charts.categories.canvas_id }}" aria-label="{{ overview_charts.categories.title }}"></canvas>
       </div>
@@ -169,8 +141,8 @@
     <section class="card analysis-section-card overview-alerts-card">
       <div class="overview-chart-header">
         <div class="stack" style="gap: 4px;">
-          <strong>Alertas do período</strong>
-          <div class="subtle">Todo alerta termina em uma listagem útil, preservando o período atual.</div>
+          <strong>Alertas do per&iacute;odo</strong>
+          <div class="subtle">Todo alerta termina em uma listagem &uacute;til, preservando o per&iacute;odo atual.</div>
         </div>
       </div>
       <div class="analysis-list overview-alert-list">
@@ -187,13 +159,46 @@
           </div>
         {% else %}
           <div class="empty-state">
-            <strong>Nenhum alerta prioritário</strong>
-            <div class="subtle">O período não trouxe sinal crítico acima da linha de base da leitura atual.</div>
+            <strong>Nenhum alerta priorit&aacute;rio</strong>
+            <div class="subtle">O per&iacute;odo n&atilde;o trouxe sinal cr&iacute;tico acima da linha de base da leitura atual.</div>
           </div>
         {% endfor %}
       </div>
     </section>
   </section>
+
+  <section class="card analysis-section-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Leituras especializadas</strong>
+        <div class="help-copy">A Vis&atilde;o Geral fecha o per&iacute;odo e distribui a continuidade para as tr&ecirc;s leituras operacionais.</div>
+      </div>
+    </div>
+    <div class="summary-shortcuts">
+      <a class="summary-shortcut" href="{{ analysis_urls.detail }}">
+        <strong>Vis&atilde;o conciliada</strong>
+        <span class="subtle">Conta e faturas conciliadas no mesmo recorte, com f&oacute;rmula aberta e drilldown operacional.</span>
+        <span class="analysis-stat-chip">Receitas {{ composition_summary.real_bank_income_display }} &middot; Despesas {{ composition_summary.real_conciliated_expense_display }}</span>
+      </a>
+      <a class="summary-shortcut" href="{{ analysis_urls.conference }}">
+        <strong>Vis&atilde;o de Extrato</strong>
+        <span class="subtle">Extrato bruto do per&iacute;odo com listagem, v&iacute;nculo de concilia&ccedil;&atilde;o e leitura isolada da conta.</span>
+        <span class="analysis-stat-chip">Entradas {{ statement_summary.income_display }} &middot; Sa&iacute;das {{ statement_summary.expense_display }}</span>
+      </a>
+      <a class="summary-shortcut" href="{{ analysis_urls.invoice_view }}">
+        <strong>Vis&atilde;o de Faturas</strong>
+        <span class="subtle">Itens e cabe&ccedil;alhos de fatura do per&iacute;odo, com filtros por cart&atilde;o, tipo e status.</span>
+        <span class="analysis-stat-chip">Charges {{ invoice_summary.charge_total_display }} &middot; Cr&eacute;ditos {{ invoice_summary.credit_total_display }}</span>
+      </a>
+    </div>
+  </section>
+
+  <details id="overview-composition" class="accordion card analysis-section-card">
+    <summary>Composi&ccedil;&atilde;o da leitura</summary>
+    <div class="accordion-body">
+      {{ conciliated_composition_rows(conciliated_composition.rows, analysis_urls.detail) }}
+    </div>
+  </details>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   {% include "admin/partials/category_stacked_chart_script.html" %}
@@ -203,7 +208,7 @@
       window.mountAdminCategoryPeriodChart(
         {{ overview_charts.conciliated.period_categories.canvas_id|tojson }},
         {{ overview_charts.conciliated.period_categories.data|tojson }},
-        { datasetLabel: 'Total conciliado no período' }
+        { datasetLabel: 'Total conciliado no per\u00edodo' }
       );
 
       window.mountAdminCashFlowChart(
@@ -224,7 +229,7 @@
       window.mountAdminCategoryPeriodChart(
         {{ overview_charts.statement.period_categories.canvas_id|tojson }},
         {{ overview_charts.statement.period_categories.data|tojson }},
-        { datasetLabel: 'Total do extrato no período' }
+        { datasetLabel: 'Total do extrato no per\u00edodo' }
       );
 
       window.mountAdminCashFlowChart(
@@ -232,7 +237,7 @@
         {{ overview_charts.statement.data|tojson }},
         {
           incomeLabel: 'Entradas do extrato',
-          expenseLabel: 'Saídas do extrato',
+          expenseLabel: 'Sa\u00eddas do extrato',
           balanceLabel: 'Saldo do extrato',
           incomeColor: 'rgba(15, 118, 110, 0.72)',
           incomeBorder: 'rgba(15, 118, 110, 0.92)',
@@ -245,7 +250,7 @@
       window.mountAdminCategoryPeriodChart(
         {{ overview_charts.invoice.period_categories.canvas_id|tojson }},
         {{ overview_charts.invoice.period_categories.data|tojson }},
-        { datasetLabel: 'Total de faturas no período' }
+        { datasetLabel: 'Total de faturas no per\u00edodo' }
       );
 
       window.mountAdminInvoiceMonthlyChart(
@@ -256,7 +261,7 @@
       window.mountAdminCategoryPeriodChart(
         {{ overview_charts.categories.period_categories.canvas_id|tojson }},
         {{ overview_charts.categories.period_categories.data|tojson }},
-        { datasetLabel: 'Valor por categoria no período' }
+        { datasetLabel: 'Valor por categoria no per\u00edodo' }
       );
 
       window.mountAdminStackedCategoryChart(

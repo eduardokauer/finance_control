@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     admin_ui_password: str | None = None
     admin_ui_session_secret: str = "change-me-admin-session-secret"
     database_url: str = "postgresql+psycopg://postgres:postgres@db:5432/finance_control"
+    migration_connect_attempts: int = 12
+    migration_connect_retry_seconds: float = 5.0
     port: int = 8000
 
     model_config = SettingsConfigDict(

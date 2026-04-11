@@ -1,5 +1,10 @@
 {% from "admin/partials/invoice_operational_table.html" import invoice_operational_table with context %}
 {% from "admin/partials/invoice_entries_table.html" import invoice_entries_table with context %}
+{% if topbar_period_oob %}
+  <div id="admin-topbar-center-slot" hx-swap-oob="innerHTML">
+    {% include "admin/partials/analysis_topbar_period_control.html" %}
+  </div>
+{% endif %}
 <section id="invoice-view-shell" class="analysis-page-stack">
   <section class="analysis-metric-grid" aria-label="Resumo das faturas">
     <article class="card analysis-metric-card">
@@ -9,10 +14,9 @@
         <span class="help-copy">Soma declarada nas faturas do recorte atual.</span>
         <span class="home-kpi-icon home-kpi-icon-result" aria-hidden="true">&#9679;</span>
       </div>
-      <div class="metric-value">{{ invoice_snapshot.total_billed_display }}</div>
-      <div class="analysis-metric-actions">
-        <a class="button button-ghost" href="#invoice-headers-table">Ver faturas</a>
-      </div>
+      <a class="metric-value metric-value-link" href="#invoice-headers-table" aria-label="Abrir total faturado nas faturas do período">
+        {{ invoice_snapshot.total_billed_display }}
+      </a>
     </article>
     <article class="card analysis-metric-card">
       <span class="analysis-metric-meta">{{ invoice_period_label }}</span>
@@ -21,10 +25,9 @@
         <span class="help-copy">Itens de compra do período.</span>
         <span class="home-kpi-icon home-kpi-icon-expense" aria-hidden="true">&darr;</span>
       </div>
-      <div class="metric-value amount-negative">{{ invoice_snapshot.charge_total_display }}</div>
-      <div class="analysis-metric-actions">
-        <a class="button button-ghost" href="/admin/credit-card-invoices?selection_mode={{ selection_mode }}{% if selection_mode == 'month' %}&month={{ month_value }}{% else %}&period_start={{ period_start }}&period_end={{ period_end }}{% endif %}&item_type=charge#invoice-items-table">Ver itens</a>
-      </div>
+      <a class="metric-value metric-value-link amount-negative" href="/admin/credit-card-invoices?selection_mode={{ selection_mode }}{% if selection_mode == 'month' %}&month={{ month_value }}{% else %}&period_start={{ period_start }}&period_end={{ period_end }}{% endif %}&item_type=charge#invoice-items-table" aria-label="Abrir charges do período">
+        {{ invoice_snapshot.charge_total_display }}
+      </a>
     </article>
     <article class="card analysis-metric-card">
       <span class="analysis-metric-meta">{{ invoice_period_label }}</span>
@@ -33,10 +36,9 @@
         <span class="help-copy">Ajustes positivos ligados às faturas do recorte.</span>
         <span class="home-kpi-icon home-kpi-icon-income" aria-hidden="true">&uarr;</span>
       </div>
-      <div class="metric-value amount-positive">{{ invoice_snapshot.credit_total_display }}</div>
-      <div class="analysis-metric-actions">
-        <a class="button button-ghost" href="/admin/credit-card-invoices?selection_mode={{ selection_mode }}{% if selection_mode == 'month' %}&month={{ month_value }}{% else %}&period_start={{ period_start }}&period_end={{ period_end }}{% endif %}&item_type=credit#invoice-items-table">Ver créditos</a>
-      </div>
+      <a class="metric-value metric-value-link amount-positive" href="/admin/credit-card-invoices?selection_mode={{ selection_mode }}{% if selection_mode == 'month' %}&month={{ month_value }}{% else %}&period_start={{ period_start }}&period_end={{ period_end }}{% endif %}&item_type=credit#invoice-items-table" aria-label="Abrir créditos do período">
+        {{ invoice_snapshot.credit_total_display }}
+      </a>
     </article>
     <article class="card analysis-metric-card">
       <span class="analysis-metric-meta">{{ invoice_period_label }}</span>
@@ -45,12 +47,23 @@
         <span class="help-copy">Quantidade de faturas do recorte por vencimento.</span>
         <span class="home-kpi-icon home-kpi-icon-net_flow" aria-hidden="true">&#9679;</span>
       </div>
+      <a class="metric-value metric-value-link" href="#invoice-headers-table" aria-label="Abrir faturas do período">
+        {{ invoice_snapshot.invoice_count }}
+      </a>
       <span class="analysis-metric-detail">Pendentes: {{ invoice_snapshot.status_counts.pending_review }}</span>
-      <div class="metric-value">{{ invoice_snapshot.invoice_count }}</div>
-      <div class="analysis-metric-actions">
-        <a class="button button-ghost" href="/admin/credit-card-invoices/manage">Administrar faturas</a>
-      </div>
     </article>
+  </section>
+
+  <section class="card analysis-section-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Categorias no período</strong>
+        <div class="help-copy">Totais dos itens de fatura no recorte atual, ordenados do maior para o menor.</div>
+      </div>
+    </div>
+    <div class="chart-shell chart-shell-medium">
+      <canvas id="invoice-period-categories-chart" aria-label="Categorias de fatura no período"></canvas>
+    </div>
   </section>
 
   <section class="card analysis-section-card">
@@ -183,7 +196,17 @@
 
   <script>
     (() => {
-      if (window.Chart && window.mountAdminInvoiceMonthlyChart && window.mountAdminStackedCategoryChart) {
+      if (
+        window.Chart
+        && window.mountAdminInvoiceMonthlyChart
+        && window.mountAdminStackedCategoryChart
+        && window.mountAdminCategoryPeriodChart
+      ) {
+        window.mountAdminCategoryPeriodChart(
+          "invoice-period-categories-chart",
+          {{ chart_data.categories_period | tojson }},
+          { datasetLabel: "Total de faturas no período" }
+        );
         window.mountAdminInvoiceMonthlyChart("invoice-monthly-chart", {{ chart_data.monthly | tojson }});
         window.mountAdminStackedCategoryChart(
           "invoice-categories-chart",
@@ -193,4 +216,5 @@
       }
     })();
   </script>
+  {% include "admin/partials/analysis_period_form_script.html" %}
 </section>
