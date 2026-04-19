@@ -192,11 +192,23 @@
     </div>
   </details>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   {% include "admin/partials/category_stacked_chart_script.html" %}
   {% include "admin/partials/analysis_chart_helpers.html" %}
   <script>
     (() => {
+      const isCompetenceLens = {{ 'true' if home_dashboard.active_lens == 'competence' else 'false' }};
+      const homeLensLabels = isCompetenceLens
+        ? {
+            income: 'Receitas',
+            expense: 'Despesas',
+            balance: 'Resultado',
+          }
+        : {
+            income: 'Entradas',
+            expense: 'Saídas',
+            balance: 'Fluxo líquido',
+          };
+
       window.mountAdminCategoryPeriodChart(
         {{ overview_charts.statement.period_categories.canvas_id|tojson }},
         {{ overview_charts.statement.period_categories.data|tojson }},
@@ -207,9 +219,9 @@
         "overview-home-dashboard-chart",
         {{ home_dashboard.chart|tojson }},
         {
-          incomeLabel: home_dashboard.chart.datasets[0].label,
-          expenseLabel: home_dashboard.chart.datasets[1].label,
-          balanceLabel: home_dashboard.chart.datasets[2].label,
+          incomeLabel: homeLensLabels.income,
+          expenseLabel: homeLensLabels.expense,
+          balanceLabel: homeLensLabels.balance,
           incomeColor: 'rgba(21, 127, 70, 0.72)',
           incomeBorder: 'rgba(21, 127, 70, 0.92)',
           expenseColor: 'rgba(197, 52, 47, 0.68)',

@@ -20,7 +20,18 @@ from app.services.analysis import (
 )
 
 
-def _add_tx(db_session, *, tx_date: date, description: str, amount: float, category: str, transaction_kind: str, should_count_in_spending: bool = True, is_card_bill_payment: bool = False):
+def _add_tx(
+    db_session,
+    *,
+    tx_date: date,
+    description: str,
+    amount: float,
+    category: str,
+    transaction_kind: str,
+    should_count_in_spending: bool = True,
+    is_card_bill_payment: bool = False,
+    competence_month: str | None = None,
+):
     source_file = SourceFile(
         source_type="bank_statement",
         file_name=f"{description}.ofx",
@@ -32,13 +43,13 @@ def _add_tx(db_session, *, tx_date: date, description: str, amount: float, categ
     db_session.flush()
     tx = Transaction(
         source_file_id=source_file.id,
-        source_type="bank_statement",
-        account_ref="conta-principal",
-        external_id=None,
-        canonical_hash=f"tx-{description}-{tx_date.isoformat()}-{amount}",
-        transaction_date=tx_date,
-        competence_month=tx_date.strftime("%Y-%m"),
-        description_raw=description,
+            source_type="bank_statement",
+            account_ref="conta-principal",
+            external_id=None,
+            canonical_hash=f"tx-{description}-{tx_date.isoformat()}-{amount}",
+            transaction_date=tx_date,
+            competence_month=competence_month or tx_date.strftime("%Y-%m"),
+            description_raw=description,
         description_normalized=description.lower(),
         amount=amount,
         direction="credit" if amount > 0 else "debit",
@@ -823,6 +834,50 @@ def test_analysis_snapshot_builds_home_dashboard_for_cash_and_competence_lenses(
     assert competence_cards["competence_expense"]["current"] == 3200.0
     assert competence_cards["margin"]["current_display"] == "36,0%"
     assert competence_dashboard["category_comparison"]["visible"] is True
+
+
+def test_analysis_snapshot_uses_competence_month_for_home_lens(db_session):
+    _add_tx(
+        db_session,
+        tx_date=date(2026, 2, 28),
+        competence_month="2026-03",
+        description="SALARIO FEV COMPETENCIA MAR",
+        amount=7777.77,
+        category="Sal\u00e1rio",
+        transaction_kind="income",
+    )
+    _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 8),
+        competence_month="2026-03",
+        description="ALUGUEL MAR COMPETENCIA",
+        amount=-1800.0,
+        category="Moradia",
+        transaction_kind="expense",
+    )
+
+    cash_snapshot = build_analysis_snapshot(
+        db_session,
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        home_lens="cash",
+    )
+    competence_snapshot = build_analysis_snapshot(
+        db_session,
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        home_lens="competence",
+    )
+
+    cash_cards = {item["key"]: item for item in cash_snapshot["home_dashboard"]["cards"]}
+    competence_cards = {item["key"]: item for item in competence_snapshot["home_dashboard"]["cards"]}
+
+    assert cash_cards["net_flow"]["current"] == -1800.0
+    assert competence_cards["result"]["current"] == 5977.77
+    assert competence_cards["competence_income"]["current"] == 7777.77
+    assert competence_cards["competence_expense"]["current"] == 1800.0
+    assert cash_snapshot["home_dashboard"]["chart"]["income"][2] == 0.0
+    assert competence_snapshot["home_dashboard"]["chart"]["income"][2] == 7777.77
 
 
 def test_analysis_snapshot_builds_recent_movements_for_home_from_current_month(db_session):

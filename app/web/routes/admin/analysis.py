@@ -921,9 +921,9 @@ def _analysis_page_context(
             "key": lens["key"],
             "label": "Caixa" if lens["key"] == "cash" else "Compet\u00eancia",
             "href": _url_with_query(
-                "/admin",
+                base_path,
                 {
-                    **overview_state,
+                    **page_query_params,
                     "home_lens": lens["key"],
                 },
             ),
@@ -1416,7 +1416,7 @@ def render_analysis_shell_for_return_to(request: Request, db: Session, return_to
         period_start=context.get("period_start"),
         period_end=context.get("period_end"),
     )
-    if base_path in {"/admin", "/admin/summary"}:
+    if context.get("home_lens") is not None:
         persist_admin_home_lens_selection(request, home_lens=context.get("home_lens"))
     normalized_base_path = "/admin" if base_path == "/admin/summary" else base_path
     return _render_analysis_shell(request, base_path=normalized_base_path, context=context, status_code=status_code)
@@ -1576,6 +1576,7 @@ def admin_analysis_page(
         period_start=page_context["period_start"],
         period_end=page_context["period_end"],
     )
+    persist_admin_home_lens_selection(request, home_lens=page_context["home_lens"])
     if is_htmx_request(request):
         page_context["topbar_period_oob"] = True
         response = _render_analysis_shell(request, base_path="/admin/analysis", context=page_context)
@@ -1638,6 +1639,7 @@ def admin_conference_page(
         period_start=page_context["period_start"],
         period_end=page_context["period_end"],
     )
+    persist_admin_home_lens_selection(request, home_lens=page_context["home_lens"])
     if is_htmx_request(request):
         page_context["topbar_period_oob"] = True
         response = _render_analysis_shell(request, base_path="/admin/conference", context=page_context)
@@ -1691,6 +1693,7 @@ def admin_conference_technical_page(
         period_start=page_context["period_start"],
         period_end=page_context["period_end"],
     )
+    persist_admin_home_lens_selection(request, home_lens=page_context["home_lens"])
     return render_admin(
         request,
         "admin/conference_technical.html",
