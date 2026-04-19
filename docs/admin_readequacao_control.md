@@ -9,7 +9,7 @@ Este arquivo nao substitui `docs/project_context.md`. O contexto do projeto cont
 ## Fontes de referencia
 
 - `docs/project_context.md`
-- `docs/codex_workflow.md`
+- `docs/coder_workflow.md`
 - template original do dashboard enviado pelo usuario como referencia visual e estrutural
 
 ## Regra de traducao do template
