@@ -13,6 +13,7 @@ from app.core.config import settings
 
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parents[3] / "templates"))
 ADMIN_PERIOD_SESSION_KEY = "admin_selected_period"
+ADMIN_HOME_LENS_SESSION_KEY = "admin_selected_home_lens"
 
 
 ADMIN_NAV_SECTIONS = [
@@ -316,3 +317,40 @@ def persist_admin_period_selection(
         "period_start": period_start.isoformat() if period_start else None,
         "period_end": period_end.isoformat() if period_end else None,
     }
+
+
+def restore_admin_home_lens_selection(
+    request: Request,
+    *,
+    home_lens: str | None,
+    default: str = "cash",
+) -> str:
+    if "home_lens" in request.query_params:
+        selected = (home_lens or "").strip().lower()
+        if selected in {"cash", "competence"}:
+            return selected
+        saved_lens = request.session.get(ADMIN_HOME_LENS_SESSION_KEY)
+        if isinstance(saved_lens, str):
+            normalized = saved_lens.strip().lower()
+            if normalized in {"cash", "competence"}:
+                return normalized
+        return default
+    saved_lens = request.session.get(ADMIN_HOME_LENS_SESSION_KEY)
+    if isinstance(saved_lens, str):
+        normalized = saved_lens.strip().lower()
+        if normalized in {"cash", "competence"}:
+            return normalized
+    normalized_home_lens = (home_lens or "").strip().lower()
+    return normalized_home_lens if normalized_home_lens in {"cash", "competence"} else default
+
+
+def persist_admin_home_lens_selection(
+    request: Request,
+    *,
+    home_lens: str | None,
+    default: str = "cash",
+) -> None:
+    normalized_home_lens = (home_lens or "").strip().lower()
+    request.session[ADMIN_HOME_LENS_SESSION_KEY] = (
+        normalized_home_lens if normalized_home_lens in {"cash", "competence"} else default
+    )

@@ -51,6 +51,51 @@
   .analysis-topbar-period-trigger:focus-visible .analysis-topbar-period-link {
     color: #1d4ed8;
   }
+  .summary-topbar-controls {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .summary-topbar-lens {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+  .summary-topbar-lens-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px;
+    border-radius: 999px;
+    border: 1px solid rgba(217, 226, 236, 0.92);
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: var(--shadow-soft);
+  }
+  .summary-topbar-lens-option {
+    min-height: 34px;
+    padding: 0 14px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted-strong);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 700;
+    transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+  }
+  .summary-topbar-lens-option:hover,
+  .summary-topbar-lens-option:focus-visible {
+    color: var(--ink);
+    background: rgba(37, 99, 235, 0.08);
+  }
+  .summary-topbar-lens-option-active {
+    color: #1d4ed8;
+    background: rgba(37, 99, 235, 0.12);
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.16) inset;
+  }
   .analysis-topbar-period-panel {
     position: absolute;
     top: calc(100% + 12px);
@@ -67,6 +112,18 @@
   }
   .analysis-topbar-period-form .analysis-period-bar {
     gap: 14px;
+  }
+  @media (max-width: 880px) {
+    .summary-topbar-controls {
+      width: 100%;
+    }
+    .summary-topbar-lens-switch {
+      width: 100%;
+      justify-content: stretch;
+    }
+    .summary-topbar-lens-option {
+      flex: 1;
+    }
   }
   .analysis-breadcrumb-row {
     display: flex;

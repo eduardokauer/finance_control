@@ -984,7 +984,8 @@ def _build_home_dashboard(
     chart_year: int | None,
     chart_compare: str | None,
 ) -> dict:
-    active_lens = active_lens if active_lens in {"cash", "competence"} else "cash"
+    if active_lens not in {"cash", "competence"}:
+        raise ValueError(f"Unsupported home lens: {active_lens}")
     chart_mode = chart_mode if chart_mode in {"year", "rolling_12"} else "year"
     available_years = _available_chart_years(db, anchor_month=anchor_month)
     if chart_year not in available_years:
