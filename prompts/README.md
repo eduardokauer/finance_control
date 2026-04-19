@@ -1,13 +1,11 @@
 # Prompts
 
-Esta pasta não é a fonte canônica do processo do projeto.
+Esta pasta existe por compatibilidade e utilidade local.
 
-Prompts canônicos de processo ficam em `docs/`.
+O processo oficial do projeto vive fora do repositório.
+Use:
+- ChatGPT Project para refinamento, análise e geração de prompts
+- Notion para registrar de forma curta a decisão e a fatia atual
+- o repositório para contexto técnico estável e regras de execução
 
-Referências oficiais atuais:
-- `docs/pm_cycle_start_prompt.md`: início de ciclo PM/LLM
-- `docs/project_context.md`: estado atual do projeto e do ciclo
-- `docs/pm_workflow.md`: stub de compatibilidade do processo de PM
-- `docs/coder_workflow.md`: processo do executor técnico
-
-Arquivos mantidos em `prompts/` devem existir apenas por compatibilidade explícita ou utilidade específica, sem competir com `docs/` como fonte de verdade do workflow.
+Arquivos em `prompts/` não devem competir com esses papéis.
