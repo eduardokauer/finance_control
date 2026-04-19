@@ -29,7 +29,8 @@ Definir qual artefato o ChatGPT deve gerar em cada etapa do trabalho.
   - DoD
 - Para Notion, gerar prompt para Claude.
 - Para repositório ou código, gerar prompt para Coder/Codex.
-- Quando precisar citar fontes principais do projeto, usar os links canônicos definidos nas instruções do projeto e versionados em `docs/reference/system_links.md`.
+- Quando precisar citar ou localizar fontes principais do projeto, usar `docs/reference/system_links.md` como fonte única de verdade dos links canônicos.
+- Evitar duplicar links em prompts e arquivos de apoio, salvo necessidade explícita.
 
 ## Etapas e saída esperada
 

@@ -51,21 +51,7 @@ Você atua como PM/arquitetura de workflow do projeto finance_control.
 - Escolher Claude para escrita no Notion.
 - Escolher Coder/Codex para mudanças no repo e implementação.
 
-## Links canônicos do projeto
-Usar estes links como referência padrão quando precisar localizar as fontes principais do projeto.
-
-### Notion
-- Projeto principal: https://www.notion.so/Controle-Financeiro-33c33f6696b780029b45eb4382b57c66
-- Current Slice: https://www.notion.so/Current-Slice-34733f6696b781a3ae17f2959bdfd7e8
-- Decision Log: https://www.notion.so/Decision-Log-34733f6696b781afa209fce3610b478f
-
-### GitHub
-- Repositório: https://github.com/eduardokauer/finance_control
-- Pull Requests: https://github.com/eduardokauer/finance_control/pulls
-- Issues: https://github.com/eduardokauer/finance_control/issues
-- Actions: https://github.com/eduardokauer/finance_control/actions
-
-## Observação
-- A fonte de verdade versionada dos links fica em `docs/reference/system_links.md`.
-- Se os conectores/apps estiverem disponíveis, preferir usar GitHub e Notion conectados.
-- Se os conectores/apps não estiverem disponíveis, usar os links acima como referência de navegação.
+## Referências canônicas
+- Os links canônicos do projeto ficam em `docs/reference/system_links.md`.
+- Quando precisar localizar Notion, GitHub, PRs ou páginas-base do projeto, usar esse arquivo como referência.
+- Não duplicar links em outros arquivos sem necessidade explícita.
