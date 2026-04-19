@@ -1,4 +1,4 @@
-﻿import html as html_lib
+import html as html_lib
 import json
 import re
 from datetime import date
@@ -211,36 +211,36 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert 'id="admin-toast-region"' in home.text
     assert 'data-admin-nav' in home.text
     assert "Principal" in home.text
-    assert "OperaÃ§Ã£o" in home.text
-    assert "ConfiguraÃ§Ã£o" in home.text
-    assert "VisÃ£o Geral" in home.text
-    assert "Resumo das leituras do perÃ­odo." not in home.text
+    assert "Operação" in home.text
+    assert "Configuração" in home.text
+    assert "Visão Geral" in home.text
+    assert "Resumo das leituras do período." not in home.text
     assert 'data-return-summary-link' not in home.text
-    assert "Controles globais da pÃ¡gina" not in home.text
+    assert "Controles globais da página" not in home.text
     assert 'id="admin-topbar-center-slot"' in home.text
     assert 'data-analysis-period-popover' in home.text
     assert 'class="analysis-period-bar"' in home.text
-    assert "Ãšltimo mÃªs fechado disponÃ­vel" in home.text
+    assert "Último mês fechado disponível" in home.text
     assert 'id="analysis-apply-button"' in home.text
-    assert "Fluxo lÃ­quido do mÃªs" in home.text
+    assert "Fluxo líquido do mês" in home.text
     assert "Entradas do mês" in home.text
-    assert "SaÃ­das do mÃªs" in home.text
-    assert "SaÃ­das do mÃªs" in home.text
-    assert "Maior saÃ­da do mÃªs" in home.text
+    assert "Saídas do mês" in home.text
+    assert "Saídas do mês" in home.text
+    assert "Maior saída do mês" in home.text
     assert "Leituras especializadas" in home.text
-    assert "Categorias do perÃ­odo" in home.text
+    assert "Categorias do período" in home.text
     assert "Alertas" in home.text
     assert "chart.js" in home.text.lower()
-    assert "Resumo executivo da VisÃ£o de Caixa" not in home.text
-    assert "AnÃ¡lise detalhada" not in home.text
-    assert "ConferÃªncia" not in home.text
+    assert "Resumo executivo da Visão de Caixa" not in home.text
+    assert "Análise detalhada" not in home.text
+    assert "Conferência" not in home.text
     assert "Visão conciliada" in home.text
     assert "Visão de Extrato" in home.text
     assert "Visão de Faturas" in home.text
     assert "Central operacional" in home.text
-    assert "VisÃ£o bruta de apoio" not in home.text
-    assert "Sinais analÃ­ticos de conciliaÃ§Ã£o" not in home.text
-    assert "AnÃ¡lise determinÃ­stica renderizada" not in home.text
+    assert "Visão bruta de apoio" not in home.text
+    assert "Sinais analíticos de conciliação" not in home.text
+    assert "Análise determinística renderizada" not in home.text
 
 
 def test_admin_login_page_uses_shell_auth_header(client, monkeypatch):
@@ -290,8 +290,8 @@ def test_admin_sidebar_exposes_transactions_bulk_submenu(client, db_session, mon
     response = client.get("/admin/transactions/bulk")
 
     assert response.status_code == 200
-    assert "LanÃ§amentos" in response.text
-    assert "AÃ§Ãµes em lote" in response.text
+    assert "Lançamentos" in response.text
+    assert "Ações em lote" in response.text
     assert 'href="/admin/transactions/bulk"' in response.text
     assert "admin-sidebar-sublink-active" in response.text
 
@@ -330,7 +330,7 @@ def test_admin_categories_manage_can_reassign_category_references_and_delete_sou
 
     invoice = _seed_credit_card_invoice(
         db_session,
-        card_label="ItaÃº Visa final 8888",
+        card_label="Itaú Visa final 8888",
         card_final="8888",
         item_specs=[("MATERIAL CASA", "180.00")],
     )
@@ -414,7 +414,7 @@ def test_admin_categories_manage_blocks_delete_while_category_still_has_usage(cl
     )
 
     assert response.status_code == 400
-    assert "Mova lanÃ§amentos, itens de fatura e regras antes de excluir a categoria." in response.text
+    assert "Mova lançamentos, itens de fatura e regras antes de excluir a categoria." in response.text
     assert db_session.get(Category, casa.id) is not None
 
 
@@ -450,7 +450,7 @@ def test_admin_transaction_update_supports_htmx_partial_refresh(client, db_sessi
     db_session.refresh(tx)
     assert tx.category == "Outros"
     trigger_payload = json.loads(response.headers["HX-Trigger"])
-    assert trigger_payload["admin:toast"]["message"] == "LanÃ§amento atualizado."
+    assert trigger_payload["admin:toast"]["message"] == "Lançamento atualizado."
 
 
 def test_admin_transaction_quick_category_supports_htmx_partial_refresh(client, db_session, monkeypatch):
@@ -574,10 +574,10 @@ def test_admin_transactions_bulk_apply_supports_htmx_shell_refresh(client, db_se
 
     assert response.status_code == 200
     assert 'id="transactions-bulk-shell"' in response.text
-    assert "Ãšltima aplicaÃ§Ã£o" in response.text
+    assert "Última aplicação" in response.text
     assert "Moradia" in response.text
     trigger_payload = json.loads(response.headers["HX-Trigger"])
-    assert trigger_payload["admin:toast"]["message"] == "2 lanÃ§amento(s) atualizados. Regra salva para uso futuro."
+    assert trigger_payload["admin:toast"]["message"] == "2 lançamento(s) atualizados. Regra salva para uso futuro."
 
     db_session.refresh(first_tx)
     db_session.refresh(second_tx)
@@ -662,7 +662,7 @@ def test_admin_invoice_unlink_supports_htmx_partial_refresh(client, db_session, 
     assert 'id="invoice-detail-shell"' in response.text
     assert "Pagamentos conciliados" in response.text
     trigger_payload = json.loads(response.headers["HX-Trigger"])
-    assert trigger_payload["admin:toast"]["message"] == "VÃ­nculo de pagamento removido."
+    assert trigger_payload["admin:toast"]["message"] == "Vínculo de pagamento removido."
 
 
 def test_admin_invoice_conciliation_supports_htmx_partial_refresh(client, db_session, monkeypatch):
@@ -688,9 +688,9 @@ def test_admin_invoice_conciliation_supports_htmx_partial_refresh(client, db_ses
 
     assert response.status_code == 200
     assert 'id="invoice-detail-shell"' in response.text
-    assert "Resumo da conciliaÃ§Ã£o" in response.text
+    assert "Resumo da conciliação" in response.text
     trigger_payload = json.loads(response.headers["HX-Trigger"])
-    assert trigger_payload["admin:toast"]["message"] == "ConciliaÃ§Ã£o atualizada."
+    assert trigger_payload["admin:toast"]["message"] == "Conciliação atualizada."
 
 
 def test_admin_invoice_view_supports_htmx_filters_and_push_url(client, db_session, monkeypatch):
@@ -1001,7 +1001,7 @@ def test_admin_summary_page_shows_overview_categories_chart_without_redundant_li
         transaction_date=date(2026, 3, 14),
         amount=-500.0,
         transaction_kind="expense",
-        category="EducaÃ§Ã£o",
+        category="Educação",
     )
     _seed_transaction(
         db_session,
@@ -1026,7 +1026,7 @@ def test_admin_summary_page_shows_overview_categories_chart_without_redundant_li
     response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Categorias do perÃ­odo" in response.text
+    assert "Categorias do período" in response.text
     assert 'data-category-row="' not in response.text
     assert 'id="overview-categories-legend"' in response.text
     assert "mountAdminStackedCategoryChart" in response.text
@@ -1041,7 +1041,7 @@ def test_admin_summary_page_shows_overview_categories_chart_without_redundant_li
     assert [dataset["label"] for dataset in chart_payload["datasets"]] == [
         "Moradia",
         "Supermercado",
-        "EducaÃ§Ã£o",
+        "Educação",
         "Transporte",
         "Outros",
     ]
@@ -1175,8 +1175,41 @@ def test_admin_summary_categories_cta_opens_categories_with_same_period(client, 
     assert "Moradia" in categories.text
     assert "01/03/2026" in categories.text
     assert "31/03/2026" in categories.text
-    assert "ComposiÃ§Ã£o da categoria" in categories.text
     assert "ALUGUEL MAR" in categories.text
+
+
+def test_admin_analysis_categories_drilldown_preserves_competence_lens(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL COMPETENCIA",
+        normalized="aluguel competencia drilldown",
+        transaction_date=date(2026, 2, 27),
+        competence_month="2026-03",
+        amount=-250.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _login(client)
+
+    analysis = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence")
+
+    assert analysis.status_code == 200
+    categories_href_match = re.search(r'href="([^"]+)"[^>]*>Abrir categorias</a>', analysis.text)
+    assert categories_href_match is not None
+    categories_href = html_lib.unescape(categories_href_match.group(1))
+    assert "home_lens=competence" in categories_href
+
+    categories = client.get(categories_href)
+
+    assert categories.status_code == 200
+    assert "ALUGUEL COMPETENCIA" in categories.text
+    monthly_chart_match = re.search(r"const monthlyData = (\{.*?\});", categories.text, re.S)
+    assert monthly_chart_match is not None
+    monthly_chart_payload = json.loads(monthly_chart_match.group(1))
+    march_index = monthly_chart_payload["labels"].index("mar/2026")
+    assert monthly_chart_payload["datasets"][0]["values"][march_index] == 250.0
 
 
 def test_admin_categories_page_filters_by_multiple_selected_categories(client, db_session, monkeypatch):
@@ -1222,7 +1255,6 @@ def test_admin_categories_page_filters_by_multiple_selected_categories(client, d
     assert 'value="Moradia"' in response.text
     assert 'value="Supermercado"' in response.text
     assert "Categoria" in response.text
-    assert "Editar lanÃ§amento" in response.text
     assert "/admin/transactions/" in response.text
     assert 'data-sort-key="amount"' in response.text
     assert 'data-sort-direction="desc"' in response.text
@@ -1317,7 +1349,7 @@ def test_admin_categories_composition_exposes_invoice_item_category_edit_link(cl
     )
     invoice = _seed_credit_card_invoice(
         db_session,
-        card_label="ItaÃº Visa final 3333",
+        card_label="Itaú Visa final 3333",
         card_final="3333",
         billing_year=2026,
         billing_month=3,
@@ -1386,7 +1418,7 @@ def test_admin_categories_composition_supports_inline_transaction_category_edit(
     assert "disabled" in editor.text
     assert "Moradia" in editor.text
     assert "Supermercado" in editor.text
-    assert "SalÃ¡rio" not in editor.text
+    assert "Salário" not in editor.text
 
     applied = client.post(
         f"/admin/categories/composition/transactions/{tx.id}/edit",
@@ -1421,7 +1453,7 @@ def test_admin_categories_composition_supports_inline_invoice_item_category_edit
     )
     invoice = _seed_credit_card_invoice(
         db_session,
-        card_label="ItaÃº Visa final 4444",
+        card_label="Itaú Visa final 4444",
         card_final="4444",
         billing_year=2026,
         billing_month=3,
@@ -1468,7 +1500,7 @@ def test_admin_categories_composition_supports_inline_invoice_item_category_edit
     assert "Buscar categoria" in editor.text
     assert "data-inline-category-editor" in editor.text
     assert "Outros" in editor.text
-    assert "TransferÃªncias" not in editor.text
+    assert "Transferências" not in editor.text
 
     applied = client.post(
         f"/admin/categories/composition/invoice-items/{item.id}/edit",
@@ -1491,11 +1523,11 @@ def test_admin_categories_composition_supports_inline_invoice_item_category_edit
 def test_admin_categories_composition_matches_legacy_invoice_category_aliases(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
-    db_session.add(Category(name="AlimentaÃ§Ã£o", transaction_kind="expense", is_active=True))
+    db_session.add(Category(name="Alimentação", transaction_kind="expense", is_active=True))
     db_session.commit()
     invoice = _seed_credit_card_invoice(
         db_session,
-        card_label="ItaÃº Visa final 4545",
+        card_label="Itaú Visa final 4545",
         card_final="4545",
         billing_year=2026,
         billing_month=3,
@@ -1527,12 +1559,12 @@ def test_admin_categories_composition_matches_legacy_invoice_category_aliases(cl
     db_session.commit()
     _login(client)
 
-    response = client.get("/admin/categories?selection_mode=month&month=2026-03&selected_category=AlimentaÃ§Ã£o")
+    response = client.get("/admin/categories?selection_mode=month&month=2026-03&selected_category=Alimentação")
 
     assert response.status_code == 200
     assert "RESTAURANTE LEGADO FATURA" in response.text
     assert "R$ 120,00" in response.text
-    assert "AlimentaÃ§Ã£o" in response.text
+    assert "Alimentação" in response.text
 
 
 def test_admin_categories_composition_keeps_all_selected_categories_even_with_focus(client, db_session, monkeypatch):
@@ -1565,7 +1597,7 @@ def test_admin_categories_composition_keeps_all_selected_categories_even_with_fo
     )
 
     assert response.status_code == 200
-    assert "ComposiÃ§Ã£o das categorias selecionadas" in response.text
+    assert "Composição das categorias selecionadas" in response.text
     assert "Moradia, Supermercado" in response.text
     assert "ALUGUEL MAR COMPOSICAO" in response.text
     assert "MERCADO MAR COMPOSICAO" in response.text
@@ -1718,9 +1750,9 @@ def test_admin_summary_page_shows_recent_movements_block(client, db_session, mon
     response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "MovimentaÃ§Ãµes recentes" not in response.text
+    assert "Movimentações recentes" not in response.text
     assert "Alertas" in response.text
-    assert "Categorias do perÃ­odo" in response.text
+    assert "Categorias do período" in response.text
 
 
 def test_admin_summary_page_uses_deferred_period_apply_controls(client, db_session, monkeypatch):
@@ -1751,7 +1783,7 @@ def test_admin_summary_page_uses_deferred_period_apply_controls(client, db_sessi
     assert "Ver resumo" not in response.text
     assert 'id="analysis-apply-button"' in response.text
     assert "Aplicar" in response.text
-    assert "Ãšltimo mÃªs fechado disponÃ­vel" in response.text
+    assert "Último mês fechado disponível" in response.text
     assert 'name="month"' in response.text
     assert "marco de 2026" in response.text
     assert "fevereiro de 2026" in response.text
@@ -1835,7 +1867,7 @@ def test_admin_summary_page_keeps_saved_home_lens_when_query_is_invalid(client, 
         invalid_response.text,
     )
     assert 'data-summary-home-lens="cash"' in invalid_response.text
-    assert "VisÃ£o de CompetÃªncia" in invalid_response.text
+    assert "Visão de Competência" in invalid_response.text
 
 
 def test_admin_analysis_page_restores_summary_context_from_chart_navigation(client, db_session, monkeypatch):
@@ -1868,8 +1900,8 @@ def test_admin_analysis_page_restores_summary_context_from_chart_navigation(clie
 
     assert response.status_code == 200
     assert "Visão conciliada" in response.text
-    assert "ComposiÃ§Ã£o da leitura" in response.text
-    assert "Receitas e Despesas dos Ãºltimos 12 meses" in response.text
+    assert "Composição da leitura" in response.text
+    assert "Receitas e Despesas dos últimos 12 meses" in response.text
     assert 'data-return-summary-link' in response.text
     assert 'id="conciliated-cashflow-chart"' in response.text
 
@@ -1905,7 +1937,7 @@ def test_admin_conference_page_restores_summary_context(client, db_session, monk
     assert "Visão de Extrato" in response.text
     assert "Itens do extrato" in response.text
     assert "12 meses de extrato" in response.text
-    assert "Auditoria tÃ©cnica" in response.text
+    assert "Auditoria técnica" in response.text
     assert 'data-return-summary-link' in response.text
 
     return_href = _extract_return_summary_href(response.text)
@@ -1996,7 +2028,7 @@ def test_admin_invoice_upload_form_is_available_only_on_invoice_page(client, db_
     db_session.add(
         CreditCard(
             issuer="itau",
-            card_label="ItaÃº Visa final 1234",
+            card_label="Itaú Visa final 1234",
             card_final="1234",
             brand="Visa",
             is_active=True,
@@ -2259,9 +2291,9 @@ def test_admin_reapply_apply_supports_htmx_shell_refresh(client, db_session, mon
 
     assert response.status_code == 200
     assert 'id="reapply-page-shell"' in response.text
-    assert "Ãšltima reaplicaÃ§Ã£o" in response.text
+    assert "Última reaplicação" in response.text
     trigger_payload = json.loads(response.headers["HX-Trigger"])
-    assert trigger_payload["admin:toast"]["message"] == "ReaplicaÃ§Ã£o concluÃ­da: 1 alterados de 1 avaliados. Nova anÃ¡lise gerada para o perÃ­odo informado."
+    assert trigger_payload["admin:toast"]["message"] == "Reaplicação concluída: 1 alterados de 1 avaliados. Nova análise gerada para o período informado."
 
     db_session.refresh(tx)
     assert tx.category == "Transporte"
@@ -2565,13 +2597,13 @@ def test_admin_analysis_page_shows_empty_state_and_navigation(client, db_session
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Gerar nova anÃ¡lise" in response.text
-    assert "ComposiÃ§Ã£o da leitura" in response.text
-    assert "TransaÃ§Ãµes do perÃ­odo" in response.text
+    assert "Gerar nova análise" in response.text
+    assert "Composição da leitura" in response.text
+    assert "Transações do período" in response.text
     assert "Itens de fatura considerados" not in response.text
     assert "data-loading-button" in response.text
     assert "Aplicando..." in response.text
-    assert "Gerando anÃ¡lise..." in response.text
+    assert "Gerando análise..." in response.text
 
 
 def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_session, monkeypatch):
@@ -2596,14 +2628,14 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert page.status_code == 200
     assert "Visão conciliada" in page.text
-    assert "ComposiÃ§Ã£o da leitura" in page.text
-    assert "TransaÃ§Ãµes do perÃ­odo" in page.text
+    assert "Composição da leitura" in page.text
+    assert "Transações do período" in page.text
     assert "Itens de fatura considerados" not in page.text
-    assert "Faturas do perÃ­odo" not in page.text
+    assert "Faturas do período" not in page.text
     assert 'class="analysis-period-bar"' in page.text
     assert "Visão de Extrato" in page.text
-    assert "AnÃ¡lise determinÃ­stica renderizada" not in page.text
-    assert "VisÃ£o bruta de apoio" not in page.text
+    assert "Análise determinística renderizada" not in page.text
+    assert "Visão bruta de apoio" not in page.text
     assert "chart.js" in page.text.lower()
     assert "conciliated-cashflow-chart" in page.text
     assert "conciliated-categories-chart" in page.text
@@ -2649,7 +2681,7 @@ def test_admin_analysis_page_supports_htmx_shell_refresh(client, db_session, mon
     assert response.status_code == 200
     assert 'id="analysis-view-shell"' in response.text
     assert response.headers["HX-Push-Url"].endswith("statement_scope=included")
-    assert "TransaÃ§Ãµes do perÃ­odo" in response.text
+    assert "Transações do período" in response.text
 
 
 def test_admin_conference_page_supports_htmx_shell_refresh(client, db_session, monkeypatch):
@@ -2683,7 +2715,7 @@ def test_admin_period_selection_persists_across_views(client, db_session, monkey
     )
     _seed_credit_card_invoice(
         db_session,
-        card_label="ItaÃº Visa final 9999",
+        card_label="Itaú Visa final 9999",
         card_final="9999",
         billing_year=2026,
         billing_month=2,
@@ -2724,7 +2756,7 @@ def test_admin_run_analysis_supports_htmx_shell_refresh(client, db_session, monk
     assert response.status_code == 200
     assert 'id="analysis-view-shell"' in response.text
     assert "HX-Trigger" in response.headers
-    assert "TransaÃ§Ãµes do perÃ­odo" in response.text
+    assert "Transações do período" in response.text
 
 
 def test_admin_conference_page_shows_auxiliary_conciliation_signals(client, db_session, monkeypatch):
@@ -2744,12 +2776,12 @@ def test_admin_conference_page_shows_auxiliary_conciliation_signals(client, db_s
     response = client.get("/admin/conference/technical?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Auditoria tÃ©cnica do extrato" in response.text
-    assert "Sinais de conciliaÃ§Ã£o" in response.text
+    assert "Auditoria técnica do extrato" in response.text
+    assert "Sinais de conciliação" in response.text
     assert "Fora da leitura principal" in response.text
     assert "Pagamentos conciliados" in response.text
-    assert "CrÃ©ditos tÃ©cnicos de fatura" in response.text
-    assert "Nenhuma anÃ¡lise persistida para o recorte" in response.text
+    assert "Créditos técnicos de fatura" in response.text
+    assert "Nenhuma análise persistida para o recorte" in response.text
 
 
 
@@ -2779,25 +2811,25 @@ def test_admin_metric_cards_use_clickable_values_for_drilldown(client, db_sessio
     assert summary.status_code == 200
     assert 'class="metric-value metric-value-link amount-positive"' in summary.text
     assert 'data-context-card="income"' in summary.text
-    assert "Ver lanÃ§amentos" not in summary.text
+    assert "Ver lançamentos" not in summary.text
 
     analysis = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert analysis.status_code == 200
     assert 'aria-label="Abrir receitas reais na tabela"' in analysis.text
     assert "Ver tabela" not in analysis.text
-    assert "Abrir fÃ³rmula" not in analysis.text
+    assert "Abrir fórmula" not in analysis.text
 
     conference = client.get("/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
     assert conference.status_code == 200
     assert 'aria-label="Abrir receitas do extrato"' in conference.text
-    assert "Ver lanÃ§amentos" not in conference.text
+    assert "Ver lançamentos" not in conference.text
     assert "Ver vinculados" not in conference.text
 
     invoice_view = client.get("/admin/credit-card-invoices?period_start=2026-03-01&period_end=2026-03-31")
     assert invoice_view.status_code == 200
-    assert 'aria-label="Abrir total faturado nas faturas do perÃ­odo"' in invoice_view.text
-    assert 'aria-label="Abrir charges do perÃ­odo"' in invoice_view.text
-    assert "Ver crÃ©ditos" not in invoice_view.text
+    assert 'aria-label="Abrir total faturado nas faturas do período"' in invoice_view.text
+    assert 'aria-label="Abrir charges do período"' in invoice_view.text
+    assert "Ver créditos" not in invoice_view.text
 
 
 def test_admin_analysis_page_shows_conciliated_category_breakdown(client, db_session, monkeypatch):
@@ -2887,12 +2919,12 @@ def test_admin_analysis_page_shows_conciliated_category_breakdown(client, db_ses
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "ComposiÃ§Ã£o da leitura" in response.text
+    assert "Composição da leitura" in response.text
     assert "Supermercado" in response.text
     assert "Educa\u00e7\u00e3o" in response.text
     assert "Moradia" in response.text
-    assert "CrÃ©ditos de fatura" in response.text
-    assert "Pagamentos bancÃ¡rios conciliados removidos" in response.text
+    assert "Créditos de fatura" in response.text
+    assert "Pagamentos bancários conciliados removidos" in response.text
 
 
 def test_admin_analysis_page_shows_unified_considered_table_and_filters_it(client, db_session, monkeypatch):
@@ -2967,7 +2999,7 @@ def test_admin_analysis_page_shows_unified_considered_table_and_filters_it(clien
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "TransaÃ§Ãµes do perÃ­odo" in response.text
+    assert "Transações do período" in response.text
     section_html = _extract_section_html(response.text, "conciliated-considered-table")
     assert "SALARIO MAR" in section_html
     assert "SUPERMERCADO TESTE" in section_html
@@ -3003,7 +3035,7 @@ def test_admin_analysis_page_anchors_card_consumption_by_purchase_date(client, d
     )
     invoice = _seed_credit_card_invoice(
         db_session,
-        card_label="ItaÃº Visa final 7777",
+        card_label="Itaú Visa final 7777",
         card_final="7777",
         billing_year=2026,
         billing_month=2,
@@ -3061,11 +3093,11 @@ def test_admin_analysis_page_anchors_card_consumption_by_purchase_date(client, d
     february = client.get("/admin/analysis?period_start=2026-02-01&period_end=2026-02-28")
 
     assert january.status_code == 200
-    assert "ComposiÃ§Ã£o da leitura" in january.text
+    assert "Composição da leitura" in january.text
     assert "Supermercado" in january.text
-    assert "CrÃ©ditos de fatura" in january.text
+    assert "Créditos de fatura" in january.text
     assert february.status_code == 200
-    assert "ComposiÃ§Ã£o da leitura" in february.text
+    assert "Composição da leitura" in february.text
 
 
 def test_admin_analysis_page_shows_consumption_based_alerts_and_actions(client, db_session, monkeypatch):
@@ -3152,8 +3184,8 @@ def test_admin_analysis_page_shows_consumption_based_alerts_and_actions(client, 
     february = client.get("/admin/analysis?period_start=2026-02-01&period_end=2026-02-28")
 
     assert january.status_code == 200
-    assert "ComposiÃ§Ã£o da leitura" in january.text
-    assert "TransaÃ§Ãµes do perÃ­odo" in january.text
+    assert "Composição da leitura" in january.text
+    assert "Transações do período" in january.text
     assert "Itens de fatura considerados" not in january.text
     assert "Revisar a categoria Supermercado" not in january.text
     assert february.status_code == 200
@@ -3207,7 +3239,7 @@ def test_admin_analysis_page_shows_conciliated_category_history(client, db_sessi
             item_specs.append(("CURSO ONLINE", education_amount))
         invoice = _seed_credit_card_invoice(
             db_session,
-            card_label=f"ItaÃº Visa final {card_final}",
+            card_label=f"Itaú Visa final {card_final}",
             card_final=card_final,
             billing_year=billing_year,
             billing_month=billing_month,
@@ -3224,7 +3256,7 @@ def test_admin_analysis_page_shows_conciliated_category_history(client, db_sessi
         invoice_items[0].categorization_method = "manual"
         invoice_items[0].categorization_confidence = 1.0
         if education_amount is not None:
-            invoice_items[1].category = "EducaÃ§Ã£o"
+            invoice_items[1].category = "Educação"
             invoice_items[1].categorization_method = "manual"
             invoice_items[1].categorization_confidence = 1.0
         credit_item = CreditCardInvoiceItem(
@@ -3310,7 +3342,7 @@ def test_admin_analysis_page_shows_conciliated_category_history(client, db_sessi
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Consolidado por categoria nos Ãºltimos 12 meses" in response.text
+    assert "Consolidado por categoria nos últimos 12 meses" in response.text
     assert "mar/2026" in response.text
     assert "fev/2026" in response.text
     assert "Supermercado" in response.text
@@ -3360,7 +3392,7 @@ def test_admin_analysis_page_marks_category_history_gap_as_sem_base(client, db_s
         )
         invoice = _seed_credit_card_invoice(
             db_session,
-            card_label=f"ItaÃº Visa final {card_final}",
+            card_label=f"Itaú Visa final {card_final}",
             card_final=card_final,
             billing_year=billing_year,
             billing_month=billing_month,
@@ -3456,7 +3488,7 @@ def test_admin_analysis_page_marks_category_history_gap_as_sem_base(client, db_s
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Consolidado por categoria nos Ãºltimos 12 meses" in response.text
+    assert "Consolidado por categoria nos últimos 12 meses" in response.text
     assert "Supermercado" in response.text
     assert "conciliated-categories-chart" in response.text
 
@@ -3482,7 +3514,7 @@ def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(c
         "comparison": {
             "reference_label": "fev/2026",
             "income": {"trend": "up", "trend_label": "subiu", "percent_display": "n/a", "delta_display": "R$ 5.000,00", "current_display": "R$ 5.000,00", "previous_display": "R$ 0,00"},
-            "expense": {"trend": "stable", "trend_label": "estÃ¡vel", "percent_display": "n/a", "delta_display": "R$ 0,00", "current_display": "R$ 0,00", "previous_display": "R$ 0,00"},
+            "expense": {"trend": "stable", "trend_label": "estável", "percent_display": "n/a", "delta_display": "R$ 0,00", "current_display": "R$ 0,00", "previous_display": "R$ 0,00"},
             "balance": {"trend": "up", "trend_label": "subiu", "percent_display": "n/a", "delta_display": "R$ 5.000,00", "current_display": "R$ 5.000,00", "previous_display": "R$ 0,00"},
         },
         "monthly_series": [],
@@ -3536,9 +3568,9 @@ def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(c
 
     assert response.status_code == 200
     assert "Visão conciliada" in response.text
-    assert "ComposiÃ§Ã£o da leitura" in response.text
-    assert "TransaÃ§Ãµes do perÃ­odo" in response.text
-    assert "VisÃ£o bruta de apoio" not in response.text
+    assert "Composição da leitura" in response.text
+    assert "Transações do período" in response.text
+    assert "Visão bruta de apoio" not in response.text
     assert "legacy html" not in response.text
 
 def test_admin_summary_page_supports_legacy_payload_without_extended_primary_summary(client, db_session, monkeypatch):
@@ -3569,7 +3601,7 @@ def test_admin_summary_page_supports_legacy_payload_without_extended_primary_sum
         "comparison": {
             "reference_label": "fev/2026",
             "income": {"trend": "up", "trend_label": "subiu", "percent_display": "n/a", "delta_display": "R$ 5.000,00", "current_display": "R$ 5.000,00", "previous_display": "R$ 0,00"},
-            "expense": {"trend": "stable", "trend_label": "estÃ¡vel", "percent_display": "n/a", "delta_display": "R$ 0,00", "current_display": "R$ 0,00", "previous_display": "R$ 0,00"},
+            "expense": {"trend": "stable", "trend_label": "estável", "percent_display": "n/a", "delta_display": "R$ 0,00", "current_display": "R$ 0,00", "previous_display": "R$ 0,00"},
             "balance": {"trend": "up", "trend_label": "subiu", "percent_display": "n/a", "delta_display": "R$ 5.000,00", "current_display": "R$ 5.000,00", "previous_display": "R$ 0,00"},
         },
         "monthly_series": [],
@@ -3623,7 +3655,7 @@ def test_admin_summary_page_supports_legacy_payload_without_extended_primary_sum
 
     assert response.status_code == 200
     assert "Entradas do mês" in response.text
-    assert "SaÃ­das do mÃªs" in response.text
+    assert "Saídas do mês" in response.text
 
 
 def test_admin_transactions_page_marks_conciliated_bank_payment(client, db_session, monkeypatch):
@@ -3684,7 +3716,7 @@ def test_admin_loading_buttons_are_exposed_in_reapply_and_analysis(client, db_se
     assert analysis_page.status_code == 200
     assert analysis_page.text.count("data-loading-button") >= 2
     assert "Aplicando..." in analysis_page.text
-    assert "Gerando anÃ¡lise..." in analysis_page.text
+    assert "Gerando análise..." in analysis_page.text
 
 
 
@@ -3847,7 +3879,7 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
         transaction_kind="expense",
         category="Transporte",
     )
-    _seed_credit_card_invoice(db_session, card_label="ItaÃº Visa final 1111", card_final="1111", status="imported")
+    _seed_credit_card_invoice(db_session, card_label="Itaú Visa final 1111", card_final="1111", status="imported")
     _login(client)
 
     operations = client.get("/admin/operations")
@@ -3862,19 +3894,19 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
 
     assert operations.status_code == 200
     assert "Painel operacional do admin" in operations.text
-    assert "Entradas rÃ¡pidas do hub" in operations.text
+    assert "Entradas rápidas do hub" in operations.text
 
     assert transactions.status_code == 200
-    assert "Base operacional de lanÃ§amentos" in transactions.text
+    assert "Base operacional de lançamentos" in transactions.text
     assert "Tabela operacional da base" in transactions.text
-    assert "Abrir aÃ§Ãµes em lote" in transactions.text
+    assert "Abrir ações em lote" in transactions.text
     assert "Aplicar aos selecionados" not in transactions.text
-    assert "Como ler esta pÃ¡gina" not in transactions.text
+    assert "Como ler esta página" not in transactions.text
 
     assert transactions_bulk.status_code == 200
-    assert "AÃ§Ãµes em lote" in transactions_bulk.text
+    assert "Ações em lote" in transactions_bulk.text
     assert "Aplicar aos selecionados" in transactions_bulk.text
-    assert "Voltar para lanÃ§amentos" in transactions_bulk.text
+    assert "Voltar para lançamentos" in transactions_bulk.text
 
     assert invoices.status_code == 200
     assert "Painel principal das faturas" not in invoices.text
@@ -3889,11 +3921,11 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
     assert "Cargas feitas" in invoices_manage.text
 
     assert rules.status_code == 200
-    assert "Painel de configuraÃ§Ã£o das regras" in rules.text
+    assert "Painel de configuração das regras" in rules.text
     assert "Adicionar regra" in rules.text
 
     assert categories.status_code == 200
-    assert "ComposiÃ§Ã£o da categoria" in categories.text
+    assert "Composição da categoria" in categories.text
     assert "Painel de configuracao das categorias" not in categories.text
     assert "Criar categoria" not in categories.text
 
@@ -3903,8 +3935,8 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
     assert "Criar categoria" in categories_manage.text
 
     assert reapply.status_code == 200
-    assert "Painel de reaplicaÃ§Ã£o" in reapply.text
-    assert "Escopo de reaplicaÃ§Ã£o" in reapply.text
+    assert "Painel de reaplicação" in reapply.text
+    assert "Escopo de reaplicação" in reapply.text
     assert "Como usar" not in reapply.text
 
 
@@ -3957,7 +3989,7 @@ def test_admin_credit_card_invoice_item_manual_category_flow_shows_preview_and_p
     assert "Gerar preview do impacto" in edit_page.text
     assert "Alterar somente este item" in edit_page.text
     assert "Aplicar na base" in edit_page.text
-    assert "NÃ£o Categorizado" in edit_page.text
+    assert "Não Categorizado" in edit_page.text
 
     preview = client.post(
         f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category/preview",
@@ -3967,7 +3999,7 @@ def test_admin_credit_card_invoice_item_manual_category_flow_shows_preview_and_p
     assert "Preview antes de aplicar" in preview.text
     assert "Outros" in preview.text
     assert "Fluxo pontual" in preview.text
-    assert "Confirmar alteraÃ§Ã£o de categoria" in preview.text
+    assert "Confirmar alteração de categoria" in preview.text
 
     applied = client.post(
         f"/admin/credit-card-invoices/{invoice.id}/items/{item.id}/category/apply",
@@ -3991,7 +4023,7 @@ def test_admin_credit_card_invoice_item_apply_to_base_shows_preview_and_persists
     invoice = _seed_credit_card_invoice(db_session, status="pending_review")
     second_invoice = _seed_credit_card_invoice(
         db_session,
-        card_label="ItaÃº Visa final 5678",
+        card_label="Itaú Visa final 5678",
         card_final="5678",
         billing_month=4,
         total_amount="130.45",
@@ -4023,8 +4055,8 @@ def test_admin_credit_card_invoice_item_apply_to_base_shows_preview_and_persists
     assert "Aplicar na base" in preview.text
     assert "Preview antes de aplicar na base" in preview.text
     assert "Itens impactados" in preview.text
-    assert "DistribuiÃ§Ã£o atual dos itens afetados" in preview.text
-    assert "ImportaÃ§Ãµes futuras" in preview.text
+    assert "Distribuição atual dos itens afetados" in preview.text
+    assert "Importações futuras" in preview.text
     assert "supermercado teste" in preview.text
     assert "2" in preview.text
 
@@ -4100,12 +4132,12 @@ def test_admin_credit_card_invoice_item_manual_category_requires_explicit_confir
     )
 
     assert response.status_code == 422
-    assert "Confirme explicitamente a alteraÃ§Ã£o antes de salvar." in response.text
+    assert "Confirme explicitamente a alteração antes de salvar." in response.text
 
     db_session.expire_all()
     refreshed = db_session.get(CreditCardInvoiceItem, item.id)
     assert refreshed is not None
-    assert refreshed.category in (None, "NÃ£o Categorizado")
+    assert refreshed.category in (None, "Não Categorizado")
     assert refreshed.categorization_method is None
 
 
@@ -4126,7 +4158,7 @@ def test_admin_credit_card_invoice_item_manual_category_rejects_invalid_category
     )
 
     assert response.status_code == 422
-    assert "Categoria invÃ¡lida ou inativa para item de fatura." in response.text
+    assert "Categoria inválida ou inativa para item de fatura." in response.text
 
 
 def test_admin_credit_card_invoice_detail_returns_404_for_missing_invoice(client, db_session, monkeypatch):

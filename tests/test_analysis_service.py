@@ -1180,6 +1180,37 @@ def test_category_selection_matches_legacy_category_aliases_in_invoice_consumpti
     assert series["datasets"][0]["values"][march_index] == 120.0
 
 
+def test_category_composition_and_monthly_series_honor_competence_lens(db_session):
+    _add_tx(
+        db_session,
+        tx_date=date(2026, 2, 27),
+        description="ALUGUEL COMPETENCIA",
+        amount=-250.0,
+        category="Moradia",
+        transaction_kind="expense",
+        competence_month="2026-03",
+    )
+
+    composition = build_category_composition_for_period(
+        db_session,
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        category_name="Moradia",
+        home_lens="competence",
+    )
+    series = build_category_consumption_monthly_series(
+        db_session,
+        anchor_month=date(2026, 3, 31),
+        category_names=["Moradia"],
+        home_lens="competence",
+    )
+
+    assert composition["total"] == 250.0
+    assert [row["description"] for row in composition["rows"]] == ["ALUGUEL COMPETENCIA"]
+    march_index = series["labels"].index("mar/2026")
+    assert series["datasets"][0]["values"][march_index] == 250.0
+
+
 def test_analysis_snapshot_builds_conciliated_category_history_from_same_base(db_session):
     _add_tx(db_session, tx_date=date(2025, 3, 5), description="SALARIO MAR 2025", amount=4800.0, category="Salário", transaction_kind="income")
     _add_tx(db_session, tx_date=date(2025, 3, 8), description="ALUGUEL MAR 2025", amount=-1500.0, category="Moradia", transaction_kind="expense")

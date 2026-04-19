@@ -2193,6 +2193,7 @@ def build_category_consumption_monthly_series(
     *,
     anchor_month: date,
     category_names: list[str] | None = None,
+    home_lens: str = "cash",
 ) -> dict:
     selected_names: list[str] = []
     seen_names: set[str] = set()
@@ -2210,9 +2211,35 @@ def build_category_consumption_monthly_series(
     category_labels: dict[str, str] = {}
     for offset in range(12):
         current_month = add_months(series_start, offset)
-        snapshot = _build_conciliated_category_month_snapshot(db, anchor_month=current_month)
-        month_snapshots.append(snapshot)
-        for row in snapshot["breakdown"]["rows"]:
+        if home_lens == "competence":
+            current_txs = _load_transactions_for_competence_period(
+                db,
+                period_start=month_start(current_month),
+                period_end=month_end(current_month),
+            )
+            snapshot = _build_conciliated_category_breakdown(
+                db,
+                period_start=month_start(current_month),
+                period_end=month_end(current_month),
+                current_txs=current_txs,
+            )
+            month_snapshots.append(
+                {
+                    "label": format_month_label(month_start(current_month)),
+                    "rows": snapshot["rows"],
+                }
+            )
+            rows = snapshot["rows"]
+        else:
+            snapshot = _build_conciliated_category_month_snapshot(db, anchor_month=current_month)
+            month_snapshots.append(
+                {
+                    "label": format_month_label(month_start(current_month)),
+                    "rows": snapshot["breakdown"]["rows"],
+                }
+            )
+            rows = snapshot["breakdown"]["rows"]
+        for row in rows:
             if row["expense_total"] <= 0 or row["is_technical"]:
                 continue
             category_key = _analysis_category_key(row["name"])
@@ -2231,7 +2258,7 @@ def build_category_consumption_monthly_series(
     for snapshot in month_snapshots:
         row_lookup = {
             _analysis_category_key(row["name"]): row
-            for row in snapshot["breakdown"]["rows"]
+            for row in snapshot["rows"]
             if row["expense_total"] > 0 and not row["is_technical"]
         }
         for dataset in datasets:
@@ -2286,6 +2313,7 @@ def build_category_composition_for_period(
     period_end: date,
     category_name: str | None = None,
     category_names: list[str] | None = None,
+    home_lens: str = "cash",
 ) -> dict:
     selected_names: list[str] = []
     seen_names: set[str] = set()
@@ -2298,7 +2326,10 @@ def build_category_composition_for_period(
         selected_names.append(normalized_name)
 
     selected_name_keys = {_analysis_category_key(name) for name in selected_names}
-    current_txs = _load_transactions_for_period(db, period_start=period_start, period_end=period_end)
+    if home_lens == "competence":
+        current_txs = _load_transactions_for_competence_period(db, period_start=period_start, period_end=period_end)
+    else:
+        current_txs = _load_transactions_for_period(db, period_start=period_start, period_end=period_end)
     signal_map = map_conciliated_bank_payment_signals(db, transaction_ids=[tx.id for tx in current_txs])
     excluded_payment_ids = {
         tx.id
@@ -3037,6 +3068,7 @@ def build_analysis_snapshot(
         db,
         anchor_month=anchor_month,
         category_names=None,
+        home_lens=home_lens,
     )
     return {
         "period": {

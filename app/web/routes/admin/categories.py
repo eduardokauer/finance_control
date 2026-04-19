@@ -312,6 +312,7 @@ def _categories_page_context(
     month: str | None,
     period_start: date | None,
     period_end: date | None,
+    home_lens: str | None,
     focus_category: str | None,
     selected_categories: list[str] | None,
 ) -> dict:
@@ -344,10 +345,13 @@ def _categories_page_context(
     else:
         resolved_start, resolved_end = latest_closed_start, latest_closed_end
 
+    resolved_home_lens = home_lens if home_lens in {"cash", "competence"} else "cash"
+
     analysis_data = build_analysis_snapshot(
         db,
         period_start=resolved_start,
         period_end=resolved_end,
+        home_lens=resolved_home_lens,
     )
     all_categories = list_categories(db)
     available_categories = [
@@ -400,6 +404,7 @@ def _categories_page_context(
             period_start=resolved_start,
             period_end=resolved_end,
             category_names=composition_categories,
+            home_lens=resolved_home_lens,
         )
         if composition_categories or available_category_names
         else None
@@ -413,11 +418,6 @@ def _categories_page_context(
         }
         for category in available_categories
     ]
-    filtered_consumption_chart = build_category_consumption_monthly_series(
-        db,
-        anchor_month=resolved_end,
-        category_names=selected_category_names or None,
-    )
     all_categories_selected = bool(available_category_names) and len(selected_category_names) == len(available_category_names)
     selected_categories_summary = (
         "Todas as categorias"
@@ -497,10 +497,16 @@ def _categories_page_context(
             {"name": "focus_category", "value": valid_focus, "clear_on_empty": True},
         ],
         "analysis_shell_target": "#categories-view-shell",
+        "home_lens": resolved_home_lens,
         "categories": all_categories,
         "category_breakdown": analysis_data["category_breakdown"],
         "category_composition": composition,
-        "consumption_chart": filtered_consumption_chart,
+        "consumption_chart": build_category_consumption_monthly_series(
+            db,
+            anchor_month=resolved_end,
+            category_names=selected_category_names or None,
+            home_lens=resolved_home_lens,
+        ),
     }
 
 
@@ -589,6 +595,7 @@ def admin_categories(
     month: str | None = None,
     period_start: date | None = None,
     period_end: date | None = None,
+    home_lens: str | None = None,
     focus_category: str | None = None,
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
@@ -607,6 +614,7 @@ def admin_categories(
         month=restored_period["month"],
         period_start=restored_period["period_start"],
         period_end=restored_period["period_end"],
+        home_lens=home_lens,
         focus_category=focus_category,
         selected_categories=selected_categories,
     )

@@ -844,9 +844,8 @@ def _analysis_page_context(
         "month": month_value if selected_mode == "month" else None,
         "period_start": resolved_start.isoformat(),
         "period_end": resolved_end.isoformat(),
+        "home_lens": resolved_home_lens,
     }
-    if overview_mode:
-        overview_state["home_lens"] = resolved_home_lens
     page_query_params = {
         **shared_summary_state,
         "origin": origin,
