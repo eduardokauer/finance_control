@@ -112,6 +112,16 @@ def _load_transactions_for_period(db: Session, *, period_start: date, period_end
     ).all()
 
 
+def _load_transactions_for_competence_period(db: Session, *, period_start: date, period_end: date) -> list[Transaction]:
+    period_start_key = period_start.strftime("%Y-%m")
+    period_end_key = period_end.strftime("%Y-%m")
+    return db.scalars(
+        select(Transaction)
+        .where(Transaction.competence_month >= period_start_key, Transaction.competence_month <= period_end_key)
+        .order_by(Transaction.competence_month.asc(), Transaction.transaction_date.asc(), Transaction.id.asc())
+    ).all()
+
+
 def _load_conciliated_invoice_items_for_purchase_period(
     db: Session,
     *,
@@ -244,6 +254,57 @@ def _build_home_month_snapshot(
         "consumption_display": format_currency_br(consumption_total),
         "consumption_has_activity": bool(materialized_breakdown["rows"]),
     }
+
+
+def _build_home_month_snapshot_for_lens(
+    db: Session,
+    *,
+    anchor_month: date,
+    lens: str,
+    month_txs: list[Transaction] | None = None,
+    category_breakdown: dict | None = None,
+) -> dict:
+    if lens == "competence":
+        period_start = month_start(anchor_month)
+        period_end = month_end(anchor_month)
+        materialized_txs = (
+            month_txs
+            if month_txs is not None
+            else _load_transactions_for_competence_period(
+                db,
+                period_start=period_start,
+                period_end=period_end,
+            )
+        )
+        materialized_breakdown = (
+            category_breakdown
+            if category_breakdown is not None
+            else _build_conciliated_category_breakdown(
+                db,
+                period_start=period_start,
+                period_end=period_end,
+                current_txs=materialized_txs,
+            )
+        )
+        consumption_total = _sum_consumption_total_from_breakdown(breakdown=materialized_breakdown)
+        return {
+            "month": period_start.strftime("%Y-%m"),
+            "label": format_month_label(period_start),
+            "period_start": period_start,
+            "period_end": period_end,
+            "flow_summary": _build_summary(materialized_txs),
+            "flow_has_activity": bool(materialized_txs),
+            "consumption_total": consumption_total,
+            "consumption_display": format_currency_br(consumption_total),
+            "consumption_has_activity": bool(materialized_breakdown["rows"]),
+        }
+
+    return _build_home_month_snapshot(
+        db,
+        anchor_month=anchor_month,
+        month_txs=month_txs,
+        category_breakdown=category_breakdown,
+    )
 
 
 def _build_home_metric_card(
@@ -414,14 +475,15 @@ def _build_competence_home_cards(
     current_month_txs: list[Transaction],
     current_category_breakdown: dict,
 ) -> dict:
-    current_snapshot = _build_home_month_snapshot(
+    current_snapshot = _build_home_month_snapshot_for_lens(
         db,
         anchor_month=anchor_month,
+        lens="competence",
         month_txs=current_month_txs,
         category_breakdown=current_category_breakdown,
     )
     previous_month = add_months(month_start(anchor_month), -1)
-    previous_snapshot = _build_home_month_snapshot(db, anchor_month=previous_month)
+    previous_snapshot = _build_home_month_snapshot_for_lens(db, anchor_month=previous_month, lens="competence")
     previous_has_base = previous_snapshot["flow_has_activity"] or previous_snapshot["consumption_has_activity"]
 
     current_revenue_total = current_snapshot["flow_summary"]["income_total"]
@@ -547,7 +609,7 @@ def _build_cash_chart_month_metrics(db: Session, *, anchor_month: date) -> dict:
 
 
 def _build_competence_chart_month_metrics(db: Session, *, anchor_month: date) -> dict:
-    snapshot = _build_home_month_snapshot(db, anchor_month=anchor_month)
+    snapshot = _build_home_month_snapshot_for_lens(db, anchor_month=anchor_month, lens="competence")
     revenue_total = snapshot["flow_summary"]["income_total"]
     expense_total = snapshot["consumption_total"]
     result_total = revenue_total - expense_total
@@ -652,6 +714,10 @@ def _build_home_primary_chart(
         }
     )
 
+    dataset_lookup = {dataset["label"]: dataset["data"] for dataset in datasets}
+    income_values = dataset_lookup[metric_definitions["income"]["label"]]
+    expense_values = dataset_lookup[metric_definitions["expense"]["label"]]
+    balance_values = dataset_lookup[metric_definitions["balance"]["label"]]
     all_zero = all(all(abs(value) < 0.01 for value in dataset["data"]) for dataset in datasets)
     if mode == "year":
         period_note = f"Ano calendário {selected_year}, de janeiro a dezembro, com meses zerados visíveis."
@@ -670,6 +736,9 @@ def _build_home_primary_chart(
         "selected_year": selected_year,
         "compare_metric": compare_metric,
         "labels": labels,
+        "income": income_values,
+        "expense": expense_values,
+        "balance": balance_values,
         "datasets": datasets,
         "all_zero": all_zero,
         "title": f"{lens_label}: evolução principal",
@@ -2877,13 +2946,19 @@ def build_analysis_snapshot(
     anchor_month = month_start(period_end)
     current_month_start = anchor_month
     current_month_end = month_end(anchor_month)
-    current_month_txs = _load_transactions_for_period(db, period_start=current_month_start, period_end=current_month_end)
-    current_month_summary = _build_summary(current_month_txs)
+    cash_current_month_txs = _load_transactions_for_period(db, period_start=current_month_start, period_end=current_month_end)
+    competence_current_month_txs = _load_transactions_for_competence_period(
+        db,
+        period_start=current_month_start,
+        period_end=current_month_end,
+    )
+    home_current_month_txs = competence_current_month_txs if home_lens == "competence" else cash_current_month_txs
+    current_month_summary = _build_summary(home_current_month_txs)
     category_breakdown = _build_conciliated_category_breakdown(
         db,
         period_start=current_month_start,
         period_end=current_month_end,
-        current_txs=current_month_txs,
+        current_txs=home_current_month_txs,
     )
     period_category_breakdown = _build_conciliated_category_breakdown(
         db,
@@ -2895,12 +2970,12 @@ def build_analysis_snapshot(
     home_cards = _build_home_cards(
         db,
         anchor_month=anchor_month,
-        current_month_txs=current_month_txs,
+        current_month_txs=home_current_month_txs,
         current_category_breakdown=category_breakdown,
         lens=home_lens,
     )
     category_rows = category_breakdown["rows"]
-    technical_items = _build_technical_items(current_month_txs, expense_total=current_month_summary["expense_total"])
+    technical_items = _build_technical_items(home_current_month_txs, expense_total=current_month_summary["expense_total"])
     quality = _build_quality(summary)
     home_category_comparison = _build_home_category_comparison(
         db,
@@ -2922,7 +2997,7 @@ def build_analysis_snapshot(
     home_dashboard = _build_home_dashboard(
         db,
         anchor_month=anchor_month,
-        current_month_txs=current_month_txs,
+        current_month_txs=home_current_month_txs,
         category_breakdown=category_breakdown,
         category_history=category_history,
         active_lens=home_lens,
