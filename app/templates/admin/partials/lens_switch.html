@@ -3,11 +3,10 @@
   <span class="analysis-topbar-period-label">Visão</span>
   <div class="summary-topbar-lens-switch" role="tablist" aria-label="Alternar entre caixa e competência">
     {% for option in home_lens_options %}
-      {% set lens_href = analysis_form_action + option.href[6:] %}
       <a
         class="summary-topbar-lens-option {% if option.is_active %}summary-topbar-lens-option-active{% endif %}"
-        href="{{ lens_href }}"
-        hx-get="{{ lens_href }}"
+        href="{{ option.href }}"
+        hx-get="{{ option.href }}"
         hx-target="{{ analysis_shell_target }}"
         hx-swap="outerHTML"
         hx-push-url="true"
