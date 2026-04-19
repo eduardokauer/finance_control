@@ -1,4 +1,4 @@
-# Prompt protocol
+# Prompt Protocol
 
 ## Objetivo
 Definir qual artefato o ChatGPT deve gerar em cada etapa do trabalho.
@@ -29,6 +29,7 @@ Definir qual artefato o ChatGPT deve gerar em cada etapa do trabalho.
   - DoD
 - Para Notion, gerar prompt para Claude.
 - Para repositório ou código, gerar prompt para Coder/Codex.
+- Quando precisar citar fontes principais do projeto, usar os links canônicos definidos nas instruções do projeto e versionados em `docs/reference/system_links.md`.
 
 ## Etapas e saída esperada
 
