@@ -6,6 +6,7 @@
   </div>
   <div id="admin-topbar-actions-slot" hx-swap-oob="innerHTML">
     {{ analysis_topbar_actions(analysis_back_href, analysis_show_generate, analysis_shell_target, period_start, period_end, analysis_urls) }}
+    {% include "admin/partials/lens_switch.html" %}
   </div>
 {% endif %}
 <section id="conference-view-shell" class="analysis-page-stack">
@@ -25,7 +26,7 @@
       <span class="analysis-metric-meta">{{ analysis_data.period.month_reference_label }}</span>
       <div class="analysis-metric-title-row">
         <strong>Despesas</strong>
-        <span class="help-copy">SaÃ­das brutas do extrato no recorte atual.</span>
+        <span class="help-copy">Sa&iacute;das brutas do extrato no recorte atual.</span>
         <span class="home-kpi-icon home-kpi-icon-expense" aria-hidden="true">&darr;</span>
       </div>
       <a class="metric-value metric-value-link amount-negative" href="/admin/conference?selection_mode={{ selection_mode }}{% if selection_mode == 'month' %}&month={{ month_value }}{% else %}&period_start={{ period_start }}&period_end={{ period_end }}{% endif %}&statement_transaction_kind=expense#statement-table" aria-label="Abrir despesas do extrato">
@@ -36,7 +37,7 @@
       <span class="analysis-metric-meta">{{ analysis_data.period.month_reference_label }}</span>
       <div class="analysis-metric-title-row">
         <strong>Saldo</strong>
-        <span class="help-copy">Saldo bruto do recorte, sem composiÃ§Ã£o de faturas.</span>
+        <span class="help-copy">Saldo bruto do recorte, sem composi&ccedil;&atilde;o de faturas.</span>
         <span class="home-kpi-icon home-kpi-icon-net_flow" aria-hidden="true">&#9679;</span>
       </div>
       <a class="metric-value metric-value-link {% if analysis_data.summary.balance < 0 %}amount-negative{% else %}amount-positive{% endif %}" href="#statement-table" aria-label="Abrir saldo do extrato na tabela">
@@ -46,14 +47,14 @@
     <article class="card analysis-metric-card">
       <span class="analysis-metric-meta">{{ analysis_data.period.month_reference_label }}</span>
       <div class="analysis-metric-title-row">
-        <strong>ConciliaÃ§Ãµes</strong>
-        <span class="help-copy">LanÃ§amentos do extrato com vÃ­nculo em conciliaÃ§Ãµes de fatura.</span>
+        <strong>Concilia&ccedil;&otilde;es</strong>
+        <span class="help-copy">Lan&ccedil;amentos do extrato com v&iacute;nculo em concilia&ccedil;&otilde;es de fatura.</span>
         <span class="home-kpi-icon home-kpi-icon-result" aria-hidden="true">&#9679;</span>
       </div>
-      <a class="metric-value metric-value-link" href="/admin/conference?selection_mode={{ selection_mode }}{% if selection_mode == 'month' %}&month={{ month_value }}{% else %}&period_start={{ period_start }}&period_end={{ period_end }}{% endif %}&statement_scope=linked#statement-table" aria-label="Abrir lanÃ§amentos conciliados do extrato">
+      <a class="metric-value metric-value-link" href="/admin/conference?selection_mode={{ selection_mode }}{% if selection_mode == 'month' %}&month={{ month_value }}{% else %}&period_start={{ period_start }}&period_end={{ period_end }}{% endif %}&statement_scope=linked#statement-table" aria-label="Abrir lan&ccedil;amentos conciliados do extrato">
         {{ analysis_data.conciliation_signals.conciliated_bank_payment_count }}
       </a>
-      <span class="analysis-metric-detail">Sem vÃ­nculo: {{ statement_stats.unlinked_count }}</span>
+      <span class="analysis-metric-detail">Sem v&iacute;nculo: {{ statement_stats.unlinked_count }}</span>
     </article>
   </section>
 
@@ -73,7 +74,7 @@
     <div class="analysis-section-header-row">
       <div class="analysis-section-header">
         <strong>12 meses de extrato</strong>
-        <div class="help-copy">HistÃ³rico bruto da conta no mesmo padrÃ£o usado na VisÃ£o Geral.</div>
+        <div class="help-copy">Hist&oacute;rico bruto da conta no mesmo padr&atilde;o usado na Vis&atilde;o Geral.</div>
       </div>
     </div>
     <div class="chart-shell chart-shell-tall">
@@ -85,7 +86,7 @@
     <div class="analysis-section-header-row">
       <div class="analysis-section-header">
         <strong>Categorias do extrato</strong>
-        <div class="help-copy">Mesma leitura empilhada da Ã¡rea de categorias, restrita ao extrato.</div>
+        <div class="help-copy">Mesma leitura empilhada da &aacute;rea de categorias, restrita ao extrato.</div>
       </div>
     </div>
     <div id="statement-categories-legend" class="chart-legend-checkboxes" aria-label="Categorias do extrato"></div>
@@ -98,11 +99,11 @@
     <div class="analysis-section-header-row">
       <div class="analysis-section-header">
         <strong>Itens do extrato</strong>
-        <div class="help-copy">Base operacional do perÃ­odo com ordenaÃ§Ã£o, busca e estado de vÃ­nculo com conciliaÃ§Ãµes.</div>
+        <div class="help-copy">Base operacional do per&iacute;odo com ordena&ccedil;&atilde;o, busca e estado de v&iacute;nculo com concilia&ccedil;&otilde;es.</div>
       </div>
       <div class="analysis-section-actions">
         <a class="button button-ghost" href="/admin/conference/manage">Administrar extratos</a>
-        <a class="button button-ghost" href="{{ analysis_urls.conference_technical }}">Auditoria tÃ©cnica</a>
+        <a class="button button-ghost" href="{{ analysis_urls.conference_technical }}">Auditoria t&eacute;cnica</a>
       </div>
     </div>
     <form method="get" action="/admin/conference#statement-table" hx-get="/admin/conference" hx-target="#conference-view-shell" hx-swap="outerHTML" hx-push-url="true" class="analysis-filter-form">
@@ -132,22 +133,22 @@
             {% endfor %}
           </select>
         </label>
-        <label>VÃ­nculo
+        <label>V&iacute;nculo
           <select name="statement_scope">
             <option value="" {% if not statement_filters.scope %}selected{% endif %}>Tudo</option>
             <option value="linked" {% if statement_filters.scope == 'linked' %}selected{% endif %}>Vinculados</option>
-            <option value="unlinked" {% if statement_filters.scope == 'unlinked' %}selected{% endif %}>Sem vÃ­nculo</option>
+            <option value="unlinked" {% if statement_filters.scope == 'unlinked' %}selected{% endif %}>Sem v&iacute;nculo</option>
           </select>
         </label>
-        <label>Buscar descriÃ§Ã£o
+        <label>Buscar descri&ccedil;&atilde;o
           <input type="text" name="statement_description" value="{{ statement_filters.description }}" placeholder="PIX, TED, salario...">
         </label>
-        <label>OrdenaÃ§Ã£o
+        <label>Ordena&ccedil;&atilde;o
           <select name="statement_sort">
             <option value="recent" {% if statement_filters.sort == 'recent' %}selected{% endif %}>Mais recentes</option>
             <option value="amount_desc" {% if statement_filters.sort == 'amount_desc' %}selected{% endif %}>Maior valor</option>
             <option value="amount_asc" {% if statement_filters.sort == 'amount_asc' %}selected{% endif %}>Menor valor</option>
-            <option value="description" {% if statement_filters.sort == 'description' %}selected{% endif %}>DescriÃ§Ã£o</option>
+            <option value="description" {% if statement_filters.sort == 'description' %}selected{% endif %}>Descri&ccedil;&atilde;o</option>
           </select>
         </label>
       </div>
@@ -158,7 +159,7 @@
     <div class="analysis-stats-strip">
       <span class="analysis-stat-chip">Linhas: {{ statement_stats.total_rows }} / {{ statement_stats.full_total_rows }}</span>
       <span class="analysis-stat-chip">Vinculados: {{ statement_stats.linked_count }}</span>
-      <span class="analysis-stat-chip">Sem vÃ­nculo: {{ statement_stats.unlinked_count }}</span>
+      <span class="analysis-stat-chip">Sem v&iacute;nculo: {{ statement_stats.unlinked_count }}</span>
     </div>
     {% if statement_rows %}
       {{ statement_operational_table(statement_rows, False) }}
@@ -177,7 +178,7 @@
       window.mountAdminCategoryPeriodChart(
         {{ overview_charts.statement.period_categories.canvas_id|tojson }},
         {{ overview_charts.statement.period_categories.data|tojson }},
-        { datasetLabel: "Total do extrato no perÃ­odo" }
+        { datasetLabel: "Total do extrato no per&iacute;odo" }
       );
 
       window.mountAdminCashFlowChart("statement-cashflow-chart", {{ analysis_data.charts.monthly | tojson }}, {

@@ -9,6 +9,7 @@
   </div>
   <div id="admin-topbar-actions-slot" hx-swap-oob="innerHTML">
     {{ analysis_topbar_actions(analysis_back_href, analysis_show_generate, analysis_shell_target, period_start, period_end, analysis_urls) }}
+    {% include "admin/partials/lens_switch.html" %}
   </div>
 {% endif %}
 <section id="analysis-view-shell" class="analysis-page-stack">
