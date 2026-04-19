@@ -16,6 +16,7 @@ from app.services.analysis import (
     build_analysis_snapshot,
     build_category_composition_for_period,
     build_category_consumption_monthly_series,
+    build_statement_operational_snapshot,
     run_analysis,
 )
 
@@ -280,6 +281,62 @@ def test_analysis_snapshot_period_category_charts_follow_selected_period(db_sess
     assert snapshot["invoice_month_snapshot"]["charge_total"] == 1900.0
     assert invoice_period_map["Supermercado"] == 1600.0
     assert invoice_period_map["Educa\u00e7\u00e3o"] == 300.0
+
+
+def test_analysis_snapshot_statement_category_monthly_series_keeps_technical_categories_visible(db_session):
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Sal\u00e1rio", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 3, 10), description="TED RECEBIDA", amount=2000.0, category="Transfer\u00eancias", transaction_kind="transfer")
+    _add_tx(db_session, tx_date=date(2026, 3, 12), description="PIX TRANSF", amount=-900.0, category="Transfer\u00eancias", transaction_kind="transfer")
+    _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 18),
+        description="FATURA MAR",
+        amount=-1300.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+    chart = snapshot["charts"]["statement_categories_monthly"]
+    march_index = chart["labels"].index("mar/2026")
+    datasets = {dataset["label"]: dataset["values"] for dataset in chart["datasets"]}
+
+    assert snapshot["summary"]["income_total"] == 7000.0
+    assert snapshot["summary"]["expense_total"] == 4000.0
+    assert datasets["Moradia"][march_index] == 1800.0
+    assert datasets["Transfer\u00eancias"][march_index] == 900.0
+    assert datasets["Pagamento de Fatura"][march_index] == 1300.0
+
+
+def test_analysis_snapshot_statement_cards_and_categories_match_operational_table(db_session):
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Sal\u00e1rio", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 8), description="ALUGUEL MAR", amount=-1800.0, category="Moradia", transaction_kind="expense")
+    _add_tx(db_session, tx_date=date(2026, 3, 10), description="TED RECEBIDA", amount=2000.0, category="Transfer\u00eancias", transaction_kind="transfer")
+    _add_tx(db_session, tx_date=date(2026, 3, 12), description="PIX TRANSF", amount=-900.0, category="Transfer\u00eancias", transaction_kind="transfer")
+    _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 18),
+        description="FATURA MAR",
+        amount=-1300.0,
+        category="Pagamento de Fatura",
+        transaction_kind="expense",
+        is_card_bill_payment=True,
+    )
+
+    snapshot = build_analysis_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+    operational_snapshot = build_statement_operational_snapshot(db_session, period_start=date(2026, 3, 1), period_end=date(2026, 3, 31))
+
+    income_total_from_table = sum(row["amount"] for row in operational_snapshot["rows"] if row["amount"] > 0)
+    expense_total_from_table = sum(abs(row["amount"]) for row in operational_snapshot["rows"] if row["amount"] < 0)
+    gross_movement_total_from_table = sum(abs(row["amount"]) for row in operational_snapshot["rows"])
+    category_total_from_chart = sum(snapshot["charts"]["statement_categories_period"]["values"])
+
+    assert snapshot["summary"]["income_total"] == income_total_from_table
+    assert snapshot["summary"]["expense_total"] == expense_total_from_table
+    assert snapshot["summary"]["balance"] == income_total_from_table - expense_total_from_table
+    assert category_total_from_chart == gross_movement_total_from_table
 
 
 def test_analysis_snapshot_period_category_chart_splits_mixed_category_flows(db_session):
