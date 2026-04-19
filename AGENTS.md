@@ -9,7 +9,7 @@ Regras recorrentes:
 - trate `docs/project_context.md` como contexto técnico estável
 - trate `docs/coder_workflow.md` como o workflow técnico detalhado
 - mantenha mudanças pequenas e revisáveis
-- atualize o arquivo correspondente quando estado, decisão ou processo mudar
+- atualize a documentação do repositório apenas quando houver mudança em contexto técnico estável, regra de execução, validação ou fluxo técnico
 - valide com `make test-docs` se o PR for só de `docs/`; caso contrário, rode a suíte completa
 
 ## Encerramento padrão
