@@ -2,6 +2,19 @@
 
 Backend em FastAPI para controle financeiro pessoal, com importação de extratos e faturas, categorização, operação assistida no admin e análise determinística mensal.
 
+## Operating model
+Este repositório guarda contexto técnico estável e regras de execução. O fluxo de trabalho do projeto acontece assim:
+- ChatGPT Project refina a demanda e gera prompts
+- Notion registra decisões curtas e a fatia atual
+- Coder/Codex executa tecnicamente no repositório
+- Claude escreve no Notion quando necessário
+
+Leituras canônicas no repo:
+- `docs/project_context.md` para contexto técnico estável
+- `docs/coder_workflow.md` para execução técnica
+- `docs/pm_workflow.md` para compatibilidade do processo
+- `AGENTS.md` para regras recorrentes e leitura mínima
+
 ## Propósito
 - importar extratos bancários e faturas de cartão
 - categorizar transações com regras e ajustes manuais
