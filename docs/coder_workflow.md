@@ -37,3 +37,9 @@ Se a mudança tocar processo ou compatibilidade de workflow, ler também `docs/p
 - Abrir PR só no final.
 - A resposta final deve listar resumo, arquivos alterados, validação e commit.
 - Use uma branch nova para trabalho novo, salvo continuação do mesmo PR.
+
+## Higiene de thread
+- Novo objetivo, nova fatia ou novo PR devem começar em thread nova.
+- Use `/compact` apenas para continuar a mesma fatia quando a thread estiver longa.
+- Não reutilize thread antiga para trabalho novo.
+- Se a tarefa parecer um novo objetivo, sinalize isso explicitamente.

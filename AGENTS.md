@@ -11,3 +11,17 @@ Regras recorrentes:
 - mantenha mudanças pequenas e revisáveis
 - atualize o arquivo correspondente quando estado, decisão ou processo mudar
 - valide com `make test-docs` se o PR for só de `docs/`; caso contrário, rode a suíte completa
+
+## Encerramento padrão
+- Quando houver alterações no repositório, o padrão é:
+  1. validar
+  2. commitar
+  3. fazer push
+  4. abrir draft PR
+- Só não abrir PR se:
+  - eu pedir explicitamente para não abrir;
+  - não houver mudanças;
+  - o ambiente não permitir push/PR.
+- Se não conseguir abrir PR, reportar o motivo exato.
+
+
