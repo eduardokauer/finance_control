@@ -2,14 +2,14 @@
 
 ## Papel deste arquivo
 
-`docs/admin_readequacao_control.md` controla a readequacao global do admin a partir do template original enviado pelo usuario. Ele existe para manter coesao entre shell, arquitetura de informacao, responsividade, prioridades de execucao e checkpoints da implementacao.
+`docs/admin_readequacao_control.md` registra a frente de readequação do admin. Ele existe só para manter coesão da execução visual e responsiva da shell, sem recentralizar o processo de PM no repositório.
 
-Este arquivo nao substitui `docs/project_context.md`. O contexto do projeto continua sendo a fonte de verdade do produto e das decisoes de dominio. Aqui fica a frente operacional desta readequacao, com fases, criterios de saida e acompanhamento da execucao.
+`docs/project_context.md` continua sendo o contexto técnico estável do projeto.
 
 ## Fontes de referencia
 
 - `docs/project_context.md`
-- `docs/codex_workflow.md`
+- `docs/coder_workflow.md`
 - template original do dashboard enviado pelo usuario como referencia visual e estrutural
 
 ## Regra de traducao do template
@@ -31,12 +31,10 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 
 ## Principios de execucao
 
-- fazer a readequacao como uma frente unica, mas com ordem interna fechada
-- preservar semantica de caixa, competencia, conferencia e operacao ja consolidadas
-- usar ajustes estruturais para sustentar a entrega, sem transformar a frente em refactor abstrato
-- priorizar contracts reutilizaveis de template e archetypes de pagina
-- validar desktop, tablet e mobile durante a execucao, nao so no final
-- atualizar este documento e `docs/project_context.md` a cada checkpoint relevante
+- preservar a semantica já consolidada
+- usar ajustes estruturais só como suporte à entrega
+- validar desktop, tablet e mobile durante a execução
+- atualizar este documento e `docs/project_context.md` quando o estado da frente mudar
 
 ## Arquitetura de informacao alvo
 
@@ -242,7 +240,7 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 
 - quando a fase alterar apenas `docs/`, rodar `test-docs`
 - quando a fase alterar qualquer arquivo fora de `docs/`, rodar a suite completa
-- revisar encoding, BOM, mojibake e formatacao a cada checkpoint
+- revisar encoding, BOM e formatação a cada checkpoint
 - registrar neste documento o status da fase antes de seguir para a proxima
 
 ## Registro de progresso
