@@ -2,9 +2,10 @@
 {% set composition_summary = conciliated_composition.summary %}
 {% set statement_summary = analysis_data.summary %}
 {% set invoice_summary = analysis_data.invoice_month_snapshot %}
+{% set home_dashboard = analysis_data.home_dashboard %}
 {% if topbar_period_oob %}
   <div id="admin-topbar-center-slot" hx-swap-oob="innerHTML">
-    {% include "admin/partials/analysis_topbar_period_control.html" %}
+    {% include "admin/partials/summary_topbar_controls.html" %}
   </div>
 {% endif %}
 <section id="summary-view-shell" class="analysis-page-stack">
@@ -51,22 +52,13 @@
   <section class="card analysis-section-card overview-chart-card">
     <div class="overview-chart-header">
       <div class="stack" style="gap: 4px;">
-        <strong>{{ overview_charts.conciliated.title }}</strong>
-        <div class="subtle">{{ overview_charts.conciliated.note }}</div>
+        <strong>{{ home_dashboard.chart.title }}</strong>
+        <div class="subtle">{{ home_dashboard.chart.note }}</div>
       </div>
-      <a class="button button-ghost" href="{{ analysis_urls.detail }}" data-context-cta="conciliated">Abrir vis&atilde;o conciliada</a>
-    </div>
-    <div class="overview-chart-stack">
-      <div class="overview-subchart-block">
-        <strong>{{ overview_charts.conciliated.period_categories.title }}</strong>
-        <div class="subtle">{{ overview_charts.conciliated.period_categories.note }}</div>
-        <div class="chart-shell chart-shell-medium">
-          <canvas id="{{ overview_charts.conciliated.period_categories.canvas_id }}" aria-label="{{ overview_charts.conciliated.period_categories.title }}"></canvas>
-        </div>
-      </div>
+      <a class="button button-ghost" href="{{ analysis_urls.detail if home_dashboard.active_lens == 'competence' else analysis_urls.conference }}" data-context-cta="home-dashboard">Abrir leitura ativa</a>
     </div>
     <div class="chart-shell chart-shell-tall">
-      <canvas id="{{ overview_charts.conciliated.canvas_id }}" aria-label="{{ overview_charts.conciliated.title }}"></canvas>
+      <canvas id="overview-home-dashboard-chart" aria-label="{{ home_dashboard.chart.title }}"></canvas>
     </div>
   </section>
 
@@ -206,30 +198,24 @@
   <script>
     (() => {
       window.mountAdminCategoryPeriodChart(
-        {{ overview_charts.conciliated.period_categories.canvas_id|tojson }},
-        {{ overview_charts.conciliated.period_categories.data|tojson }},
-        { datasetLabel: 'Total conciliado no per\u00edodo' }
-      );
-
-      window.mountAdminCashFlowChart(
-        {{ overview_charts.conciliated.canvas_id|tojson }},
-        {{ overview_charts.conciliated.data|tojson }},
-        {
-          incomeLabel: 'Receitas reais conciliadas',
-          expenseLabel: 'Despesas reais conciliadas',
-          balanceLabel: 'Saldo real conciliado',
-          incomeColor: 'rgba(24, 121, 78, 0.72)',
-          incomeBorder: 'rgba(24, 121, 78, 0.92)',
-          expenseColor: 'rgba(180, 35, 24, 0.72)',
-          expenseBorder: 'rgba(180, 35, 24, 0.92)',
-          balanceColor: 'rgba(9, 94, 151, 0.92)',
-        }
-      );
-
-      window.mountAdminCategoryPeriodChart(
         {{ overview_charts.statement.period_categories.canvas_id|tojson }},
         {{ overview_charts.statement.period_categories.data|tojson }},
         { datasetLabel: 'Total do extrato no per\u00edodo' }
+      );
+
+      window.mountAdminCashFlowChart(
+        "overview-home-dashboard-chart",
+        {{ home_dashboard.chart|tojson }},
+        {
+          incomeLabel: home_dashboard.chart.datasets[0].label,
+          expenseLabel: home_dashboard.chart.datasets[1].label,
+          balanceLabel: home_dashboard.chart.datasets[2].label,
+          incomeColor: 'rgba(21, 127, 70, 0.72)',
+          incomeBorder: 'rgba(21, 127, 70, 0.92)',
+          expenseColor: 'rgba(197, 52, 47, 0.68)',
+          expenseBorder: 'rgba(197, 52, 47, 0.92)',
+          balanceColor: 'rgba(37, 99, 235, 0.92)',
+        }
       );
 
       window.mountAdminCashFlowChart(

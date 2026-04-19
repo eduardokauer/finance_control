@@ -221,12 +221,11 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert 'class="analysis-period-bar"' in home.text
     assert "Último mês fechado disponível" in home.text
     assert 'id="analysis-apply-button"' in home.text
-    assert "Receitas reais" in home.text
-    assert "Despesas reais" in home.text
-    assert "Saldo real" in home.text
-    assert "Entradas totais:" in home.text
-    assert "Saídas totais:" in home.text
-    assert "Faturas conciliadas" in home.text
+    assert "Fluxo líquido do mês" in home.text
+    assert "Entradas do mês" in home.text
+    assert "Saídas do mês" in home.text
+    assert "Saídas do mês" in home.text
+    assert "Maior saída do mês" in home.text
     assert "Leituras especializadas" in home.text
     assert "Categorias do período" in home.text
     assert "Alertas" in home.text
@@ -862,16 +861,16 @@ def test_admin_summary_page_exposes_contextual_ctas_with_preserved_state(client,
     response = client.get("/admin?selection_mode=month&month=2026-03")
 
     assert response.status_code == 200
-    assert 'data-context-cta="conciliated"' in response.text
+    assert 'data-context-cta="home-dashboard"' in response.text
     assert 'data-context-cta="statement"' in response.text
     assert 'data-context-cta="invoice"' in response.text
     assert 'data-context-cta="alerts"' in response.text
     assert 'data-context-cta="categories"' in response.text
 
-    chart_href = _extract_href_by_data_attr(response.text, "data-context-cta", "conciliated")
+    chart_href = _extract_href_by_data_attr(response.text, "data-context-cta", "home-dashboard")
     assert "selection_mode=month" in chart_href
     assert "month=2026-03" in chart_href
-    assert chart_href.startswith("/admin/analysis?")
+    assert chart_href.startswith("/admin/conference?")
 
     statement_href = _extract_href_by_data_attr(response.text, "data-context-cta", "statement")
     assert statement_href.startswith("/admin/conference?")
@@ -909,26 +908,23 @@ def test_admin_summary_cards_expose_drilldown_links(client, db_session, monkeypa
 
     assert response.status_code == 200
 
-    income_href = _extract_href_by_data_attr(response.text, "data-context-card", "real-income")
-    assert income_href.startswith("/admin/analysis?")
-    assert "origin=summary" in income_href
-    assert "origin_block=cards" in income_href
-    assert "conciliated_analytic_type=income" in income_href
-    assert income_href.endswith("#conciliated-considered-table")
+    net_flow_href = _extract_href_by_data_attr(response.text, "data-context-card", "net_flow")
+    assert net_flow_href.startswith("/admin/conference?")
+    assert "selection_mode=month" in net_flow_href
 
-    expense_href = _extract_href_by_data_attr(response.text, "data-context-card", "real-expense")
-    assert expense_href.startswith("/admin/analysis?")
-    assert "origin=summary" in expense_href
-    assert "conciliated_analytic_type=expense" in expense_href
-    assert expense_href.endswith("#conciliated-considered-table")
+    income_href = _extract_href_by_data_attr(response.text, "data-context-card", "income")
+    assert income_href.startswith("/admin/conference?")
+    assert "statement_transaction_kind=income" in income_href
+    assert income_href.endswith("#statement-table")
 
-    balance_href = _extract_href_by_data_attr(response.text, "data-context-card", "real-balance")
-    assert balance_href.startswith("/admin/analysis?")
-    assert balance_href.endswith("#conciliated-considered-table")
+    expense_href = _extract_href_by_data_attr(response.text, "data-context-card", "expense")
+    assert expense_href.startswith("/admin/conference?")
+    assert "statement_transaction_kind=expense" in expense_href
+    assert expense_href.endswith("#statement-table")
 
-    invoices_href = _extract_href_by_data_attr(response.text, "data-context-card", "conciliated-invoices")
-    assert invoices_href.startswith("/admin/analysis?")
-    assert invoices_href.endswith("#conciliated-invoices-section")
+    largest_href = _extract_href_by_data_attr(response.text, "data-context-card", "largest_expense")
+    assert largest_href.startswith("/admin/conference?")
+    assert "statement_sort=amount_desc" in largest_href
 
 
 def test_admin_summary_page_shows_overview_categories_chart_without_redundant_list(client, db_session, monkeypatch):
@@ -1099,13 +1095,12 @@ def test_admin_summary_page_renders_period_category_charts_with_drilldown_payloa
 
     assert response.status_code == 200
     for canvas_id in (
-        "overview-conciliated-period-categories-chart",
         "overview-statement-period-categories-chart",
         "overview-invoice-period-categories-chart",
         "overview-categories-period-categories-chart",
     ):
         assert f'id="{canvas_id}"' in response.text
-    assert response.text.count("window.mountAdminCategoryPeriodChart(") == 4
+    assert response.text.count("window.mountAdminCategoryPeriodChart(") == 3
 
     chart_payloads = {}
     for canvas_id, payload in re.findall(
@@ -1611,14 +1606,14 @@ def test_admin_summary_page_switches_home_lenses_and_hides_top_categories_in_cas
     competence_response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence")
 
     assert cash_response.status_code == 200
-    assert "Receitas reais" in cash_response.text
+    assert "Entradas do mês" in cash_response.text
     assert "Visão conciliada" in cash_response.text
     assert 'data-context-cta="categories"' in cash_response.text
     assert 'id="overview-categories-legend"' in cash_response.text
     assert "mountAdminStackedCategoryChart" in cash_response.text
 
     assert competence_response.status_code == 200
-    assert "Receitas reais" in competence_response.text
+    assert "Receitas por competência" in competence_response.text
     assert "Visão conciliada" in competence_response.text
     assert 'data-context-cta="categories"' in competence_response.text
     assert 'id="overview-categories-legend"' in competence_response.text
@@ -1725,6 +1720,87 @@ def test_admin_summary_page_uses_deferred_period_apply_controls(client, db_sessi
     assert 'name="month"' in response.text
     assert "marco de 2026" in response.text
     assert "fevereiro de 2026" in response.text
+
+
+def test_admin_summary_page_exposes_global_cash_and_competence_toggle(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR LENTE",
+        normalized="salario mar lente topo",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Sal\u00e1rio",
+    )
+    _login(client)
+
+    response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence")
+
+    assert response.status_code == 200
+    assert 'data-summary-home-lens="cash"' in response.text
+    assert 'data-summary-home-lens="competence"' in response.text
+    assert re.search(
+        r'<a[^>]*summary-topbar-lens-option-active[^>]*data-summary-home-lens="competence"',
+        response.text,
+    )
+    assert "home_lens=competence" in response.text
+
+
+def test_admin_summary_page_restores_home_lens_from_session(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR LENTE SESSAO",
+        normalized="salario mar lente sessao",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Sal\u00e1rio",
+    )
+    _login(client)
+
+    first_response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence")
+    assert first_response.status_code == 200
+
+    restored_response = client.get("/admin")
+
+    assert restored_response.status_code == 200
+    assert "01/03/2026 a 31/03/2026" in restored_response.text
+    assert re.search(
+        r'<a[^>]*summary-topbar-lens-option-active[^>]*data-summary-home-lens="competence"',
+        restored_response.text,
+    )
+
+
+def test_admin_summary_page_keeps_saved_home_lens_when_query_is_invalid(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR LENTE INVALIDA",
+        normalized="salario mar lente invalida",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Salário",
+    )
+    _login(client)
+
+    first_response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence")
+    assert first_response.status_code == 200
+
+    invalid_response = client.get("/admin?home_lens=invalid")
+
+    assert invalid_response.status_code == 200
+    assert re.search(
+        r'<a[^>]*summary-topbar-lens-option-active[^>]*data-summary-home-lens="competence"',
+        invalid_response.text,
+    )
+    assert 'data-summary-home-lens="cash"' in invalid_response.text
+    assert "Visão de Competência" in invalid_response.text
 
 
 def test_admin_analysis_page_restores_summary_context_from_chart_navigation(client, db_session, monkeypatch):
@@ -2667,7 +2743,7 @@ def test_admin_metric_cards_use_clickable_values_for_drilldown(client, db_sessio
     summary = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31")
     assert summary.status_code == 200
     assert 'class="metric-value metric-value-link amount-positive"' in summary.text
-    assert 'data-context-card="real-income"' in summary.text
+    assert 'data-context-card="income"' in summary.text
     assert "Ver lançamentos" not in summary.text
 
     analysis = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
@@ -3511,9 +3587,8 @@ def test_admin_summary_page_supports_legacy_payload_without_extended_primary_sum
     response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Receitas reais" in response.text
-    assert "Entradas totais:" in response.text
-    assert "Saídas totais:" in response.text
+    assert "Entradas do mês" in response.text
+    assert "Saídas do mês" in response.text
 
 
 def test_admin_transactions_page_marks_conciliated_bank_payment(client, db_session, monkeypatch):

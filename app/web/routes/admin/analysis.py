@@ -30,8 +30,10 @@ from app.services.credit_card_bills import list_credit_card_invoices
 from .helpers import (
     is_htmx_request,
     parse_optional_date,
+    persist_admin_home_lens_selection,
     persist_admin_period_selection,
     render_admin,
+    restore_admin_home_lens_selection,
     restore_admin_period_selection,
     templates,
 )
@@ -199,6 +201,73 @@ def _build_overview_cards(
             },
         },
     ]
+
+
+def _home_dashboard_card_href(active_lens: str, card_key: str, analysis_urls: dict[str, str]) -> str:
+    if active_lens == "competence":
+        if card_key == "competence_income":
+            return _extend_url(
+                analysis_urls["detail"],
+                params={"conciliated_analytic_type": "income"},
+                fragment="conciliated-considered-table",
+            )
+        if card_key == "competence_expense":
+            return _extend_url(
+                analysis_urls["detail"],
+                params={"conciliated_analytic_type": "expense"},
+                fragment="conciliated-considered-table",
+            )
+        return _extend_url(analysis_urls["detail"], fragment="conciliated-composition")
+
+    if card_key == "income":
+        return _extend_url(
+            analysis_urls["conference"],
+            params={"statement_transaction_kind": "income"},
+            fragment="statement-table",
+        )
+    if card_key == "expense":
+        return _extend_url(
+            analysis_urls["conference"],
+            params={"statement_transaction_kind": "expense"},
+            fragment="statement-table",
+        )
+    if card_key == "largest_expense":
+        return _extend_url(
+            analysis_urls["conference"],
+            params={
+                "statement_transaction_kind": "expense",
+                "statement_sort": "amount_desc",
+            },
+            fragment="statement-table",
+        )
+    return analysis_urls["conference"]
+
+
+def _build_home_dashboard_overview_cards(
+    *,
+    home_dashboard: dict,
+    analysis_urls: dict[str, str],
+    active_lens: str,
+) -> list[dict]:
+    cards = []
+    lens_label = home_dashboard.get("lens_label") or "Visão ativa"
+    current_month_label = home_dashboard.get("current_month_label")
+    for card in home_dashboard.get("cards", []):
+        cards.append(
+            {
+                "eyebrow": f"{lens_label} | {current_month_label}" if current_month_label else lens_label,
+                "title": card["title"],
+                "subtitle": card["subtitle"],
+                "value": card["current_display"],
+                "value_class": card["value_class"],
+                "detail": card.get("detail") or card.get("comparison_primary_display"),
+                "action": {
+                    "href": _home_dashboard_card_href(active_lens, card["key"], analysis_urls),
+                    "key": card["key"],
+                },
+            }
+        )
+    return cards
 
 
 def _build_alerts_with_links(alerts: list[dict], state: dict[str, str | int | None]) -> list[dict]:
@@ -673,6 +742,7 @@ def _build_focus_banner(
 def _analysis_page_context(
     db: Session,
     *,
+    request: Request,
     base_path: str,
     selection_mode: str | None,
     month: str | None,
@@ -713,19 +783,21 @@ def _analysis_page_context(
     else:
         resolved_start, resolved_end = latest_closed_start, latest_closed_end
 
+    effective_requested_home_lens = home_lens or "cash"
+    resolved_home_lens = restore_admin_home_lens_selection(request, home_lens=effective_requested_home_lens)
     summary_query_params = {
         "selection_mode": selected_mode,
         "month": month_value if selected_mode == "month" else None,
         "period_start": resolved_start.isoformat(),
         "period_end": resolved_end.isoformat(),
-        "home_lens": home_lens,
+        "home_lens": resolved_home_lens,
         "home_chart_mode": home_chart_mode,
         "home_chart_year": home_chart_year if home_chart_mode == "year" else None,
         "home_chart_compare": home_chart_compare,
     }
 
     analysis_run = latest_analysis_run_for_period(db, period_start=resolved_start, period_end=resolved_end)
-    summary_home_lens = None if overview_mode else home_lens
+    summary_home_lens = resolved_home_lens
     summary_chart_mode = None if overview_mode else home_chart_mode
     summary_chart_year = None if overview_mode else home_chart_year
     summary_chart_compare = None if overview_mode else home_chart_compare
@@ -733,7 +805,7 @@ def _analysis_page_context(
         db,
         period_start=resolved_start,
         period_end=resolved_end,
-        home_lens=summary_home_lens or "cash",
+        home_lens=summary_home_lens,
         home_chart_mode=summary_chart_mode or "year",
         home_chart_year=summary_chart_year,
         home_chart_compare=summary_chart_compare,
@@ -747,7 +819,7 @@ def _analysis_page_context(
     )
     home_dashboard = analysis_data.get("home_dashboard", {})
     active_chart = home_dashboard.get("chart", {})
-    active_lens = home_dashboard.get("active_lens", home_lens or "cash")
+    active_lens = home_dashboard.get("active_lens", resolved_home_lens)
     effective_home_chart_mode = active_chart.get("mode") or home_chart_mode or "year"
     effective_home_chart_year = active_chart.get("selected_year") if effective_home_chart_mode == "year" else None
     effective_home_chart_compare = active_chart.get("compare_metric") or home_chart_compare
@@ -773,6 +845,8 @@ def _analysis_page_context(
         "period_start": resolved_start.isoformat(),
         "period_end": resolved_end.isoformat(),
     }
+    if overview_mode:
+        overview_state["home_lens"] = resolved_home_lens
     page_query_params = {
         **shared_summary_state,
         "origin": origin,
@@ -799,10 +873,10 @@ def _analysis_page_context(
     priority_alerts_source = home_dashboard.get("alerts") if base_path == "/admin" else None
     priority_actions_source = home_dashboard.get("actions") if base_path == "/admin" else None
     overview_alerts = _build_alerts_with_links((priority_alerts_source or analysis_data.get("alerts", []))[:4], overview_state)
-    overview_cards = _build_overview_cards(
-        conciliated_month=conciliated_composition["summary"],
-        period_label=analysis_data["period"]["month_reference_label"],
-        cards_detail_href=analysis_urls["contextual"]["cards_detail"],
+    overview_cards = _build_home_dashboard_overview_cards(
+        home_dashboard=home_dashboard,
+        analysis_urls=analysis_urls,
+        active_lens=resolved_home_lens,
     )
     overview_charts = _build_overview_charts(analysis_data, analysis_urls)
     analysis_context_chips = _build_context_chips(
@@ -842,6 +916,30 @@ def _analysis_page_context(
         (option["label"] for option in analysis_month_options if option["value"] == latest_closed_value),
         latest_closed_value,
     )
+    home_lens_options = [
+        {
+            "key": lens["key"],
+            "label": "Caixa" if lens["key"] == "cash" else "Compet\u00eancia",
+            "href": _url_with_query(
+                "/admin",
+                {
+                    **overview_state,
+                    "home_lens": lens["key"],
+                },
+            ),
+            "is_active": lens["key"] == resolved_home_lens,
+        }
+        for lens in home_dashboard.get("lenses", [])
+    ]
+    summary_back_href_simple = _url_with_query(
+        "/admin",
+        {
+            "selection_mode": selected_mode,
+            "month": month_value if selected_mode == "month" else None,
+            "period_start": resolved_start.isoformat(),
+            "period_end": resolved_end.isoformat(),
+        },
+    )
     return {
         "selection_mode": selected_mode,
         "period_start": resolved_start,
@@ -864,22 +962,20 @@ def _analysis_page_context(
         "overview_cards": overview_cards,
         "overview_alerts": overview_alerts,
         "overview_charts": overview_charts,
-        "analysis_extra_hidden_fields": (
-            []
-            if overview_mode
-            else [
-                {"name": "home_lens", "value": active_lens},
-                {"name": "home_chart_mode", "value": effective_home_chart_mode},
-                {"name": "home_chart_year", "value": effective_home_chart_year},
-                {"name": "home_chart_compare", "value": effective_home_chart_compare},
-                {"name": "origin", "value": origin},
-                {"name": "origin_block", "value": origin_block},
-            ]
-        ),
+        "home_lens": resolved_home_lens,
+        "home_lens_options": home_lens_options,
+        "analysis_extra_hidden_fields": [
+            {"name": "home_lens", "value": resolved_home_lens},
+            {"name": "home_chart_mode", "value": effective_home_chart_mode if not overview_mode else None},
+            {"name": "home_chart_year", "value": effective_home_chart_year if not overview_mode else None},
+            {"name": "home_chart_compare", "value": effective_home_chart_compare if not overview_mode else None},
+            {"name": "origin", "value": origin if not overview_mode else None},
+            {"name": "origin_block", "value": origin_block if not overview_mode else None},
+        ],
         "analysis_urls": analysis_urls,
         "analysis_breadcrumb_items": analysis_breadcrumb_items,
         "analysis_back_href": (
-            analysis_urls["summary"]
+            summary_back_href_simple
             if base_path in ("/admin/analysis", "/admin/conference")
             else analysis_urls["conference"]
             if base_path == "/admin/conference/technical"
@@ -892,6 +988,7 @@ def _analysis_page_context(
         "analysis_global_tabs": [],
         "format_currency_br": format_currency_br,
         "analysis_shell_target": _analysis_shell_target(base_path),
+        "analysis_form_action": "/admin" if base_path == "/admin" else base_path,
         "analysis_controls_intro": (
             "Período global da página."
             if base_path != "/admin/conference/technical"
@@ -1072,6 +1169,7 @@ def _conciliated_operational_context(
 def _summary_page_context(
     db: Session,
     *,
+    request: Request,
     selection_mode: str | None,
     month: str | None,
     period_start: date | None,
@@ -1083,6 +1181,7 @@ def _summary_page_context(
 ) -> dict:
     return _analysis_page_context(
         db,
+        request=request,
         base_path="/admin",
         selection_mode=selection_mode,
         month=month,
@@ -1098,6 +1197,7 @@ def _summary_page_context(
 def _analysis_detail_page_context(
     db: Session,
     *,
+    request: Request,
     selection_mode: str | None,
     month: str | None,
     period_start: date | None,
@@ -1127,6 +1227,7 @@ def _analysis_detail_page_context(
 ) -> dict:
     page_context = _analysis_page_context(
         db,
+        request=request,
         base_path="/admin/analysis",
         selection_mode=selection_mode,
         month=month,
@@ -1190,6 +1291,7 @@ def _analysis_detail_page_context(
 def _conference_page_context(
     db: Session,
     *,
+    request: Request,
     selection_mode: str | None,
     month: str | None,
     period_start: date | None,
@@ -1208,6 +1310,7 @@ def _conference_page_context(
 ) -> dict:
     page_context = _analysis_page_context(
         db,
+        request=request,
         base_path="/admin/conference",
         selection_mode=selection_mode,
         month=month,
@@ -1267,11 +1370,12 @@ def render_analysis_shell_for_return_to(request: Request, db: Session, return_to
     }
 
     if base_path in {"/admin", "/admin/summary"}:
-        context = _summary_page_context(db, **common)
+        context = _summary_page_context(db, request=request, **common)
         context["topbar_period_oob"] = True
     elif base_path == "/admin/analysis":
         context = _analysis_detail_page_context(
             db,
+            request=request,
             **common,
             conciliated_category=params.get("conciliated_category") or None,
             conciliated_description=params.get("conciliated_description") or None,
@@ -1294,6 +1398,7 @@ def render_analysis_shell_for_return_to(request: Request, db: Session, return_to
     elif base_path == "/admin/conference":
         context = _conference_page_context(
             db,
+            request=request,
             **common,
             statement_category=params.get("statement_category") or None,
             statement_description=params.get("statement_description") or None,
@@ -1311,6 +1416,8 @@ def render_analysis_shell_for_return_to(request: Request, db: Session, return_to
         period_start=context.get("period_start"),
         period_end=context.get("period_end"),
     )
+    if base_path in {"/admin", "/admin/summary"}:
+        persist_admin_home_lens_selection(request, home_lens=context.get("home_lens"))
     normalized_base_path = "/admin" if base_path == "/admin/summary" else base_path
     return _render_analysis_shell(request, base_path=normalized_base_path, context=context, status_code=status_code)
 
@@ -1328,6 +1435,7 @@ def admin_summary_page(
     db: Session = Depends(get_db),
     _: bool = Depends(require_admin_session),
 ):
+    restored_home_lens = restore_admin_home_lens_selection(request, home_lens=home_lens)
     restored_period = restore_admin_period_selection(
         request,
         selection_mode=selection_mode,
@@ -1337,11 +1445,12 @@ def admin_summary_page(
     )
     page_context = _summary_page_context(
         db,
+        request=request,
         selection_mode=restored_period["selection_mode"],
         month=restored_period["month"],
         period_start=restored_period["period_start"],
         period_end=restored_period["period_end"],
-        home_lens=home_lens,
+        home_lens=restored_home_lens,
         home_chart_mode=home_chart_mode,
         home_chart_year=home_chart_year,
         home_chart_compare=home_chart_compare,
@@ -1353,6 +1462,7 @@ def admin_summary_page(
         period_start=page_context["period_start"],
         period_end=page_context["period_end"],
     )
+    persist_admin_home_lens_selection(request, home_lens=page_context["home_lens"])
     if is_htmx_request(request):
         page_context["topbar_period_oob"] = True
         response = _render_analysis_shell(request, base_path="/admin", context=page_context)
@@ -1431,6 +1541,7 @@ def admin_analysis_page(
     )
     page_context = _analysis_detail_page_context(
         db,
+        request=request,
         selection_mode=restored_period["selection_mode"],
         month=restored_period["month"],
         period_start=restored_period["period_start"],
@@ -1503,6 +1614,7 @@ def admin_conference_page(
     )
     page_context = _conference_page_context(
         db,
+        request=request,
         selection_mode=restored_period["selection_mode"],
         month=restored_period["month"],
         period_start=restored_period["period_start"],
@@ -1559,6 +1671,7 @@ def admin_conference_technical_page(
     )
     page_context = _analysis_page_context(
         db,
+        request=request,
         base_path="/admin/conference/technical",
         selection_mode=restored_period["selection_mode"],
         month=restored_period["month"],

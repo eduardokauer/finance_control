@@ -1,0 +1,23 @@
+{% if home_lens_options %}
+<div class="summary-topbar-lens" aria-label="Visão financeira da página">
+  <span class="analysis-topbar-period-label">Visão</span>
+  <div class="summary-topbar-lens-switch" role="tablist" aria-label="Alternar entre caixa e competência">
+    {% for option in home_lens_options %}
+      {% set lens_href = analysis_form_action + option.href[6:] %}
+      <a
+        class="summary-topbar-lens-option {% if option.is_active %}summary-topbar-lens-option-active{% endif %}"
+        href="{{ lens_href }}"
+        hx-get="{{ lens_href }}"
+        hx-target="{{ analysis_shell_target }}"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        role="tab"
+        aria-selected="{{ 'true' if option.is_active else 'false' }}"
+        data-summary-home-lens="{{ option.key }}"
+      >
+        {{ option.label }}
+      </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
