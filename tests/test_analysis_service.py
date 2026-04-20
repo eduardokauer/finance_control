@@ -16,6 +16,7 @@ from app.services.analysis import (
     build_analysis_snapshot,
     build_category_composition_for_period,
     build_category_consumption_monthly_series,
+    build_net_flow_transactions_snapshot,
     build_statement_operational_snapshot,
     run_analysis,
 )
@@ -512,6 +513,49 @@ def test_analysis_snapshot_primary_summary_excludes_transfers_from_real_view(db_
     assert primary_summary["gross_expense_total"] == 4000.0
     assert primary_summary["excluded_transfer_income_total"] == 2000.0
     assert primary_summary["excluded_transfer_expense_total"] == 900.0
+
+
+def test_build_net_flow_transactions_snapshot_uses_only_atomic_contributions(db_session):
+    income = _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 5),
+        description="SALARIO MAR",
+        amount=5000.0,
+        category="SalÃ¡rio",
+        transaction_kind="income",
+    )
+    expense = _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 8),
+        description="ALUGUEL MAR",
+        amount=-1800.0,
+        category="Moradia",
+        transaction_kind="expense",
+    )
+    technical = _add_tx(
+        db_session,
+        tx_date=date(2026, 3, 10),
+        description="TRANSFERENCIA TECNICA",
+        amount=-300.0,
+        category="TransferÃªncias",
+        transaction_kind="transfer",
+        should_count_in_spending=False,
+    )
+
+    snapshot = build_net_flow_transactions_snapshot(
+        db_session,
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+    )
+
+    assert snapshot["kpi_label"] == "Fluxo líquido do mês"
+    assert snapshot["kpi_formula_short"] == "Entradas realizadas - saídas realizadas"
+    assert snapshot["composition"]["income_total"] == 5000.0
+    assert snapshot["composition"]["expense_total"] == 1800.0
+    assert snapshot["composition"]["balance_total"] == 3200.0
+    assert snapshot["composition"]["rows_count"] == 2
+    assert [tx.id for tx in snapshot["transactions"]] == [expense.id, income.id]
+    assert all(tx.id != technical.id for tx in snapshot["transactions"])
 
 
 def test_analysis_snapshot_builds_home_cards_from_cash_flow_and_consumption_view(db_session):

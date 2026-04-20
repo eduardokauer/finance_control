@@ -211,6 +211,7 @@ def test_admin_main_routes_smoke(client, db_session, monkeypatch):
     routes = [
         "/admin",
         "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31",
+        "/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31",
         "/admin/conference?period_start=2026-03-01&period_end=2026-03-31",
         "/admin/conference/technical?period_start=2026-03-01&period_end=2026-03-31",
         "/admin/conference/manage",

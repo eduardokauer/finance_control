@@ -52,7 +52,7 @@ Readequar o admin para uma linguagem visual e de navegacao consistente, sem muda
 ## Direcao da camada analitica
 
 - rollout progressivo: criar as telas novas primeiro, manter as antigas temporariamente, migrar entradas e drilldowns aos poucos e remover as antigas so depois de validacao
-- fatia atual: nova tela unica de lancamentos, por auditabilidade e validacao dos numeros
+- fatia atual: nova tela unica de lancamentos ja criada em `/admin/analysis/transactions` e conectada ao drilldown do KPI "Fluxo liquido do mes"
 
 ## Archetypes alvo
 

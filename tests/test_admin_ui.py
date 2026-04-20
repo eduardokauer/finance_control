@@ -911,8 +911,9 @@ def test_admin_summary_cards_expose_drilldown_links(client, db_session, monkeypa
     assert response.status_code == 200
 
     net_flow_href = _extract_href_by_data_attr(response.text, "data-context-card", "net_flow")
-    assert net_flow_href.startswith("/admin/conference?")
+    assert net_flow_href.startswith("/admin/analysis/transactions?")
     assert "selection_mode=month" in net_flow_href
+    assert "origin_kpi=net_flow_month" in net_flow_href
 
     income_href = _extract_href_by_data_attr(response.text, "data-context-card", "income")
     assert income_href.startswith("/admin/conference?")
@@ -927,6 +928,101 @@ def test_admin_summary_cards_expose_drilldown_links(client, db_session, monkeypa
     largest_href = _extract_href_by_data_attr(response.text, "data-context-card", "largest_expense")
     assert largest_href.startswith("/admin/conference?")
     assert "statement_sort=amount_desc" in largest_href
+
+
+def test_admin_analysis_transactions_drilldown_page_exposes_atomic_composition(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR DRILLDOWN",
+        normalized="salario mar drilldown atomic",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Salário",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR DRILLDOWN",
+        normalized="aluguel mar drilldown atomic",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_transaction(
+        db_session,
+        description="TRANSFERENCIA TECNICA DRILLDOWN",
+        normalized="transferencia tecnica drilldown atomic",
+        transaction_date=date(2026, 3, 10),
+        amount=-300.0,
+        transaction_kind="transfer",
+        category="Transferências",
+        should_count_in_spending=False,
+    )
+    _login(client)
+
+    response = client.get(
+        "/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31&origin=summary&origin_block=cards&origin_kpi=net_flow_month&origin_kpi_label=Fluxo+l%C3%ADquido+do+m%C3%AAs"
+    )
+
+    assert response.status_code == 200
+    assert "Lançamentos analíticos" in response.text
+    assert "Fluxo líquido do mês" in response.text
+    assert "Entradas realizadas - saídas realizadas" in response.text
+    assert "01/03/2026 a 31/03/2026" in response.text
+    assert "Lançamentos atômicos: 2" in response.text
+    assert "R$ 3.200,00" in response.text
+    assert "Valor clicado no resumo" in response.text
+    origin_card_match = re.search(
+        r'<span class="analysis-metric-meta">KPI de origem</span>.*?<div class="metric-value ([^"]+)">',
+        response.text,
+        re.S,
+    )
+    assert origin_card_match is not None
+    assert origin_card_match.group(1) == "amount-positive"
+    assert "SALARIO MAR DRILLDOWN" in response.text
+    assert "ALUGUEL MAR DRILLDOWN" in response.text
+    assert "TRANSFERENCIA TECNICA DRILLDOWN" not in response.text
+
+
+def test_admin_analysis_transactions_drilldown_page_uses_negative_sign_for_negative_balance(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR DRILLDOWN",
+        normalized="aluguel mar drilldown negative",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_transaction(
+        db_session,
+        description="SUPERMERCADO MAR DRILLDOWN",
+        normalized="supermercado mar drilldown negative",
+        transaction_date=date(2026, 3, 12),
+        amount=-900.0,
+        transaction_kind="expense",
+        category="Supermercado",
+    )
+    _login(client)
+
+    response = client.get(
+        "/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31&origin=summary&origin_block=cards&origin_kpi=net_flow_month&origin_kpi_label=Fluxo+l%C3%ADquido+do+m%C3%AAs"
+    )
+
+    assert response.status_code == 200
+    origin_card_match = re.search(
+        r'<span class="analysis-metric-meta">KPI de origem</span>.*?<div class="metric-value ([^"]+)">',
+        response.text,
+        re.S,
+    )
+    assert origin_card_match is not None
+    assert origin_card_match.group(1) == "amount-negative"
+    assert "R$ 2.700,00" in response.text
 
 
 def test_admin_summary_page_shows_overview_categories_chart_without_redundant_list(client, db_session, monkeypatch):
@@ -3883,6 +3979,7 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
     operations = client.get("/admin/operations")
     transactions = client.get("/admin/transactions")
     transactions_bulk = client.get("/admin/transactions/bulk")
+    transactions_analysis = client.get("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31")
     invoices = client.get("/admin/credit-card-invoices")
     invoices_manage = client.get("/admin/credit-card-invoices/manage")
     rules = client.get("/admin/rules")
@@ -3905,6 +4002,10 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
     assert "Ações em lote" in transactions_bulk.text
     assert "Aplicar aos selecionados" in transactions_bulk.text
     assert "Voltar para lançamentos" in transactions_bulk.text
+
+    assert transactions_analysis.status_code == 200
+    assert "Lançamentos analíticos" in transactions_analysis.text
+    assert "Fluxo líquido do mês" in transactions_analysis.text
 
     assert invoices.status_code == 200
     assert "Painel principal das faturas" not in invoices.text
