@@ -211,37 +211,38 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert 'id="admin-toast-region"' in home.text
     assert 'data-admin-nav' in home.text
     assert "Principal" in home.text
-    assert "Operação" in home.text
-    assert "Configuração" in home.text
-    assert "Visão Geral" in home.text
-    assert "Resumo das leituras do período." not in home.text
+    assert "Opera??o" in home.text
+    assert "Configura??o" in home.text
+    assert "Vis?o Geral" in home.text
+    assert "Painel ?nico da leitura ativa do m?s." in home.text
+    assert "Leituras especializadas" not in home.text
     assert 'data-return-summary-link' not in home.text
-    assert "Controles globais da página" not in home.text
+    assert "Controles globais da p?gina" not in home.text
     assert 'id="admin-topbar-center-slot"' in home.text
     assert 'data-analysis-period-popover' in home.text
     assert 'class="analysis-period-bar"' in home.text
-    assert "Último mês fechado disponível" in home.text
+    assert "?ltimo m?s fechado dispon?vel" in home.text
     assert 'id="analysis-apply-button"' in home.text
-    assert "Fluxo líquido do mês" in home.text
-    assert "Entradas do mês" in home.text
-    assert "Saídas do mês" in home.text
-    assert "Saídas do mês" in home.text
-    assert "Maior saída do mês" in home.text
-    assert "Leituras especializadas" in home.text
-    assert "Categorias do período" in home.text
+    assert "Fluxo l?quido do m?s" in home.text
+    assert "Entradas do m?s" in home.text
+    assert "Sa?das do m?s" in home.text
+    assert "Sa?das do m?s" in home.text
+    assert "Maior sa?da do m?s" in home.text
+    assert "Sa?das para outras telas" in home.text
+    assert "Categorias do per?odo" in home.text
     assert "Alertas" in home.text
     assert "chart.js" in home.text.lower()
-    assert "Resumo executivo da Visão de Caixa" not in home.text
-    assert "Análise detalhada" not in home.text
-    assert "Conferência" not in home.text
-    assert "Visão conciliada" in home.text
-    assert "Visão de Extrato" in home.text
-    assert "Visão de Faturas" in home.text
-    assert "Central operacional" in home.text
-    assert "Visão bruta de apoio" not in home.text
-    assert "Sinais analíticos de conciliação" not in home.text
-    assert "Análise determinística renderizada" not in home.text
-
+    assert "Resumo executivo da Vis?o de Caixa" not in home.text
+    assert "An?lise detalhada" not in home.text
+    assert "Confer?ncia" not in home.text
+    assert "Vis?o conciliada" not in home.text
+    assert "Vis?o de Extrato" in home.text
+    assert "Vis?o de Faturas" in home.text
+    assert "Leitura ativa detalhada" in home.text
+    assert "Central operacional" not in home.text
+    assert "Vis?o bruta de apoio" not in home.text
+    assert "Sinais anal?ticos de concilia??o" not in home.text
+    assert "An?lise determin?stica renderizada" not in home.text
 
 def test_admin_login_page_uses_shell_auth_header(client, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
@@ -1047,7 +1048,7 @@ def test_admin_summary_page_shows_overview_categories_chart_without_redundant_li
     ]
 
 
-def test_admin_summary_page_renders_period_category_charts_with_drilldown_payloads(client, db_session, monkeypatch):
+def test_admin_summary_page_renders_only_the_active_month_charts_and_navigation_payloads(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
     _seed_transaction(
@@ -1057,7 +1058,7 @@ def test_admin_summary_page_renders_period_category_charts_with_drilldown_payloa
         transaction_date=date(2026, 3, 5),
         amount=5000.0,
         transaction_kind="income",
-        category="Sal\u00e1rio",
+        category="Sal?rio",
     )
     _seed_transaction(
         db_session,
@@ -1070,7 +1071,7 @@ def test_admin_summary_page_renders_period_category_charts_with_drilldown_payloa
     )
     invoice = _seed_credit_card_invoice(
         db_session,
-        card_label="Ita\u00fa Visa final 4321",
+        card_label="Ita? Visa final 4321",
         card_final="4321",
         item_specs=[
             ("SUPERMERCADO TESTE", "450.00"),
@@ -1086,7 +1087,7 @@ def test_admin_summary_page_renders_period_category_charts_with_drilldown_payloa
         if item.description_raw == "SUPERMERCADO TESTE":
             item.category = "Supermercado"
         elif item.description_raw == "CURSO TESTE":
-            item.category = "Educa\u00e7\u00e3o"
+            item.category = "Educa??o"
         item.categorization_method = "manual"
         item.categorization_confidence = 1.0
     db_session.commit()
@@ -1095,38 +1096,32 @@ def test_admin_summary_page_renders_period_category_charts_with_drilldown_payloa
     response = client.get("/admin?selection_mode=month&month=2026-03")
 
     assert response.status_code == 200
-    for canvas_id in (
-        "overview-statement-period-categories-chart",
-        "overview-invoice-period-categories-chart",
-        "overview-categories-period-categories-chart",
-    ):
-        assert f'id="{canvas_id}"' in response.text
-    assert response.text.count("window.mountAdminCategoryPeriodChart(") == 3
+    assert 'id="overview-home-dashboard-chart"' in response.text
+    assert 'id="overview-categories-period-categories-chart"' in response.text
+    assert 'id="overview-statement-chart"' not in response.text
+    assert 'id="overview-invoice-chart"' not in response.text
+    assert 'id="overview-statement-period-categories-chart"' not in response.text
+    assert 'id="overview-invoice-period-categories-chart"' not in response.text
+    assert response.text.count("window.mountAdminCashFlowChart(") == 1
+    assert response.text.count("window.mountAdminCategoryPeriodChart(") == 1
 
     chart_payloads = {}
     for canvas_id, payload in re.findall(
-        r"window\.mountAdminCategoryPeriodChart\(\s*(\"[^\"]+\")\s*,\s*(\{.*?\})\s*,\s*\{ datasetLabel:",
+        r'window\.mountAdminCategoryPeriodChart\(\s*("[^"]+")\s*,\s*(\{.*?\})\s*,\s*\{ datasetLabel:',
         response.text,
         re.S,
     ):
         chart_payloads[json.loads(canvas_id)] = json.loads(payload)
 
-    assert chart_payloads["overview-statement-period-categories-chart"]["labels"][0] == "Sal\u00e1rio"
-    assert chart_payloads["overview-statement-period-categories-chart"]["hrefs"][1].startswith("/admin/conference?")
-    assert "selection_mode=month" in chart_payloads["overview-statement-period-categories-chart"]["hrefs"][1]
-    assert "statement_category=Moradia" in chart_payloads["overview-statement-period-categories-chart"]["hrefs"][1]
-    assert chart_payloads["overview-statement-period-categories-chart"]["hrefs"][1].endswith("#statement-table")
-
-    assert chart_payloads["overview-invoice-period-categories-chart"]["labels"] == ["Supermercado", "Educa\u00e7\u00e3o"]
-    assert chart_payloads["overview-invoice-period-categories-chart"]["hrefs"][0].startswith("/admin/credit-card-invoices?")
-    assert "category=Supermercado" in chart_payloads["overview-invoice-period-categories-chart"]["hrefs"][0]
-    assert chart_payloads["overview-invoice-period-categories-chart"]["hrefs"][0].endswith("#invoice-items-table")
-
     categories_chart = chart_payloads["overview-categories-period-categories-chart"]
     category_href_map = dict(zip(categories_chart["labels"], categories_chart["hrefs"]))
     assert category_href_map["Moradia"].startswith("/admin/categories?")
     assert "selected_category=Moradia" in category_href_map["Moradia"]
+    assert category_href_map["Moradia"].endswith("#category-composition-section")
 
+    assert 'data-context-cta="home-dashboard"' in response.text
+    assert 'data-context-cta="statement"' in response.text
+    assert 'data-context-cta="invoice"' in response.text
 
 def test_admin_summary_categories_cta_opens_categories_with_same_period(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
@@ -2654,7 +2649,7 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
 def test_admin_summary_page_supports_htmx_shell_refresh(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
-    _seed_transaction(db_session, description="SALARIO MAR", normalized="salario mar htmx summary", amount=5000.0, transaction_kind="income", category="Sal\u00e1rio")
+    _seed_transaction(db_session, description="SALARIO MAR", normalized="salario mar htmx summary", amount=5000.0, transaction_kind="income", category="Sal?rio")
     _login(client)
 
     response = client.get(
@@ -2668,8 +2663,7 @@ def test_admin_summary_page_supports_htmx_shell_refresh(client, db_session, monk
     assert 'data-analysis-period-popover' in response.text
     assert 'id="summary-view-shell"' in response.text
     assert response.headers["HX-Push-Url"].endswith("period_start=2026-03-01&period_end=2026-03-31")
-    assert "Leituras especializadas" in response.text
-
+    assert "Sa?das para outras telas" in response.text
 
 def test_admin_analysis_page_supports_htmx_shell_refresh(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
