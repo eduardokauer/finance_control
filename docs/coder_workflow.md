@@ -24,11 +24,15 @@ Se a mudança tocar processo ou compatibilidade de workflow, ler também `docs/p
 - Atualizar `docs/project_context.md` quando estado, decisão ou limitação técnica mudar.
 - Atualizar `docs/coder_workflow.md` quando o processo de execução mudar.
 - Manter encoding, formatação e texto limpos.
+- Nunca trabalhar direto na branch `develop` ou main.
+- Antes de criar uma nova branch, verificar qual branch está mais atual `develop`ou `main` e começar uma nova branch a partir dela.
+- PRs devem sempre ser abertos da branch de trabalho para a `develop`
+- Sempre criar ou revisar os testes da aplicação para garantir cobertura completa de testes.
 
 ## Validação
 
-- PR só com `docs/` alterado: `make test-docs` ou `python scripts/check_docs.py docs`
-- Qualquer mudança fora de `docs/`: suíte completa do projeto
+- PR só com `docs/`, `AGENTS.md` ou `README.md` alterado: `make test-docs` ou `python scripts/check_docs.py docs`
+- Qualquer mudança fora de `docs/`, `AGENTS.md` ou `README.md`: suíte completa do projeto
 - Se a validação falhar, corrigir e repetir até ficar verde
 
 ## Commit e PR
@@ -39,7 +43,8 @@ Se a mudança tocar processo ou compatibilidade de workflow, ler também `docs/p
 - Use uma branch nova para trabalho novo, salvo continuação do mesmo PR.
 
 ## Higiene de thread
-- Novo objetivo, nova fatia ou novo PR devem começar em thread nova.
-- Use `/compact` apenas para continuar a mesma fatia quando a thread estiver longa.
 - Não reutilize thread antiga para trabalho novo.
 - Se a tarefa parecer um novo objetivo, sinalize isso explicitamente.
+- Novo objetivo, nova fatia ou novo PR devem começar em thread nova.
+- Use `/compact` apenas para continuar a mesma fatia quando a thread estiver longa.
+
