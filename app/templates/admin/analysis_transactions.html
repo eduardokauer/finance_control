@@ -1,0 +1,11 @@
+{% extends "admin/base.html" %}
+{% from "admin/partials/analysis_topbar.html" import analysis_topbar_actions %}
+{% block title %}Lançamentos analíticos{% endblock %}
+{% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
+{% block topbar_center %}{% include "admin/partials/analysis_topbar_period_control.html" %}{% endblock %}
+{% block topbar_actions %}
+  {{ analysis_topbar_actions(analysis_back_href, analysis_show_generate, analysis_shell_target, period_start, period_end, analysis_urls) }}
+{% endblock %}
+{% block content %}
+{% include "admin/partials/analysis_transactions_page_shell.html" %}
+{% endblock %}

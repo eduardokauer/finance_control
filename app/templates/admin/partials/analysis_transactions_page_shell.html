@@ -1,0 +1,129 @@
+{% from "admin/partials/analysis_topbar.html" import analysis_topbar_actions %}
+{% from "admin/partials/transactions_table.html" import transactions_table %}
+{% set net_flow = net_flow_transactions %}
+{% if topbar_period_oob %}
+  <div id="admin-topbar-center-slot" hx-swap-oob="innerHTML">
+    {% include "admin/partials/analysis_topbar_period_control.html" %}
+  </div>
+  <div id="admin-topbar-actions-slot" hx-swap-oob="innerHTML">
+    {{ analysis_topbar_actions(analysis_back_href, analysis_show_generate, analysis_shell_target, period_start, period_end, analysis_urls) }}
+  </div>
+{% endif %}
+<section id="analysis-transactions-view-shell" class="analysis-page-stack">
+  <section class="page-header analysis-page-header">
+    <div class="page-header-copy">
+      <span class="page-eyebrow">Lançamentos analíticos</span>
+      <h1 class="page-title">{{ net_flow.kpi_label }}</h1>
+      <p class="page-intro">
+        A lista abaixo mostra somente lançamentos atômicos que explicam o valor clicado no resumo.
+        O recorte preserva o período aplicado e a composição do KPI para leitura direta.
+      </p>
+    </div>
+  </section>
+
+  {% if analysis_focus_banner %}
+    <section class="card analysis-focus-banner">
+      <div class="stack" style="gap: 4px;">
+        <strong>{{ analysis_focus_banner.title }}</strong>
+        <div class="subtle">{{ analysis_focus_banner.body }}</div>
+      </div>
+      <a class="button button-ghost" href="{{ analysis_focus_banner.href }}">{{ analysis_focus_banner.link_label }}</a>
+    </section>
+  {% endif %}
+
+  {% if analysis_context_chips %}
+    <section class="analysis-context-chips" aria-label="Contexto da análise">
+      {% for chip in analysis_context_chips %}
+        <span class="analysis-context-chip"><strong>{{ chip.label }}</strong><span>{{ chip.value }}</span></span>
+      {% endfor %}
+    </section>
+  {% endif %}
+
+  {% if analysis_breadcrumb_items %}
+    <nav class="analysis-breadcrumbs" aria-label="Caminho da tela">
+      {% for item in analysis_breadcrumb_items %}
+        {% if item.href %}
+          <a href="{{ item.href }}">{{ item.label }}</a>
+        {% else %}
+          <span aria-current="page">{{ item.label }}</span>
+        {% endif %}
+        {% if not loop.last %}<span class="analysis-breadcrumb-separator">/</span>{% endif %}
+      {% endfor %}
+    </nav>
+  {% endif %}
+
+  <section class="analysis-metric-grid" aria-label="Resumo do drilldown">
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">KPI de origem</span>
+      <div class="analysis-metric-title-row">
+        <strong>{{ origin_kpi_label or net_flow.kpi_label }}</strong>
+        <span class="home-kpi-icon home-kpi-icon-net_flow" aria-hidden="true">&#9679;</span>
+      </div>
+      <div class="metric-value {{ 'amount-positive' if net_flow.composition.balance_total >= 0 else 'amount-negative' }}">{{ net_flow.composition.balance_display }}</div>
+      <span class="analysis-metric-detail">Valor clicado no resumo</span>
+      <div class="analysis-composition-list">
+        <span class="analysis-metric-detail">Entradas: {{ net_flow.composition.income_display }}</span>
+        <span class="analysis-metric-detail">Saídas: {{ net_flow.composition.expense_display }}</span>
+      </div>
+    </article>
+
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">Período aplicado</span>
+      <div class="analysis-metric-title-row">
+        <strong>{{ net_flow.period.label }}</strong>
+        <span class="home-kpi-icon home-kpi-icon-income" aria-hidden="true">&uarr;</span>
+      </div>
+      <div class="metric-value">{{ net_flow.period.month_reference_label }}</div>
+      <span class="analysis-metric-detail">Recorte restaurado do drilldown</span>
+    </article>
+
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">Fórmula da V1</span>
+      <div class="analysis-metric-title-row">
+        <strong>Entradas - saídas</strong>
+        <span class="home-kpi-icon home-kpi-icon-expense" aria-hidden="true">&darr;</span>
+      </div>
+      <div class="metric-value amount-negative">{{ net_flow.kpi_formula_short }}</div>
+      <span class="analysis-metric-detail">Leitura curta para explicar o número clicado</span>
+    </article>
+    <article class="card analysis-metric-card">
+      <span class="analysis-metric-meta">Composição</span>
+      <div class="analysis-metric-title-row">
+        <strong>Balanceamento numérico</strong>
+        <span class="home-kpi-icon home-kpi-icon-result" aria-hidden="true">&#9679;</span>
+      </div>
+      <div class="metric-value">{{ net_flow.composition.balance_display }}</div>
+      <span class="analysis-metric-detail">Resultado final da composição</span>
+    </article>
+  </section>
+
+  <section class="card analysis-section-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Como o número foi montado</strong>
+        <div class="help-copy">{{ net_flow.composition.note }}</div>
+      </div>
+      <div class="analysis-section-actions">
+        <span class="analysis-stat-chip">Lançamentos atômicos: {{ net_flow.composition.rows_count }}</span>
+        <span class="analysis-stat-chip">Resultado: {{ net_flow.composition.balance_display }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="net-flow-atomic-table" class="card analysis-table-card">
+    <div class="analysis-section-header-row">
+      <div class="analysis-section-header">
+        <strong>Lançamentos atômicos da composição</strong>
+        <div class="help-copy">A tabela abaixo não mistura resumos artificiais, linhas derivadas ou itens operacionais fora do cálculo.</div>
+      </div>
+    </div>
+    {% if net_flow.transactions %}
+      {{ transactions_table(net_flow.transactions, encoded_current_url, False, 'recent', None, '#net-flow-atomic-table') }}
+    {% else %}
+      <div class="empty-state">
+        <strong>Nenhum lançamento atômico encontrado</strong>
+        <div class="subtle">Não houve entradas ou saídas que entrassem na composição do KPI neste período.</div>
+      </div>
+    {% endif %}
+  </section>
+</section>
