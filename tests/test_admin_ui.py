@@ -975,9 +975,54 @@ def test_admin_analysis_transactions_drilldown_page_exposes_atomic_composition(c
     assert "Lançamentos atômicos: 2" in response.text
     assert "R$ 3.200,00" in response.text
     assert "Valor clicado no resumo" in response.text
+    origin_card_match = re.search(
+        r'<span class="analysis-metric-meta">KPI de origem</span>.*?<div class="metric-value ([^"]+)">',
+        response.text,
+        re.S,
+    )
+    assert origin_card_match is not None
+    assert origin_card_match.group(1) == "amount-positive"
     assert "SALARIO MAR DRILLDOWN" in response.text
     assert "ALUGUEL MAR DRILLDOWN" in response.text
     assert "TRANSFERENCIA TECNICA DRILLDOWN" not in response.text
+
+
+def test_admin_analysis_transactions_drilldown_page_uses_negative_sign_for_negative_balance(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR DRILLDOWN",
+        normalized="aluguel mar drilldown negative",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_transaction(
+        db_session,
+        description="SUPERMERCADO MAR DRILLDOWN",
+        normalized="supermercado mar drilldown negative",
+        transaction_date=date(2026, 3, 12),
+        amount=-900.0,
+        transaction_kind="expense",
+        category="Supermercado",
+    )
+    _login(client)
+
+    response = client.get(
+        "/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31&origin=summary&origin_block=cards&origin_kpi=net_flow_month&origin_kpi_label=Fluxo+l%C3%ADquido+do+m%C3%AAs"
+    )
+
+    assert response.status_code == 200
+    origin_card_match = re.search(
+        r'<span class="analysis-metric-meta">KPI de origem</span>.*?<div class="metric-value ([^"]+)">',
+        response.text,
+        re.S,
+    )
+    assert origin_card_match is not None
+    assert origin_card_match.group(1) == "amount-negative"
+    assert "R$ 2.700,00" in response.text
 
 
 def test_admin_summary_page_shows_overview_categories_chart_without_redundant_list(client, db_session, monkeypatch):

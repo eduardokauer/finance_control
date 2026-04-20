@@ -59,7 +59,7 @@
         <strong>{{ origin_kpi_label or net_flow.kpi_label }}</strong>
         <span class="home-kpi-icon home-kpi-icon-net_flow" aria-hidden="true">&#9679;</span>
       </div>
-      <div class="metric-value amount-positive">{{ net_flow.composition.balance_display }}</div>
+      <div class="metric-value {{ 'amount-positive' if net_flow.composition.balance_total >= 0 else 'amount-negative' }}">{{ net_flow.composition.balance_display }}</div>
       <span class="analysis-metric-detail">Valor clicado no resumo</span>
       <div class="analysis-composition-list">
         <span class="analysis-metric-detail">Entradas: {{ net_flow.composition.income_display }}</span>
