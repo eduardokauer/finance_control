@@ -11,7 +11,7 @@ Definir qual artefato o ChatGPT deve gerar em cada etapa do trabalho.
 - Coder/Codex = executor técnico
 
 ## Tipos de saída permitidos
-1. Pergunta única de refinamento
+1. Perguntas de refinamento uma por vez até fechar o escopo refinado
 2. Prompt para Claude atualizar o Notion
 3. Prompt para Coder/Codex alinhar documentação do repositório
 4. Prompt para Coder/Codex implementar uma fatia

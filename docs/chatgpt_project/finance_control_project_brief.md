@@ -22,9 +22,6 @@ Aplicação pessoal de controle financeiro com ingestão de extrato bancário e 
 - Supabase como Postgres gerenciado
 
 ## Restrições fixas
-- foco no menor incremento com valor real
-- priorizar auditabilidade e consistência
-- evitar automação ampla antes de operação confiável
 - preservar separação entre decisão funcional e execução técnica
 
 ## Operating model
