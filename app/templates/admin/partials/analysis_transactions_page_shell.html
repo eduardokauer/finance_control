@@ -59,8 +59,12 @@
         <strong>{{ origin_kpi_label or net_flow.kpi_label }}</strong>
         <span class="home-kpi-icon home-kpi-icon-net_flow" aria-hidden="true">&#9679;</span>
       </div>
-      <div class="metric-value amount-positive">{{ origin_kpi_label or net_flow.kpi_label }}</div>
-      <span class="analysis-metric-detail">Origem do drilldown</span>
+      <div class="metric-value amount-positive">{{ net_flow.composition.balance_display }}</div>
+      <span class="analysis-metric-detail">Valor clicado no resumo</span>
+      <div class="analysis-composition-list">
+        <span class="analysis-metric-detail">Entradas: {{ net_flow.composition.income_display }}</span>
+        <span class="analysis-metric-detail">Saídas: {{ net_flow.composition.expense_display }}</span>
+      </div>
     </article>
 
     <article class="card analysis-metric-card">
@@ -82,17 +86,14 @@
       <div class="metric-value amount-negative">{{ net_flow.kpi_formula_short }}</div>
       <span class="analysis-metric-detail">Leitura curta para explicar o número clicado</span>
     </article>
-
     <article class="card analysis-metric-card">
       <span class="analysis-metric-meta">Composição</span>
       <div class="analysis-metric-title-row">
-        <strong>{{ net_flow.composition.balance_display }}</strong>
+        <strong>Balanceamento numérico</strong>
         <span class="home-kpi-icon home-kpi-icon-result" aria-hidden="true">&#9679;</span>
       </div>
-      <div class="analysis-composition-list">
-        <span class="analysis-metric-detail">Entradas: {{ net_flow.composition.income_display }}</span>
-        <span class="analysis-metric-detail">Saídas: {{ net_flow.composition.expense_display }}</span>
-      </div>
+      <div class="metric-value">{{ net_flow.composition.balance_display }}</div>
+      <span class="analysis-metric-detail">Resultado final da composição</span>
     </article>
   </section>
 

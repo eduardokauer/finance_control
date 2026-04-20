@@ -974,6 +974,7 @@ def test_admin_analysis_transactions_drilldown_page_exposes_atomic_composition(c
     assert "01/03/2026 a 31/03/2026" in response.text
     assert "Lançamentos atômicos: 2" in response.text
     assert "R$ 3.200,00" in response.text
+    assert "Valor clicado no resumo" in response.text
     assert "SALARIO MAR DRILLDOWN" in response.text
     assert "ALUGUEL MAR DRILLDOWN" in response.text
     assert "TRANSFERENCIA TECNICA DRILLDOWN" not in response.text
