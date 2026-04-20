@@ -1193,7 +1193,7 @@ def _build_statement_category_breakdown(*, current_txs: list[Transaction]) -> di
         "top_expense_categories": top_expense_categories,
         "note": (
             "Visão de Extrato: considera apenas as transações da conta pela data da transação, "
-            "sem incorporar compras de fatura nem ajustar pagamentos conciliados."
+            "mantendo transferências e pagamentos de fatura como categorias técnicas separadas."
         ),
     }
 
@@ -1357,7 +1357,7 @@ def build_statement_category_monthly_series(
             }
         )
         for row in snapshot["rows"]:
-            if row["expense_total"] <= 0 or row["is_technical"]:
+            if row["expense_total"] <= 0:
                 continue
             category_key = _analysis_category_key(row["name"])
             category_labels.setdefault(category_key, row["name"])
@@ -1376,7 +1376,7 @@ def build_statement_category_monthly_series(
         row_lookup = {
             _analysis_category_key(row["name"]): row
             for row in snapshot["rows"]
-            if row["expense_total"] > 0 and not row["is_technical"]
+            if row["expense_total"] > 0
         }
         for dataset in datasets:
             row = row_lookup.get(_analysis_category_key(dataset["label"]))
@@ -2259,7 +2259,7 @@ def build_category_consumption_monthly_series(
         row_lookup = {
             _analysis_category_key(row["name"]): row
             for row in snapshot["rows"]
-            if row["expense_total"] > 0 and not row["is_technical"]
+            if row["expense_total"] > 0
         }
         for dataset in datasets:
             row = row_lookup.get(_analysis_category_key(dataset["label"]))

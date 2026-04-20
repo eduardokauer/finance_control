@@ -1938,6 +1938,10 @@ def test_admin_conference_page_restores_summary_context(client, db_session, monk
     assert "Itens do extrato" in response.text
     assert "12 meses de extrato" in response.text
     assert "Auditoria técnica" in response.text
+    assert "Receitas brutas" in response.text
+    assert "Despesas brutas" in response.text
+    assert "Saldo bruto" in response.text
+    assert "Pagamentos vinculados" in response.text
     assert 'data-return-summary-link' in response.text
 
     return_href = _extract_return_summary_href(response.text)
@@ -4169,7 +4173,6 @@ def test_admin_credit_card_invoice_detail_returns_404_for_missing_invoice(client
     response = client.get("/admin/credit-card-invoices/999999")
 
     assert response.status_code == 404
-
 
 
 

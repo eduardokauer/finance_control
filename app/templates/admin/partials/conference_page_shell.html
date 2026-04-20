@@ -14,7 +14,7 @@
     <article class="card analysis-metric-card">
       <span class="analysis-metric-meta">{{ analysis_data.period.month_reference_label }}</span>
       <div class="analysis-metric-title-row">
-        <strong>Receitas</strong>
+        <strong>Receitas brutas</strong>
         <span class="help-copy">Entradas brutas do extrato no recorte atual.</span>
         <span class="home-kpi-icon home-kpi-icon-income" aria-hidden="true">&uarr;</span>
       </div>
@@ -25,7 +25,7 @@
     <article class="card analysis-metric-card">
       <span class="analysis-metric-meta">{{ analysis_data.period.month_reference_label }}</span>
       <div class="analysis-metric-title-row">
-        <strong>Despesas</strong>
+        <strong>Despesas brutas</strong>
         <span class="help-copy">Sa&iacute;das brutas do extrato no recorte atual.</span>
         <span class="home-kpi-icon home-kpi-icon-expense" aria-hidden="true">&darr;</span>
       </div>
@@ -36,7 +36,7 @@
     <article class="card analysis-metric-card">
       <span class="analysis-metric-meta">{{ analysis_data.period.month_reference_label }}</span>
       <div class="analysis-metric-title-row">
-        <strong>Saldo</strong>
+        <strong>Saldo bruto</strong>
         <span class="help-copy">Saldo bruto do recorte, sem composi&ccedil;&atilde;o de faturas.</span>
         <span class="home-kpi-icon home-kpi-icon-net_flow" aria-hidden="true">&#9679;</span>
       </div>
@@ -47,12 +47,12 @@
     <article class="card analysis-metric-card">
       <span class="analysis-metric-meta">{{ analysis_data.period.month_reference_label }}</span>
       <div class="analysis-metric-title-row">
-        <strong>Concilia&ccedil;&otilde;es</strong>
+        <strong>Pagamentos vinculados</strong>
         <span class="help-copy">Lan&ccedil;amentos do extrato com v&iacute;nculo em concilia&ccedil;&otilde;es de fatura.</span>
         <span class="home-kpi-icon home-kpi-icon-result" aria-hidden="true">&#9679;</span>
       </div>
-      <a class="metric-value metric-value-link" href="/admin/conference?selection_mode={{ selection_mode }}{% if selection_mode == 'month' %}&month={{ month_value }}{% else %}&period_start={{ period_start }}&period_end={{ period_end }}{% endif %}&statement_scope=linked#statement-table" aria-label="Abrir lan&ccedil;amentos conciliados do extrato">
-        {{ analysis_data.conciliation_signals.conciliated_bank_payment_count }}
+      <a class="metric-value metric-value-link" href="/admin/conference?selection_mode={{ selection_mode }}{% if selection_mode == 'month' %}&month={{ month_value }}{% else %}&period_start={{ period_start }}&period_end={{ period_end }}{% endif %}&statement_scope=linked#statement-table" aria-label="Abrir lan&ccedil;amentos vinculados do extrato">
+        {{ statement_stats.linked_count }}
       </a>
       <span class="analysis-metric-detail">Sem v&iacute;nculo: {{ statement_stats.unlinked_count }}</span>
     </article>
@@ -74,7 +74,7 @@
     <div class="analysis-section-header-row">
       <div class="analysis-section-header">
         <strong>12 meses de extrato</strong>
-        <div class="help-copy">Hist&oacute;rico bruto da conta no mesmo padr&atilde;o usado na Vis&atilde;o Geral.</div>
+        <div class="help-copy">Hist&oacute;rico bruto da conta no mesmo padr&atilde;o usado na tabela do extrato.</div>
       </div>
     </div>
     <div class="chart-shell chart-shell-tall">
@@ -86,7 +86,7 @@
     <div class="analysis-section-header-row">
       <div class="analysis-section-header">
         <strong>Categorias do extrato</strong>
-        <div class="help-copy">Mesma leitura empilhada da &aacute;rea de categorias, restrita ao extrato.</div>
+        <div class="help-copy">Mesma leitura empilhada da &aacute;rea de categorias, restrita ao extrato e com categorias t&eacute;cnicas separadas.</div>
       </div>
     </div>
     <div id="statement-categories-legend" class="chart-legend-checkboxes" aria-label="Categorias do extrato"></div>
