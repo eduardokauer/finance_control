@@ -16,13 +16,18 @@ Este arquivo registra a frente de readequacao do admin so no nivel que ainda imp
 
 Readequar o admin para uma linguagem visual e de navegacao consistente, sem mudar semantica de dominio.
 
-## Arquitetura de informacao alvo
+## Arquitetura de informacao
 
-### Principal
+### Estado transitório
 
 - `Visao Geral` -> `/admin`
-- `Analise detalhada` -> `/admin/analysis`
-- `Conferencia` -> `/admin/conference`
+- `Analise detalhada` -> `/admin/analysis` enquanto a migração estiver em curso
+- `Conferencia` -> `/admin/conference` enquanto a migração estiver em curso
+
+### Alvo final da camada analitica
+
+- uma tela unica de graficos/KPIs
+- uma tela unica de listagem/exploracao de lancamentos
 
 ### Operacao
 
@@ -46,7 +51,6 @@ Readequar o admin para uma linguagem visual e de navegacao consistente, sem muda
 
 ## Direcao da camada analitica
 
-- 2 telas canonicas: uma tela unica de graficos/KPIs e uma tela unica de listagem/exploracao de lancamentos
 - rollout progressivo: criar as telas novas primeiro, manter as antigas temporariamente, migrar entradas e drilldowns aos poucos e remover as antigas so depois de validacao
 - fatia atual: nova tela unica de lancamentos, por auditabilidade e validacao dos numeros
 
@@ -96,4 +100,3 @@ Readequar o admin para uma linguagem visual e de navegacao consistente, sem muda
 - conferencia continua sendo auditoria
 - operacao e configuracao continuam acessiveis com baixo atrito
 - layout funciona em desktop, tablet e mobile
-
