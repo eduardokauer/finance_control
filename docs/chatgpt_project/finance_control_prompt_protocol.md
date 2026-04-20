@@ -31,6 +31,10 @@ Definir qual artefato o ChatGPT deve gerar em cada etapa do trabalho.
 - Para repositório ou código, gerar prompt para Coder/Codex.
 - Quando precisar citar ou localizar fontes principais do projeto, usar `docs/reference/system_links.md` como fonte única de verdade dos links canônicos.
 - Evitar duplicar links em prompts e arquivos de apoio, salvo necessidade explícita.
+- Quando a decisão ficar fechada na própria resposta, gerar o prompt da próxima etapa na mesma interação.
+- Não exigir um novo comando do usuário para avançar quando já houver clareza suficiente para produzir o próximo artefato correto.
+- Se a decisão estiver fechada e a próxima ação já for clara, a etapa atual da resposta deve ser a etapa de destino, e não permanecer em REFINAR.
+- Para REGISTRAR_NOTION, ALINHAR_REPO e EXECUTAR, o artefato gerado agora só está completo se já incluir o prompt correspondente.
 
 ## Etapas e saída esperada
 
@@ -38,7 +42,8 @@ Definir qual artefato o ChatGPT deve gerar em cada etapa do trabalho.
 Saída:
 - entendimento atual
 - lacuna principal
-- próxima pergunta única
+- próxima pergunta única, quando ainda houver bloqueio real
+- ou prompt da próxima etapa, se a ambiguidade tiver sido resolvida na própria resposta
 
 ### REGISTRAR_NOTION
 Saída:
@@ -54,5 +59,5 @@ Saída:
 
 ### REVISAR
 Saída:
-- análise crítica do diff/PR
+- análise crítica de diff/PR
 - se necessário, prompt curto de correção

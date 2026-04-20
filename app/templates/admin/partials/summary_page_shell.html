@@ -1,7 +1,4 @@
 {% from "admin/partials/conciliated_composition_rows.html" import conciliated_composition_rows %}
-{% set composition_summary = conciliated_composition.summary %}
-{% set statement_summary = analysis_data.summary %}
-{% set invoice_summary = analysis_data.invoice_month_snapshot %}
 {% set home_dashboard = analysis_data.home_dashboard %}
 {% if topbar_period_oob %}
   <div id="admin-topbar-center-slot" hx-swap-oob="innerHTML">
@@ -9,6 +6,13 @@
   </div>
 {% endif %}
 <section id="summary-view-shell" class="analysis-page-stack">
+  <section class="page-header">
+    <div class="page-header-copy">
+      <h1 class="page-title">Visão Geral</h1>
+      <p class="page-intro">Painel único da leitura ativa do mês. Os gráficos, categorias e atalhos abaixo usam o mesmo recorte; extrato e faturas abrem em telas próprias.</p>
+    </div>
+  </section>
+
   <section class="home-kpi-strip" aria-label="Blocos principais do m&ecirc;s">
     {% for card in overview_cards %}
       <article class="card home-kpi-card {% if loop.first %}home-kpi-card-primary{% endif %}">
@@ -55,54 +59,10 @@
         <strong>{{ home_dashboard.chart.title }}</strong>
         <div class="subtle">{{ home_dashboard.chart.note }}</div>
       </div>
-      <a class="button button-ghost" href="{{ analysis_urls.detail if home_dashboard.active_lens == 'competence' else analysis_urls.conference }}" data-context-cta="home-dashboard">Abrir leitura ativa</a>
+      <a class="button button-ghost" href="{{ analysis_urls.detail if home_dashboard.active_lens == 'competence' else analysis_urls.conference }}" data-context-cta="home-dashboard">Abrir tela da leitura ativa</a>
     </div>
     <div class="chart-shell chart-shell-tall">
       <canvas id="overview-home-dashboard-chart" aria-label="{{ home_dashboard.chart.title }}"></canvas>
-    </div>
-  </section>
-
-  <section class="card analysis-section-card overview-chart-card">
-    <div class="overview-chart-header">
-      <div class="stack" style="gap: 4px;">
-        <strong>{{ overview_charts.statement.title }}</strong>
-        <div class="subtle">{{ overview_charts.statement.note }}</div>
-      </div>
-      <a class="button button-ghost" href="{{ analysis_urls.conference }}" data-context-cta="statement">Abrir vis&atilde;o de extrato</a>
-    </div>
-    <div class="overview-chart-stack">
-      <div class="overview-subchart-block">
-        <strong>{{ overview_charts.statement.period_categories.title }}</strong>
-        <div class="subtle">{{ overview_charts.statement.period_categories.note }}</div>
-        <div class="chart-shell chart-shell-medium">
-          <canvas id="{{ overview_charts.statement.period_categories.canvas_id }}" aria-label="{{ overview_charts.statement.period_categories.title }}"></canvas>
-        </div>
-      </div>
-    </div>
-    <div class="chart-shell chart-shell-tall">
-      <canvas id="{{ overview_charts.statement.canvas_id }}" aria-label="{{ overview_charts.statement.title }}"></canvas>
-    </div>
-  </section>
-
-  <section class="card analysis-section-card overview-chart-card">
-    <div class="overview-chart-header">
-      <div class="stack" style="gap: 4px;">
-        <strong>{{ overview_charts.invoice.title }}</strong>
-        <div class="subtle">{{ overview_charts.invoice.note }}</div>
-      </div>
-      <a class="button button-ghost" href="{{ analysis_urls.invoice_view }}" data-context-cta="invoice">Abrir vis&atilde;o de faturas</a>
-    </div>
-    <div class="overview-chart-stack">
-      <div class="overview-subchart-block">
-        <strong>{{ overview_charts.invoice.period_categories.title }}</strong>
-        <div class="subtle">{{ overview_charts.invoice.period_categories.note }}</div>
-        <div class="chart-shell chart-shell-medium">
-          <canvas id="{{ overview_charts.invoice.period_categories.canvas_id }}" aria-label="{{ overview_charts.invoice.period_categories.title }}"></canvas>
-        </div>
-      </div>
-    </div>
-    <div class="chart-shell chart-shell-tall">
-      <canvas id="{{ overview_charts.invoice.canvas_id }}" aria-label="{{ overview_charts.invoice.title }}"></canvas>
     </div>
   </section>
 
@@ -162,31 +122,37 @@
   <section class="card analysis-section-card">
     <div class="analysis-section-header-row">
       <div class="analysis-section-header">
-        <strong>Leituras especializadas</strong>
-        <div class="help-copy">A Vis&atilde;o Geral fecha o per&iacute;odo e distribui a continuidade para as tr&ecirc;s leituras operacionais.</div>
+        <strong>Saídas para outras telas</strong>
+        <div class="help-copy">A Visão Geral permanece como painel único; quando você sair dela, a navegação abre a tela própria do assunto.</div>
       </div>
     </div>
-    <div class="summary-shortcuts">
-      <a class="summary-shortcut" href="{{ analysis_urls.detail }}">
-        <strong>Vis&atilde;o conciliada</strong>
-        <span class="subtle">Conta e faturas conciliadas no mesmo recorte, com f&oacute;rmula aberta e drilldown operacional.</span>
-        <span class="analysis-stat-chip">Receitas {{ composition_summary.real_bank_income_display }} &middot; Despesas {{ composition_summary.real_conciliated_expense_display }}</span>
+    <div class="overview-link-list">
+      <a class="overview-link-row" href="{{ analysis_urls.detail }}" data-context-cta="home-dashboard">
+        <div class="overview-link-copy">
+          <strong>Leitura ativa detalhada</strong>
+          <span>Abre a análise detalhada com o mesmo período e a mesma lente ativa.</span>
+        </div>
+        <span class="analysis-stat-chip">Abrir tela</span>
       </a>
-      <a class="summary-shortcut" href="{{ analysis_urls.conference }}">
-        <strong>Vis&atilde;o de Extrato</strong>
-        <span class="subtle">Extrato bruto do per&iacute;odo com listagem, v&iacute;nculo de concilia&ccedil;&atilde;o e leitura isolada da conta.</span>
-        <span class="analysis-stat-chip">Entradas {{ statement_summary.income_display }} &middot; Sa&iacute;das {{ statement_summary.expense_display }}</span>
+      <a class="overview-link-row" href="{{ analysis_urls.conference }}" data-context-cta="statement">
+        <div class="overview-link-copy">
+          <strong>Visão de Extrato</strong>
+          <span>Abre a tela própria do extrato no mesmo recorte do mês.</span>
+        </div>
+        <span class="analysis-stat-chip">Abrir tela</span>
       </a>
-      <a class="summary-shortcut" href="{{ analysis_urls.invoice_view }}">
-        <strong>Vis&atilde;o de Faturas</strong>
-        <span class="subtle">Itens e cabe&ccedil;alhos de fatura do per&iacute;odo, com filtros por cart&atilde;o, tipo e status.</span>
-        <span class="analysis-stat-chip">Charges {{ invoice_summary.charge_total_display }} &middot; Cr&eacute;ditos {{ invoice_summary.credit_total_display }}</span>
+      <a class="overview-link-row" href="{{ analysis_urls.invoice_view }}" data-context-cta="invoice">
+        <div class="overview-link-copy">
+          <strong>Visão de Faturas</strong>
+          <span>Abre a tela própria das faturas no mesmo recorte do mês.</span>
+        </div>
+        <span class="analysis-stat-chip">Abrir tela</span>
       </a>
     </div>
   </section>
 
   <details id="overview-composition" class="accordion card analysis-section-card">
-    <summary>Composi&ccedil;&atilde;o da leitura</summary>
+    <summary>Composição da leitura ativa</summary>
     <div class="accordion-body">
       {{ conciliated_composition_rows(conciliated_composition.rows, analysis_urls.detail) }}
     </div>
@@ -209,12 +175,6 @@
             balance: 'Fluxo líquido',
           };
 
-      window.mountAdminCategoryPeriodChart(
-        {{ overview_charts.statement.period_categories.canvas_id|tojson }},
-        {{ overview_charts.statement.period_categories.data|tojson }},
-        { datasetLabel: 'Total do extrato no per\u00edodo' }
-      );
-
       window.mountAdminCashFlowChart(
         "overview-home-dashboard-chart",
         {{ home_dashboard.chart|tojson }},
@@ -228,32 +188,6 @@
           expenseBorder: 'rgba(197, 52, 47, 0.92)',
           balanceColor: 'rgba(37, 99, 235, 0.92)',
         }
-      );
-
-      window.mountAdminCashFlowChart(
-        {{ overview_charts.statement.canvas_id|tojson }},
-        {{ overview_charts.statement.data|tojson }},
-        {
-          incomeLabel: 'Entradas do extrato',
-          expenseLabel: 'Sa\u00eddas do extrato',
-          balanceLabel: 'Saldo do extrato',
-          incomeColor: 'rgba(15, 118, 110, 0.72)',
-          incomeBorder: 'rgba(15, 118, 110, 0.92)',
-          expenseColor: 'rgba(197, 52, 47, 0.72)',
-          expenseBorder: 'rgba(197, 52, 47, 0.92)',
-          balanceColor: 'rgba(37, 99, 235, 0.92)',
-        }
-      );
-
-      window.mountAdminCategoryPeriodChart(
-        {{ overview_charts.invoice.period_categories.canvas_id|tojson }},
-        {{ overview_charts.invoice.period_categories.data|tojson }},
-        { datasetLabel: 'Total de faturas no per\u00edodo' }
-      );
-
-      window.mountAdminInvoiceMonthlyChart(
-        {{ overview_charts.invoice.canvas_id|tojson }},
-        {{ overview_charts.invoice.data|tojson }}
       );
 
       window.mountAdminCategoryPeriodChart(

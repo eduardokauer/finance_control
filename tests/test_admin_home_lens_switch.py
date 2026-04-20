@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import date
 
@@ -188,3 +189,55 @@ def test_home_lens_persists_from_analysis_and_conference_routes(client, db_sessi
         "competence",
         "/admin/conference (after session persist from /admin/conference)",
     )
+
+
+def test_home_lens_persistence_drives_categories_page_view_and_navigation(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+
+    source_file = SourceFile(
+        source_type="bank_statement",
+        file_name="categories-lens-test.ofx",
+        file_path="upload://categories-lens-test.ofx",
+        file_hash="categories-lens-test-hash",
+        status="processed",
+    )
+    db_session.add(source_file)
+    db_session.flush()
+    db_session.add(
+        Transaction(
+            source_file_id=source_file.id,
+            source_type="bank_statement",
+            account_ref="default-account",
+            external_id=None,
+            canonical_hash="categories-lens-test-tx",
+            transaction_date=date(2026, 2, 28),
+            competence_month="2026-03",
+            description_raw="MORADIA COMPETENCE TEST",
+            description_normalized="moradia competence test",
+            amount=-25.0,
+            direction="debit",
+            transaction_kind="expense",
+            category="Transporte",
+            categorization_method="rule",
+            categorization_confidence=0.9,
+            applied_rule=None,
+            manual_override=False,
+            should_count_in_spending=True,
+        )
+    )
+    db_session.commit()
+    _login(client)
+
+    client.get(f"/admin/analysis?{_PERIOD}&home_lens=competence")
+    response = client.get(f"/admin/categories?selection_mode=month&month=2026-03&selected_category=Transporte")
+
+    assert response.status_code == 200
+    assert 'name="home_lens" value="competence"' in response.text
+    assert "home_lens=competence" in response.text
+
+    monthly_chart_match = re.search(r"const monthlyData = (\{.*?\});", response.text, re.S)
+    assert monthly_chart_match is not None
+    monthly_chart_payload = json.loads(monthly_chart_match.group(1))
+    assert [dataset["label"] for dataset in monthly_chart_payload["datasets"]] == ["Transporte"]
+    assert monthly_chart_payload["datasets"][0]["values"][-1] == 25.0

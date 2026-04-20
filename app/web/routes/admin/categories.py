@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from urllib.parse import parse_qs, quote, unquote, urlsplit
+from urllib.parse import parse_qs, parse_qsl, quote, unquote, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -37,8 +37,10 @@ from app.utils.normalization import normalize_description
 from .helpers import (
     is_htmx_request,
     persist_admin_period_selection,
+    persist_admin_home_lens_selection,
     render_admin,
     restore_admin_period_selection,
+    restore_admin_home_lens_selection,
     templates,
     trigger_admin_toast,
 )
@@ -305,9 +307,19 @@ def _category_still_matches_current_context(*, category_name: str, return_to: st
     return _normalize_focus_category(category_name) in selected_keys
 
 
+def _build_categories_return_url(request: Request, *, home_lens: str | None) -> str:
+    split_url = urlsplit(request.url.path + (f"?{request.url.query}" if request.url.query else ""))
+    query_items = parse_qsl(split_url.query, keep_blank_values=True)
+    filtered_items = [(key, value) for key, value in query_items if key != "home_lens"]
+    if home_lens in {"cash", "competence"}:
+        filtered_items.append(("home_lens", home_lens))
+    return urlunsplit((split_url.scheme, split_url.netloc, split_url.path, urlencode(filtered_items), split_url.fragment))
+
+
 def _categories_page_context(
     db: Session,
     *,
+    request: Request,
     selection_mode: str | None,
     month: str | None,
     period_start: date | None,
@@ -322,6 +334,7 @@ def _categories_page_context(
         period_start=None,
         period_end=None,
     )
+    resolved_home_lens = restore_admin_home_lens_selection(request, home_lens=home_lens)
     selected_mode = selection_mode or ("custom" if period_start and period_end else ("month" if month else "closed"))
     month_value = month or f"{latest_closed_start.year:04d}-{latest_closed_start.month:02d}"
     month_preview_start, month_preview_end = resolve_analysis_period(
@@ -344,8 +357,6 @@ def _categories_page_context(
             selected_mode = "custom"
     else:
         resolved_start, resolved_end = latest_closed_start, latest_closed_end
-
-    resolved_home_lens = home_lens if home_lens in {"cash", "competence"} else "cash"
 
     analysis_data = build_analysis_snapshot(
         db,
@@ -494,6 +505,7 @@ def _categories_page_context(
             }
         ],
         "analysis_extra_hidden_fields": [
+            {"name": "home_lens", "value": resolved_home_lens},
             {"name": "focus_category", "value": valid_focus, "clear_on_empty": True},
         ],
         "analysis_shell_target": "#categories-view-shell",
@@ -610,6 +622,7 @@ def admin_categories(
     )
     context = _categories_page_context(
         db,
+        request=request,
         selection_mode=restored_period["selection_mode"],
         month=restored_period["month"],
         period_start=restored_period["period_start"],
@@ -625,7 +638,8 @@ def admin_categories(
         period_start=context["period_start"],
         period_end=context["period_end"],
     )
-    current_relative_url = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+    persist_admin_home_lens_selection(request, home_lens=context["home_lens"])
+    current_relative_url = _build_categories_return_url(request, home_lens=context["home_lens"])
     encoded_return_to = quote(current_relative_url, safe="")
     composition = context.get("category_composition")
     if composition:
