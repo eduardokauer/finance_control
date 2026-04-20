@@ -12,7 +12,7 @@ Este repositório guarda contexto técnico estável e regras de execução. O fl
 Leituras canônicas no repo:
 - `docs/project_context.md` para contexto técnico estável
 - `docs/coder_workflow.md` para execução técnica
-- `docs/pm_workflow.md` para compatibilidade do processo
+- `docs/pm_workflow.md` apenas quando a mudança tocar processo ou compatibilidade de workflow
 - `AGENTS.md` para regras recorrentes e leitura mínima
 
 ## Propósito
@@ -150,19 +150,17 @@ A mesma base de categorias do extrato também passa a atender os itens de fatura
 
 Esta etapa prepara a base para futuras leituras analíticas por categoria nas faturas, sem alterar a lógica principal da conciliação.
 
-## Visão mensal conciliada
-A tela de análise agora prioriza a visão mensal conciliada como leitura principal do mês:
+## Direção da camada analítica
+A camada analítica passa a ter 2 telas canônicas:
 
-- os KPIs principais usam a visão conciliada
-- o resumo executivo principal descreve a despesa líquida conciliada
-- apenas faturas totalmente conciliadas entram no resumo principal
-- pagamentos bancários conciliados de cartão deixam de inflar artificialmente a despesa principal
+- uma tela única de gráficos e KPIs
+- uma tela única de listagem e exploração de lançamentos
 
-## Visão bruta como apoio
-A visão bruta continua disponível na mesma tela como apoio e auditoria:
+A migração será progressiva:
 
-- comparação operacional dos números brutos do período
-- conferência de pagamentos de fatura e outros itens técnicos
-- base de apoio para investigar diferenças entre bruto e conciliado
+- criar as telas novas primeiro
+- manter as telas antigas temporariamente
+- migrar entradas e drilldowns aos poucos
+- remover as telas antigas apenas após validação
 
-Neste ciclo, gráficos históricos de 12 meses, categorias, alertas e ações recomendadas continuam apoiados na base atual, salvo ajustes mínimos de contexto.
+A fatia atual prioriza a nova tela única de lançamentos, por auditabilidade e validação dos números.
