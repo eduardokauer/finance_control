@@ -86,9 +86,10 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
 ### `analysis`
 
 - barra de contexto clara
-- conteudo principal
-- paines de apoio
-- leitura progressiva
+- 2 telas canônicas: gráficos/KPIs e listagem/exploração de lançamentos
+- migração progressiva: telas novas primeiro, antigas temporariamente, entradas e drilldowns aos poucos
+- remoção das telas antigas só depois de validação
+- prioridade atual na nova tela única de lançamentos para auditabilidade e validação dos números
 
 ### `list`
 
@@ -297,3 +298,9 @@ Readequar o admin inteiro para a mesma visao do template original, corrigindo a 
   - `Categorias`
 - `Categorias` passou a evoluir para subhome analitica propria, com grafico principal, ranking clicavel, composicao filtrada da categoria e manutencao da taxonomia na mesma area
 - `Visao conciliada`, `Visao de Extrato` e `Visao de Faturas` estao sendo reposicionadas como areas principais do menu, sem depender da antiga narrativa da home por lente
+
+### 2026-04-20
+
+- a camada analitica passou a ser tratada como uma dupla de telas canônicas: gráficos/KPIs e listagem/exploração de lançamentos
+- o rollout dessa camada passa a ser progressivo, com criacao das telas novas antes da desativacao das antigas
+- a fatia atual prioriza a nova tela unica de lancamentos, por auditabilidade e validacao dos numeros
