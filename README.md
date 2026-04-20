@@ -12,7 +12,7 @@ Este repositório guarda contexto técnico estável e regras de execução. O fl
 Leituras canônicas no repo:
 - `docs/project_context.md` para contexto técnico estável
 - `docs/coder_workflow.md` para execução técnica
-- `docs/pm_workflow.md` para compatibilidade do processo
+- `docs/pm_workflow.md` apenas quando a mudança tocar processo ou compatibilidade de workflow
 - `AGENTS.md` para regras recorrentes e leitura mínima
 
 ## Propósito
