@@ -112,6 +112,7 @@ docker compose exec app pytest -q tests/test_credit_card_bills.py tests/test_api
 ## Admin
 - dashboard em `/admin`
 - análise em `/admin/analysis`
+- lançamentos analíticos em `/admin/analysis/transactions`
 - operações em `/admin/operations`
 - transações em `/admin/transactions`
 - regras em `/admin/rules`

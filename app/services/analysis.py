@@ -1041,6 +1041,66 @@ def _build_home_recent_movements(
     }
 
 
+def build_net_flow_transactions_snapshot(
+    db: Session,
+    *,
+    period_start: date,
+    period_end: date,
+) -> dict:
+    current_txs = _load_transactions_for_period(db, period_start=period_start, period_end=period_end)
+    signal_map = map_conciliated_bank_payment_signals(
+        db,
+        transaction_ids=[tx.id for tx in current_txs if tx.id is not None],
+    )
+
+    atomic_txs: list[Transaction] = []
+    income_total = 0.0
+    expense_total = 0.0
+    for tx in current_txs:
+        income_amount = _income_amount(tx)
+        expense_amount = _expense_amount(tx)
+        if income_amount == 0.0 and expense_amount == 0.0:
+            continue
+        setattr(tx, "conciliation_signal", signal_map.get(tx.id))
+        setattr(tx, "is_conciliated_bank_payment", signal_map.get(tx.id) is not None)
+        atomic_txs.append(tx)
+        income_total += income_amount
+        expense_total += expense_amount
+
+    atomic_txs.sort(
+        key=lambda tx: (tx.transaction_date, abs(float(tx.amount)), tx.description_raw.casefold(), tx.id or 0),
+        reverse=True,
+    )
+    balance_total = income_total - expense_total
+    summary = _build_summary(current_txs)
+    return {
+        "kpi_key": "net_flow_month",
+        "kpi_label": "Fluxo líquido do mês",
+        "kpi_formula_short": "Entradas realizadas - saídas realizadas",
+        "period": {
+            "start": period_start,
+            "end": period_end,
+            "label": f"{format_date_br(period_start)} a {format_date_br(period_end)}",
+            "month_reference_label": format_month_label(month_start(period_end)),
+        },
+        "summary": summary,
+        "composition": {
+            "income_total": income_total,
+            "expense_total": expense_total,
+            "balance_total": balance_total,
+            "income_display": format_currency_br(income_total),
+            "expense_display": format_currency_br(expense_total),
+            "balance_display": format_currency_br(balance_total),
+            "rows_count": len(atomic_txs),
+            "note": (
+                "A listagem abaixo mostra apenas lançamentos atômicos que contribuem para o KPI. "
+                "Itens com contribuição nula e linhas derivadas ficam de fora."
+            ),
+        },
+        "transactions": atomic_txs,
+    }
+
+
 def _build_home_dashboard(
     db: Session,
     *,

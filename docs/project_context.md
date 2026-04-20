@@ -47,7 +47,7 @@ Leituras de apoio:
 - Leitura bruta, leitura conciliada, visão de caixa e visão de competência coexistem como camadas analíticas.
 - A camada analítica está sendo reorganizada em 2 telas canônicas: uma tela única de gráficos e KPIs e uma tela única de listagem e exploração de lançamentos.
 - A migração dessa camada será progressiva, com telas novas primeiro, antigas mantidas temporariamente, entradas e drilldowns migrados aos poucos e remoção das telas antigas apenas após validação.
-- A fatia atual prioriza a nova tela única de lançamentos para garantir auditabilidade e validação dos números.
+- A nova tela única de lançamentos analíticos já existe em `/admin/analysis/transactions` e recebe o drilldown inicial do KPI "Fluxo líquido do mês".
 - Comparações mensais e anuais, alertas e resumos operacionais já fazem parte do estado atual.
 
 ## Limitações conhecidas
