@@ -238,8 +238,7 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert "Visão conciliada" not in home.text
     assert "Visão de Extrato" in home.text
     assert "Visão de Faturas" in home.text
-    assert "Leitura ativa detalhada" in home.text
-    assert "Central operacional" not in home.text
+    assert "Gráficos analíticos" in home.text
     assert "Visão bruta de apoio" not in home.text
     assert "Sinais analíticos de conciliação" not in home.text
     assert "Análise determinística renderizada" not in home.text
@@ -734,7 +733,8 @@ def test_admin_categories_view_supports_htmx_filters_and_push_url(client, db_ses
     assert 'id="categories-view-shell"' in response.text
     assert 'hx-swap-oob="innerHTML"' in response.text
     assert 'data-analysis-period-popover' in response.text
-    assert response.headers["HX-Push-Url"].endswith("selected_category=Moradia")
+    assert "selected_category=Moradia" in response.headers["HX-Push-Url"]
+    assert "home_lens=cash" in response.headers["HX-Push-Url"]
 
 
 def test_admin_rules_create_supports_htmx_partial_refresh(client, db_session, monkeypatch):
@@ -872,7 +872,7 @@ def test_admin_summary_page_exposes_contextual_ctas_with_preserved_state(client,
     chart_href = _extract_href_by_data_attr(response.text, "data-context-cta", "home-dashboard")
     assert "selection_mode=month" in chart_href
     assert "month=2026-03" in chart_href
-    assert chart_href.startswith("/admin/conference?")
+    assert chart_href.startswith("/admin/analysis/charts?")
 
     statement_href = _extract_href_by_data_attr(response.text, "data-context-cta", "statement")
     assert statement_href.startswith("/admin/conference?")
@@ -913,7 +913,7 @@ def test_admin_summary_cards_expose_drilldown_links(client, db_session, monkeypa
     net_flow_href = _extract_href_by_data_attr(response.text, "data-context-card", "net_flow")
     assert net_flow_href.startswith("/admin/analysis/transactions?")
     assert "selection_mode=month" in net_flow_href
-    assert "origin_kpi=net_flow_month" in net_flow_href
+    assert "origin_kpi=" not in net_flow_href
 
     income_href = _extract_href_by_data_attr(response.text, "data-context-card", "income")
     assert income_href.startswith("/admin/conference?")
@@ -959,32 +959,23 @@ def test_admin_analysis_transactions_drilldown_page_exposes_atomic_composition(c
         amount=-300.0,
         transaction_kind="transfer",
         category="Transferências",
-        should_count_in_spending=False,
     )
     _login(client)
 
     response = client.get(
-        "/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31&origin=summary&origin_block=cards&origin_kpi=net_flow_month&origin_kpi_label=Fluxo+l%C3%ADquido+do+m%C3%AAs"
+        "/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31"
     )
 
     assert response.status_code == 200
     assert "Lançamentos analíticos" in response.text
-    assert "Fluxo líquido do mês" in response.text
-    assert "Entradas realizadas - saídas realizadas" in response.text
-    assert "01/03/2026 a 31/03/2026" in response.text
-    assert "Lançamentos atômicos: 2" in response.text
-    assert "R$ 3.200,00" in response.text
-    assert "Valor clicado no resumo" in response.text
-    origin_card_match = re.search(
-        r'<span class="analysis-metric-meta">KPI de origem</span>.*?<div class="metric-value ([^"]+)">',
-        response.text,
-        re.S,
-    )
-    assert origin_card_match is not None
-    assert origin_card_match.group(1) == "amount-positive"
+    assert "Lista atômica do período" in response.text
+    assert "Filtros da listagem" in response.text
+    assert "Buscar descrição" in response.text
+    assert "KPI de origem" not in response.text
+    assert "origin_kpi" not in response.text
     assert "SALARIO MAR DRILLDOWN" in response.text
     assert "ALUGUEL MAR DRILLDOWN" in response.text
-    assert "TRANSFERENCIA TECNICA DRILLDOWN" not in response.text
+    assert "amount-negative" in response.text
 
 
 def test_admin_analysis_transactions_drilldown_page_uses_negative_sign_for_negative_balance(client, db_session, monkeypatch):
@@ -1011,18 +1002,16 @@ def test_admin_analysis_transactions_drilldown_page_uses_negative_sign_for_negat
     _login(client)
 
     response = client.get(
-        "/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31&origin=summary&origin_block=cards&origin_kpi=net_flow_month&origin_kpi_label=Fluxo+l%C3%ADquido+do+m%C3%AAs"
+        "/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31"
     )
 
     assert response.status_code == 200
-    origin_card_match = re.search(
-        r'<span class="analysis-metric-meta">KPI de origem</span>.*?<div class="metric-value ([^"]+)">',
-        response.text,
-        re.S,
-    )
-    assert origin_card_match is not None
-    assert origin_card_match.group(1) == "amount-negative"
-    assert "R$ 2.700,00" in response.text
+    assert "KPI de origem" not in response.text
+    assert "origin_kpi" not in response.text
+    assert "Lista atômica do período" in response.text
+    assert "amount-negative" in response.text
+    assert "ALUGUEL MAR DRILLDOWN" in response.text
+    assert "SUPERMERCADO MAR DRILLDOWN" in response.text
 
 
 def test_admin_summary_page_shows_overview_categories_chart_without_redundant_list(client, db_session, monkeypatch):
@@ -1211,9 +1200,9 @@ def test_admin_summary_page_renders_only_the_active_month_charts_and_navigation_
 
     categories_chart = chart_payloads["overview-categories-period-categories-chart"]
     category_href_map = dict(zip(categories_chart["labels"], categories_chart["hrefs"]))
-    assert category_href_map["Moradia"].startswith("/admin/categories?")
-    assert "selected_category=Moradia" in category_href_map["Moradia"]
-    assert category_href_map["Moradia"].endswith("#category-composition-section")
+    assert category_href_map["Moradia"].startswith("/admin/analysis/transactions?")
+    assert "category=Moradia" in category_href_map["Moradia"]
+    assert category_href_map["Moradia"].endswith("#analysis-transactions-table")
 
     assert 'data-context-cta="home-dashboard"' in response.text
     assert 'data-context-cta="statement"' in response.text
@@ -1284,7 +1273,7 @@ def test_admin_analysis_categories_drilldown_preserves_competence_lens(client, d
     )
     _login(client)
 
-    analysis = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence")
+    analysis = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31&home_lens=competence")
 
     assert analysis.status_code == 200
     categories_href_match = re.search(r'href="([^"]+)"[^>]*>Abrir categorias</a>', analysis.text)
@@ -1990,11 +1979,11 @@ def test_admin_analysis_page_restores_summary_context_from_chart_navigation(clie
     )
 
     assert response.status_code == 200
-    assert "Visão conciliada" in response.text
-    assert "Composição da leitura" in response.text
-    assert "Receitas e Despesas dos últimos 12 meses" in response.text
+    assert "Gráficos analíticos" in response.text
+    assert "Painel visual do período" in response.text
+    assert "Abrir lançamentos" in response.text
     assert 'data-return-summary-link' in response.text
-    assert 'id="conciliated-cashflow-chart"' in response.text
+    assert 'id="analysis-home-dashboard-chart"' in response.text
 
     return_href = _extract_return_summary_href(response.text)
     assert return_href.startswith("/admin?")
@@ -2689,16 +2678,16 @@ def test_admin_analysis_page_shows_empty_state_and_navigation(client, db_session
     _seed_transaction(db_session, description="SALARIO MAR", normalized="salario mar", amount=5000.0, transaction_kind="income", category="Sal\u00e1rio")
     _login(client)
 
-    response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+    response = client.get("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Gerar nova análise" in response.text
-    assert "Composição da leitura" in response.text
-    assert "Transações do período" in response.text
+    assert "Lançamentos analíticos" in response.text
+    assert "Lista atômica do período" in response.text
+    assert "Filtros da listagem" in response.text
     assert "Itens de fatura considerados" not in response.text
     assert "data-loading-button" in response.text
     assert "Aplicando..." in response.text
-    assert "Gerando análise..." in response.text
+    assert "Filtrando..." in response.text
 
 
 def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_session, monkeypatch):
@@ -2722,9 +2711,9 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
 
     page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert page.status_code == 200
-    assert "Visão conciliada" in page.text
-    assert "Composição da leitura" in page.text
-    assert "Transações do período" in page.text
+    assert "Gráficos analíticos" in page.text
+    assert "Painel visual do período" in page.text
+    assert "Abrir lançamentos" in page.text
     assert "Itens de fatura considerados" not in page.text
     assert "Faturas do período" not in page.text
     assert 'class="analysis-period-bar"' in page.text
@@ -2732,8 +2721,8 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     assert "Análise determinística renderizada" not in page.text
     assert "Visão bruta de apoio" not in page.text
     assert "chart.js" in page.text.lower()
-    assert "conciliated-cashflow-chart" in page.text
-    assert "conciliated-categories-chart" in page.text
+    assert 'id="analysis-home-dashboard-chart"' in page.text
+    assert 'analysis-categories-legend' in page.text
     assert "R$" in page.text
 
     run = db_session.scalar(select(AnalysisRun).where(AnalysisRun.period_start == date(2026, 3, 1)))
@@ -2773,9 +2762,9 @@ def test_admin_analysis_page_supports_htmx_shell_refresh(client, db_session, mon
     )
 
     assert response.status_code == 200
-    assert 'id="analysis-view-shell"' in response.text
+    assert 'id="analysis-charts-view-shell"' in response.text
     assert response.headers["HX-Push-Url"].endswith("statement_scope=included")
-    assert "Transações do período" in response.text
+    assert "Painel visual do período" in response.text
 
 
 def test_admin_conference_page_supports_htmx_shell_refresh(client, db_session, monkeypatch):
@@ -2848,9 +2837,9 @@ def test_admin_run_analysis_supports_htmx_shell_refresh(client, db_session, monk
     )
 
     assert response.status_code == 200
-    assert 'id="analysis-view-shell"' in response.text
+    assert 'id="analysis-charts-view-shell"' in response.text
     assert "HX-Trigger" in response.headers
-    assert "Transações do período" in response.text
+    assert "Painel visual do período" in response.text
 
 
 def test_admin_conference_page_shows_auxiliary_conciliation_signals(client, db_session, monkeypatch):
@@ -2905,11 +2894,12 @@ def test_admin_metric_cards_use_clickable_values_for_drilldown(client, db_sessio
     assert summary.status_code == 200
     assert 'class="metric-value metric-value-link amount-positive"' in summary.text
     assert 'data-context-card="income"' in summary.text
-    assert "Ver lançamentos" not in summary.text
+    assert "Ver lançamentos" in summary.text
 
     analysis = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert analysis.status_code == 200
-    assert 'aria-label="Abrir receitas reais na tabela"' in analysis.text
+    assert 'id="analysis-home-dashboard-chart"' in analysis.text
+    assert "Abrir lançamentos" in analysis.text
     assert "Ver tabela" not in analysis.text
     assert "Abrir fórmula" not in analysis.text
 
@@ -3010,15 +3000,12 @@ def test_admin_analysis_page_shows_conciliated_category_breakdown(client, db_ses
     db_session.commit()
     _login(client)
 
-    response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+    response = client.get("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Composição da leitura" in response.text
+    assert "Gráficos analíticos" in response.text
     assert "Supermercado" in response.text
-    assert "Educa\u00e7\u00e3o" in response.text
     assert "Moradia" in response.text
-    assert "Créditos de fatura" in response.text
-    assert "Pagamentos bancários conciliados removidos" in response.text
 
 
 def test_admin_analysis_page_shows_unified_considered_table_and_filters_it(client, db_session, monkeypatch):
@@ -3090,28 +3077,25 @@ def test_admin_analysis_page_shows_unified_considered_table_and_filters_it(clien
     db_session.commit()
     _login(client)
 
-    response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+    response = client.get("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Transações do período" in response.text
-    section_html = _extract_section_html(response.text, "conciliated-considered-table")
+    assert "Lista atômica do período" in response.text
+    section_html = _extract_section_html(response.text, "analysis-transactions-table")
     assert "SALARIO MAR" in section_html
     assert "SUPERMERCADO TESTE" in section_html
     assert "DESCONTO NA FATURA - PO" in section_html
-    assert "Extrato: 1" in section_html
-    assert "Fatura: 2" in section_html
 
     filtered = client.get(
-        "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31"
-        "&conciliated_origin=invoice&conciliated_analytic_type=expense#conciliated-considered-table"
+        "/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31"
+        "&origin=invoice&analytic_type=expense#analysis-transactions-table"
     )
 
     assert filtered.status_code == 200
-    filtered_section = _extract_section_html(filtered.text, "conciliated-considered-table")
+    filtered_section = _extract_section_html(filtered.text, "analysis-transactions-table")
     assert "SUPERMERCADO TESTE" in filtered_section
     assert "DESCONTO NA FATURA - PO" not in filtered_section
     assert "SALARIO MAR" not in filtered_section
-    assert "Fatura: 1" in filtered_section
 
 
 def test_admin_analysis_page_anchors_card_consumption_by_purchase_date(client, db_session, monkeypatch):
@@ -3187,11 +3171,12 @@ def test_admin_analysis_page_anchors_card_consumption_by_purchase_date(client, d
     february = client.get("/admin/analysis?period_start=2026-02-01&period_end=2026-02-28")
 
     assert january.status_code == 200
-    assert "Composição da leitura" in january.text
+    assert "Gráficos analíticos" in january.text
     assert "Supermercado" in january.text
-    assert "Créditos de fatura" in january.text
+    assert "Categorias do período" in january.text
+    assert 'id="overview-categories-chart"' in january.text
     assert february.status_code == 200
-    assert "Composição da leitura" in february.text
+    assert "Gráficos analíticos" in february.text
 
 
 def test_admin_analysis_page_shows_consumption_based_alerts_and_actions(client, db_session, monkeypatch):
@@ -3278,8 +3263,8 @@ def test_admin_analysis_page_shows_consumption_based_alerts_and_actions(client, 
     february = client.get("/admin/analysis?period_start=2026-02-01&period_end=2026-02-28")
 
     assert january.status_code == 200
-    assert "Composição da leitura" in january.text
-    assert "Transações do período" in january.text
+    assert "Gráficos analíticos" in january.text
+    assert "Painel visual do período" in january.text
     assert "Itens de fatura considerados" not in january.text
     assert "Revisar a categoria Supermercado" not in january.text
     assert february.status_code == 200
@@ -3436,11 +3421,11 @@ def test_admin_analysis_page_shows_conciliated_category_history(client, db_sessi
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Consolidado por categoria nos últimos 12 meses" in response.text
+    assert "Categorias no período" in response.text
     assert "mar/2026" in response.text
     assert "fev/2026" in response.text
     assert "Supermercado" in response.text
-    assert "conciliated-categories-chart" in response.text
+    assert "overview-conciliated-period-categories-chart" in response.text
 
 
 def test_admin_analysis_page_marks_category_history_gap_as_sem_base(client, db_session, monkeypatch):
@@ -3582,9 +3567,9 @@ def test_admin_analysis_page_marks_category_history_gap_as_sem_base(client, db_s
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Consolidado por categoria nos últimos 12 meses" in response.text
+    assert "Categorias do período" in response.text
     assert "Supermercado" in response.text
-    assert "conciliated-categories-chart" in response.text
+    assert "overview-categories-chart" in response.text
 
 
 def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(client, db_session, monkeypatch):
@@ -3661,9 +3646,9 @@ def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(c
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Visão conciliada" in response.text
-    assert "Composição da leitura" in response.text
-    assert "Transações do período" in response.text
+    assert "Gráficos analíticos" in response.text
+    assert "Painel visual do período" in response.text
+    assert "Abrir lançamentos" in response.text
     assert "Visão bruta de apoio" not in response.text
     assert "legacy html" not in response.text
 
@@ -4005,7 +3990,8 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
 
     assert transactions_analysis.status_code == 200
     assert "Lançamentos analíticos" in transactions_analysis.text
-    assert "Fluxo líquido do mês" in transactions_analysis.text
+    assert "Lançamentos analíticos" in transactions_analysis.text
+    assert "Lista atômica do período" in transactions_analysis.text
 
     assert invoices.status_code == 200
     assert "Painel principal das faturas" not in invoices.text

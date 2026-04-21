@@ -521,7 +521,7 @@ def test_build_net_flow_transactions_snapshot_uses_only_atomic_contributions(db_
         tx_date=date(2026, 3, 5),
         description="SALARIO MAR",
         amount=5000.0,
-        category="SalÃ¡rio",
+        category="Salário",
         transaction_kind="income",
     )
     expense = _add_tx(
@@ -537,7 +537,7 @@ def test_build_net_flow_transactions_snapshot_uses_only_atomic_contributions(db_
         tx_date=date(2026, 3, 10),
         description="TRANSFERENCIA TECNICA",
         amount=-300.0,
-        category="TransferÃªncias",
+        category="Transferências",
         transaction_kind="transfer",
         should_count_in_spending=False,
     )

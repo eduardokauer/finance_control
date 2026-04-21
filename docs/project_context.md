@@ -45,9 +45,9 @@ Leituras de apoio:
 - Regras com `source_scope` para `bank_statement`, `credit_card_invoice_item` e `both`.
 - Base única de categorias atendendo extrato e itens de fatura.
 - Leitura bruta, leitura conciliada, visão de caixa e visão de competência coexistem como camadas analíticas.
-- A camada analítica está sendo reorganizada em 2 telas canônicas: uma tela única de gráficos e KPIs e uma tela única de listagem e exploração de lançamentos.
-- A migração dessa camada será progressiva, com telas novas primeiro, antigas mantidas temporariamente, entradas e drilldowns migrados aos poucos e remoção das telas antigas apenas após validação.
-- A nova tela única de lançamentos analíticos já existe em `/admin/analysis/transactions` e recebe o drilldown inicial do KPI "Fluxo líquido do mês".
+- A camada analítica está organizada em 2 telas canônicas: uma tela única de gráficos em `/admin/analysis/charts` e uma tela única de listagem em `/admin/analysis/transactions`.
+- As duas telas são autônomas, compartilham período global próprio e trocam navegação de forma explícita entre si.
+- `/admin/analysis` permanece como alias de compatibilidade para a tela de gráficos.
 - Comparações mensais e anuais, alertas e resumos operacionais já fazem parte do estado atual.
 
 ## Limitações conhecidas
