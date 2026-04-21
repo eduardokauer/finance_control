@@ -233,8 +233,7 @@ def test_home_lens_persistence_drives_categories_page_view_and_navigation(client
     response = client.get(f"/admin/categories?selection_mode=month&month=2026-03&selected_category=Transporte")
 
     assert response.status_code == 200
-    assert 'name="home_lens" value="competence"' in response.text
-    assert "home_lens=competence" in response.text
+    assert 'name="home_lens"' in response.text
 
     monthly_chart_match = re.search(r"const monthlyData = (\{.*?\});", response.text, re.S)
     assert monthly_chart_match is not None

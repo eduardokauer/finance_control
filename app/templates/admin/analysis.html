@@ -1,6 +1,6 @@
 {% extends "admin/base.html" %}
 {% from "admin/partials/analysis_topbar.html" import analysis_topbar_actions %}
-{% block title %}Vis&atilde;o conciliada{% endblock %}
+{% block title %}Gráficos analíticos{% endblock %}
 {% block extra_head %}{% include "admin/partials/analysis_styles.html" %}{% endblock %}
 {% block topbar_center %}{% include "admin/partials/analysis_topbar_period_control.html" %}{% endblock %}
 {% block topbar_actions %}
@@ -8,5 +8,5 @@
   {% include "admin/partials/lens_switch.html" %}
 {% endblock %}
 {% block content %}
-{% include "admin/partials/analysis_page_shell.html" %}
+{% include "admin/partials/analysis_charts_page_shell.html" %}
 {% endblock %}

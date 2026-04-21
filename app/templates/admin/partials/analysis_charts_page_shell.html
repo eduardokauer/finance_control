@@ -1,0 +1,199 @@
+{% from "admin/partials/analysis_topbar.html" import analysis_topbar_actions %}
+{% set home_dashboard = analysis_data.home_dashboard %}
+{% if topbar_period_oob %}
+  <div id="admin-topbar-center-slot" hx-swap-oob="innerHTML">
+    {% include "admin/partials/analysis_topbar_period_control.html" %}
+  </div>
+  <div id="admin-topbar-actions-slot" hx-swap-oob="innerHTML">
+    {{ analysis_topbar_actions(analysis_back_href, analysis_show_generate, analysis_shell_target, period_start, period_end, analysis_urls) }}
+    {% include "admin/partials/lens_switch.html" %}
+  </div>
+{% endif %}
+<section id="analysis-charts-view-shell" class="analysis-page-stack">
+  <section class="page-header analysis-page-header">
+    <div class="page-header-copy">
+      <span class="page-eyebrow">Gráficos analíticos</span>
+      <h1 class="page-title">Painel visual do período</h1>
+      <p class="page-intro">
+        Esta tela concentra as leituras gráficas do produto. Use o período global para mudar o recorte e o atalho para lançamentos para sair do gráfico quando precisar auditar os dados atômicos.
+      </p>
+    </div>
+    <div class="actions">
+      <a class="button button-primary" href="{{ analysis_urls.transactions_view }}">Abrir lançamentos</a>
+      <a class="button button-ghost" href="{{ analysis_urls.summary }}">Voltar ao resumo</a>
+    </div>
+  </section>
+
+  {% if analysis_context_chips %}
+    <section class="analysis-context-chips" aria-label="Contexto da análise">
+      {% for chip in analysis_context_chips %}
+        <span class="analysis-context-chip"><strong>{{ chip.label }}</strong><span>{{ chip.value }}</span></span>
+      {% endfor %}
+    </section>
+  {% endif %}
+
+  {% if analysis_breadcrumb_items %}
+    <nav class="analysis-breadcrumbs" aria-label="Caminho da tela">
+      {% for item in analysis_breadcrumb_items %}
+        {% if item.href %}
+          <a href="{{ item.href }}">{{ item.label }}</a>
+        {% else %}
+          <span aria-current="page">{{ item.label }}</span>
+        {% endif %}
+        {% if not loop.last %}<span class="analysis-breadcrumb-separator">/</span>{% endif %}
+      {% endfor %}
+    </nav>
+  {% endif %}
+
+  <section class="card analysis-section-card overview-chart-card">
+    <div class="overview-chart-header">
+      <div class="stack" style="gap: 4px;">
+        <strong>{{ home_dashboard.chart.title }}</strong>
+        <div class="subtle">{{ home_dashboard.chart.note }}</div>
+      </div>
+      <a class="button button-ghost" href="{{ analysis_urls.transactions_view }}">Abrir lançamentos</a>
+    </div>
+    <div class="chart-shell chart-shell-tall">
+      <canvas id="analysis-home-dashboard-chart" aria-label="{{ home_dashboard.chart.title }}"></canvas>
+    </div>
+  </section>
+
+  <section class="overview-category-grid">
+    <section class="card analysis-section-card overview-chart-card">
+      <div class="overview-chart-header">
+        <div class="stack" style="gap: 4px;">
+          <strong>{{ overview_charts.conciliated.title }}</strong>
+          <div class="subtle">{{ overview_charts.conciliated.note }}</div>
+        </div>
+      </div>
+      <div class="chart-shell chart-shell-tall">
+        <canvas id="{{ overview_charts.conciliated.canvas_id }}" aria-label="{{ overview_charts.conciliated.title }}"></canvas>
+      </div>
+      <div class="chart-shell chart-shell-medium" style="margin-top: 16px;">
+        <canvas id="{{ overview_charts.conciliated.period_categories.canvas_id }}" aria-label="{{ overview_charts.conciliated.period_categories.title }}"></canvas>
+      </div>
+    </section>
+
+    <section class="card analysis-section-card overview-chart-card">
+      <div class="overview-chart-header">
+        <div class="stack" style="gap: 4px;">
+          <strong>{{ overview_charts.statement.title }}</strong>
+          <div class="subtle">{{ overview_charts.statement.note }}</div>
+        </div>
+      </div>
+      <div class="chart-shell chart-shell-tall">
+        <canvas id="{{ overview_charts.statement.canvas_id }}" aria-label="{{ overview_charts.statement.title }}"></canvas>
+      </div>
+      <div class="chart-shell chart-shell-medium" style="margin-top: 16px;">
+        <canvas id="{{ overview_charts.statement.period_categories.canvas_id }}" aria-label="{{ overview_charts.statement.period_categories.title }}"></canvas>
+      </div>
+    </section>
+
+    <section class="card analysis-section-card overview-chart-card">
+      <div class="overview-chart-header">
+        <div class="stack" style="gap: 4px;">
+          <strong>{{ overview_charts.invoice.title }}</strong>
+          <div class="subtle">{{ overview_charts.invoice.note }}</div>
+        </div>
+      </div>
+      <div class="chart-shell chart-shell-tall">
+        <canvas id="{{ overview_charts.invoice.canvas_id }}" aria-label="{{ overview_charts.invoice.title }}"></canvas>
+      </div>
+      <div class="chart-shell chart-shell-medium" style="margin-top: 16px;">
+        <canvas id="{{ overview_charts.invoice.period_categories.canvas_id }}" aria-label="{{ overview_charts.invoice.period_categories.title }}"></canvas>
+      </div>
+    </section>
+
+    <section class="card analysis-section-card overview-chart-card">
+      <div class="overview-chart-header">
+        <div class="stack" style="gap: 4px;">
+          <strong>{{ overview_charts.categories.title }}</strong>
+          <div class="subtle">{{ overview_charts.categories.note }}</div>
+        </div>
+      </div>
+      <div id="analysis-categories-legend" class="chart-legend-checkboxes" aria-label="Categorias visíveis na análise"></div>
+      <div class="chart-shell chart-shell-tall">
+        <canvas id="{{ overview_charts.categories.canvas_id }}" aria-label="{{ overview_charts.categories.title }}"></canvas>
+      </div>
+      <div class="chart-shell chart-shell-medium" style="margin-top: 16px;">
+        <canvas id="{{ overview_charts.categories.period_categories.canvas_id }}" aria-label="{{ overview_charts.categories.period_categories.title }}"></canvas>
+      </div>
+    </section>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  {% include "admin/partials/category_stacked_chart_script.html" %}
+  {% include "admin/partials/analysis_chart_helpers.html" %}
+  <script>
+    (() => {
+      const isCompetenceLens = {{ 'true' if home_dashboard.active_lens == 'competence' else 'false' }};
+      const homeLensLabels = isCompetenceLens
+        ? {
+            income: 'Receitas',
+            expense: 'Despesas',
+            balance: 'Resultado',
+          }
+        : {
+            income: 'Entradas',
+            expense: 'Saídas',
+            balance: 'Fluxo líquido',
+          };
+
+      window.mountAdminCashFlowChart(
+        "analysis-home-dashboard-chart",
+        {{ home_dashboard.chart|tojson }},
+        {
+          incomeLabel: homeLensLabels.income,
+          expenseLabel: homeLensLabels.expense,
+          balanceLabel: homeLensLabels.balance,
+          incomeColor: 'rgba(21, 127, 70, 0.72)',
+          incomeBorder: 'rgba(21, 127, 70, 0.92)',
+          expenseColor: 'rgba(197, 52, 47, 0.68)',
+          expenseBorder: 'rgba(197, 52, 47, 0.92)',
+          balanceColor: 'rgba(37, 99, 235, 0.92)',
+        }
+      );
+
+      window.mountAdminCashFlowChart("{{ overview_charts.conciliated.canvas_id }}", {{ analysis_data.charts.conciliated | tojson }}, {
+        incomeLabel: 'Receitas reais',
+        expenseLabel: 'Despesas reais',
+        balanceLabel: 'Saldo real',
+      });
+      window.mountAdminCategoryPeriodChart(
+        {{ overview_charts.conciliated.period_categories.canvas_id|tojson }},
+        {{ overview_charts.conciliated.period_categories.data|tojson }},
+        { datasetLabel: 'Total conciliado no período' }
+      );
+
+      window.mountAdminCashFlowChart("{{ overview_charts.statement.canvas_id }}", {{ analysis_data.charts.monthly | tojson }}, {
+        incomeLabel: 'Entradas',
+        expenseLabel: 'Saídas',
+        balanceLabel: 'Fluxo líquido',
+      });
+      window.mountAdminCategoryPeriodChart(
+        {{ overview_charts.statement.period_categories.canvas_id|tojson }},
+        {{ overview_charts.statement.period_categories.data|tojson }},
+        { datasetLabel: 'Valor no período' }
+      );
+
+      window.mountAdminInvoiceMonthlyChart("{{ overview_charts.invoice.canvas_id }}", {{ analysis_data.charts.invoice_monthly | tojson }});
+      window.mountAdminCategoryPeriodChart(
+        {{ overview_charts.invoice.period_categories.canvas_id|tojson }},
+        {{ overview_charts.invoice.period_categories.data|tojson }},
+        { datasetLabel: 'Valor faturado no período' }
+      );
+
+      window.mountAdminStackedCategoryChart(
+        "{{ overview_charts.categories.canvas_id }}",
+        {{ overview_charts.categories.data | tojson }},
+        { legendId: 'analysis-categories-legend' }
+      );
+      window.mountAdminCategoryPeriodChart(
+        {{ overview_charts.categories.period_categories.canvas_id|tojson }},
+        {{ overview_charts.categories.period_categories.data|tojson }},
+        { datasetLabel: 'Valor por categoria no período' }
+      );
+    })();
+  </script>
+  {% include "admin/partials/analysis_period_form_script.html" %}
+</section>

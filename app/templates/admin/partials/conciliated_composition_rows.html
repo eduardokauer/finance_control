@@ -2,32 +2,32 @@
   <div class="analysis-composition-list">
     {% for row in rows %}
       {% if row.key == "bank_income_total" %}
-        {% set drill_href = base_detail_href ~ "&statement_transaction_kind=income#conciliated-bank-table" %}
-        {% set drill_label = "Conta bruta" %}
+        {% set drill_href = base_detail_href ~ "&origin=statement&analytic_type=income#analysis-transactions-table" %}
+        {% set drill_label = "Ver lançamentos" %}
       {% elif row.key == "transfer_income_total" %}
-        {% set drill_href = base_detail_href ~ "&statement_transaction_kind=transfer&statement_scope=excluded_transfer#conciliated-bank-table" %}
-        {% set drill_label = "Transferências" %}
+        {% set drill_href = base_detail_href ~ "&origin=statement&analytic_type=transfer#analysis-transactions-table" %}
+        {% set drill_label = "Ver lançamentos" %}
       {% elif row.key == "real_bank_income_total" %}
-        {% set drill_href = base_detail_href ~ "&statement_transaction_kind=income&statement_scope=included#conciliated-bank-table" %}
-        {% set drill_label = "Receitas reais" %}
+        {% set drill_href = base_detail_href ~ "&origin=statement&analytic_type=income#analysis-transactions-table" %}
+        {% set drill_label = "Ver lançamentos" %}
       {% elif row.key == "total_bank_outflow_total" %}
-        {% set drill_href = base_detail_href ~ "&statement_transaction_kind=expense#conciliated-bank-table" %}
-        {% set drill_label = "Saídas da conta" %}
+        {% set drill_href = base_detail_href ~ "&origin=statement&analytic_type=expense#analysis-transactions-table" %}
+        {% set drill_label = "Ver lançamentos" %}
       {% elif row.key == "transfer_expense_total" %}
-        {% set drill_href = base_detail_href ~ "&statement_transaction_kind=transfer&statement_scope=excluded_transfer#conciliated-bank-table" %}
-        {% set drill_label = "Transferências" %}
+        {% set drill_href = base_detail_href ~ "&origin=statement&analytic_type=transfer#analysis-transactions-table" %}
+        {% set drill_label = "Ver lançamentos" %}
       {% elif row.key == "excluded_conciliated_bank_payment_total" %}
-        {% set drill_href = base_detail_href ~ "&statement_scope=excluded_payment#conciliated-bank-table" %}
-        {% set drill_label = "Pagamentos removidos" %}
+        {% set drill_href = base_detail_href ~ "&origin=statement&analytic_type=expense#analysis-transactions-table" %}
+        {% set drill_label = "Ver lançamentos" %}
       {% elif row.key == "conciliated_card_charge_total" %}
-        {% set drill_href = base_detail_href ~ "&invoice_item_type=charge&invoice_status=conciliated#conciliated-invoice-table" %}
-        {% set drill_label = "Charges" %}
+        {% set drill_href = base_detail_href ~ "&origin=invoice&analytic_type=expense#analysis-transactions-table" %}
+        {% set drill_label = "Ver lançamentos" %}
       {% elif row.key == "conciliated_invoice_credit_total" %}
-        {% set drill_href = base_detail_href ~ "&invoice_item_type=credit&invoice_status=conciliated#conciliated-invoice-table" %}
-        {% set drill_label = "Créditos" %}
+        {% set drill_href = base_detail_href ~ "&origin=invoice&analytic_type=credit#analysis-transactions-table" %}
+        {% set drill_label = "Ver lançamentos" %}
       {% elif row.key == "real_conciliated_expense_total" %}
-        {% set drill_href = base_detail_href ~ "&invoice_status=conciliated#conciliated-invoice-table" %}
-        {% set drill_label = "Abrir despesas" %}
+        {% set drill_href = base_detail_href ~ "&origin=invoice&analytic_type=expense#analysis-transactions-table" %}
+        {% set drill_label = "Ver lançamentos" %}
       {% else %}
         {% set drill_href = "#conciliated-composition" %}
         {% set drill_label = "Resumo" %}

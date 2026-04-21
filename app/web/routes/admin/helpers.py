@@ -21,7 +21,23 @@ ADMIN_NAV_SECTIONS = [
         "label": "Principal",
         "items": [
             {"key": "overview", "label": "Visão Geral", "href": "/admin"},
-            {"key": "conciliated", "label": "Visão conciliada", "href": "/admin/analysis"},
+            {
+                "key": "analysis",
+                "label": "Análise",
+                "href": "/admin/analysis/charts",
+                "children": [
+                    {
+                        "key": "analysis_charts",
+                        "label": "Gráficos analíticos",
+                        "href": "/admin/analysis/charts",
+                    },
+                    {
+                        "key": "analysis_transactions",
+                        "label": "Lançamentos analíticos",
+                        "href": "/admin/analysis/transactions",
+                    },
+                ],
+            },
             {
                 "key": "statement",
                 "label": "Visão de Extrato",
@@ -94,6 +110,12 @@ ADMIN_NAV_SECTIONS = [
 
 
 def _active_nav_key(path: str) -> str:
+    if path.startswith("/admin/analysis/transactions"):
+        return "analysis_transactions"
+    if path.startswith("/admin/analysis/charts"):
+        return "analysis_charts"
+    if path == "/admin/analysis":
+        return "analysis_charts"
     if path.startswith("/admin/conference/manage"):
         return "statement_manage"
     if path.startswith("/admin/conference/technical"):
@@ -102,8 +124,6 @@ def _active_nav_key(path: str) -> str:
         return "invoice_manage"
     if path.startswith("/admin/categories/manage"):
         return "categories_manage"
-    if path.startswith("/admin/analysis"):
-        return "conciliated"
     if path.startswith("/admin/conference"):
         return "statement"
     if path.startswith("/admin/operations"):

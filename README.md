@@ -111,8 +111,9 @@ docker compose exec app pytest -q tests/test_credit_card_bills.py tests/test_api
 
 ## Admin
 - dashboard em `/admin`
-- análise em `/admin/analysis`
+- gráficos analíticos em `/admin/analysis/charts`
 - lançamentos analíticos em `/admin/analysis/transactions`
+- `/admin/analysis` permanece como alias de compatibilidade para a tela de gráficos
 - operações em `/admin/operations`
 - transações em `/admin/transactions`
 - regras em `/admin/rules`
@@ -154,14 +155,7 @@ Esta etapa prepara a base para futuras leituras analíticas por categoria nas fa
 ## Direção da camada analítica
 A camada analítica passa a ter 2 telas canônicas:
 
-- uma tela única de gráficos e KPIs
-- uma tela única de listagem e exploração de lançamentos
+- uma tela única de gráficos em `/admin/analysis/charts`
+- uma tela única de listagem em `/admin/analysis/transactions`
 
-A migração será progressiva:
-
-- criar as telas novas primeiro
-- manter as telas antigas temporariamente
-- migrar entradas e drilldowns aos poucos
-- remover as telas antigas apenas após validação
-
-A fatia atual prioriza a nova tela única de lançamentos, por auditabilidade e validação dos números.
+As duas telas funcionam de forma autônoma, com período global próprio e navegação clara entre elas.
