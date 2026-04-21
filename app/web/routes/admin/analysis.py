@@ -212,17 +212,23 @@ def _home_dashboard_card_href(active_lens: str, card_key: str, analysis_urls: di
     if active_lens == "competence":
         if card_key == "competence_income":
             return _extend_url(
-                analysis_urls["detail"],
-                params={"conciliated_analytic_type": "income"},
-                fragment="conciliated-considered-table",
+                analysis_urls["transactions_view"],
+                params={
+                    "analytic_type": "income",
+                    "home_lens": "competence",
+                },
+                fragment="analysis-transactions-table",
             )
         if card_key == "competence_expense":
             return _extend_url(
-                analysis_urls["detail"],
-                params={"conciliated_analytic_type": "expense"},
-                fragment="conciliated-considered-table",
+                analysis_urls["transactions_view"],
+                params={
+                    "analytic_type": "expense",
+                    "home_lens": "competence",
+                },
+                fragment="analysis-transactions-table",
             )
-        return _extend_url(analysis_urls["detail"], fragment="conciliated-composition")
+        return analysis_urls["detail"]
 
     if card_key == "net_flow":
         return analysis_urls["transactions_view"]

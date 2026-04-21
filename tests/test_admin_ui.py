@@ -933,6 +933,51 @@ def test_admin_summary_cards_expose_drilldown_links(client, db_session, monkeypa
     assert largest_href.endswith("#analysis-transactions-table")
 
 
+def test_admin_summary_cards_use_canonical_targets_in_competence_lens(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR COMPETENCE",
+        normalized="salario mar competence lens",
+        transaction_date=date(2026, 3, 5),
+        amount=5000.0,
+        transaction_kind="income",
+        category="Sal\u00e1rio",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR COMPETENCE",
+        normalized="aluguel mar competence lens",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _login(client)
+
+    response = client.get("/admin?selection_mode=month&month=2026-03&home_lens=competence")
+
+    assert response.status_code == 200
+
+    competence_income_href = _extract_href_by_data_attr(response.text, "data-context-card", "competence_income")
+    assert competence_income_href.startswith("/admin/analysis/transactions?")
+    assert "analytic_type=income" in competence_income_href
+    assert "home_lens=competence" in competence_income_href
+    assert competence_income_href.endswith("#analysis-transactions-table")
+
+    competence_expense_href = _extract_href_by_data_attr(response.text, "data-context-card", "competence_expense")
+    assert competence_expense_href.startswith("/admin/analysis/transactions?")
+    assert "analytic_type=expense" in competence_expense_href
+    assert "home_lens=competence" in competence_expense_href
+    assert competence_expense_href.endswith("#analysis-transactions-table")
+
+    competence_fallback_href = _extract_href_by_data_attr(response.text, "data-context-card", "result")
+    assert competence_fallback_href.startswith("/admin/analysis/charts?")
+    assert "conciliated_analytic_type=" not in competence_fallback_href
+    assert "#" not in competence_fallback_href.split("?", 1)[-1]
+
+
 def test_admin_summary_alert_links_non_categorized_to_analysis_transactions(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
