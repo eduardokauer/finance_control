@@ -2089,18 +2089,12 @@ def test_admin_analysis_page_restores_summary_context_from_chart_navigation(clie
 
     assert response.status_code == 200
     assert "Gráficos analíticos" in response.text
-    assert "Painel visual do período" in response.text
-    assert "Abrir lançamentos" in response.text
-    assert 'data-return-summary-link' in response.text
+    assert "Últimos 12 meses" in response.text
+    assert "Período selecionado" in response.text
+    assert "Painel visual do período" not in response.text
+    assert "Abrir lançamentos" not in response.text
+    assert 'data-return-summary-link' not in response.text
     assert 'id="analysis-home-dashboard-chart"' in response.text
-
-    return_href = _extract_return_summary_href(response.text)
-    assert return_href.startswith("/admin?")
-    assert "selection_mode=month" in return_href
-    assert "month=2026-03" in return_href
-    assert "home_lens=" not in return_href
-    assert "home_chart_mode=" not in return_href
-    assert "home_chart_compare=" not in return_href
 
 
 def test_admin_conference_page_restores_summary_context(client, db_session, monkeypatch):
@@ -2799,6 +2793,51 @@ def test_admin_analysis_page_shows_empty_state_and_navigation(client, db_session
     assert "Filtrando..." in response.text
 
 
+def test_admin_analysis_transactions_honor_competence_lens_drilldown(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO FEV COMPETENCIA MAR",
+        normalized="salario fev competencia mar",
+        transaction_date=date(2026, 2, 28),
+        competence_month="2026-03",
+        amount=7777.77,
+        transaction_kind="income",
+        category="Sal\u00e1rio",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR COMPETENCIA",
+        normalized="aluguel mar competencia",
+        transaction_date=date(2026, 3, 8),
+        competence_month="2026-03",
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL FEV FORA DA COMPETENCIA",
+        normalized="aluguel fev fora competencia",
+        transaction_date=date(2026, 2, 8),
+        competence_month="2026-02",
+        amount=-1500.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _login(client)
+
+    response = client.get(
+        "/admin/analysis/transactions?selection_mode=month&month=2026-03&period_start=2026-03-01&period_end=2026-03-31&home_lens=competence"
+    )
+
+    assert response.status_code == 200
+    assert "SALARIO FEV COMPETENCIA MAR" in response.text
+    assert "ALUGUEL MAR COMPETENCIA" in response.text
+    assert "ALUGUEL FEV FORA DA COMPETENCIA" not in response.text
+
+
 def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
@@ -2821,8 +2860,10 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert page.status_code == 200
     assert "Gráficos analíticos" in page.text
-    assert "Painel visual do período" in page.text
-    assert "Abrir lançamentos" in page.text
+    assert "Últimos 12 meses" in page.text
+    assert "Período selecionado" in page.text
+    assert "Painel visual do período" not in page.text
+    assert "Abrir lançamentos" not in page.text
     assert "Itens de fatura considerados" not in page.text
     assert "Faturas do período" not in page.text
     assert 'class="analysis-period-bar"' in page.text
@@ -2832,6 +2873,9 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     assert "chart.js" in page.text.lower()
     assert 'id="analysis-home-dashboard-chart"' in page.text
     assert 'analysis-categories-legend' in page.text
+    assert 'analysis-category-period-flow-scope' in page.text
+    assert 'analysis-category-period-legend' in page.text
+    assert 'analysis-drilldown-loading' in page.text
     assert "R$" in page.text
 
     run = db_session.scalar(select(AnalysisRun).where(AnalysisRun.period_start == date(2026, 3, 1)))
@@ -2873,7 +2917,9 @@ def test_admin_analysis_page_supports_htmx_shell_refresh(client, db_session, mon
     assert response.status_code == 200
     assert 'id="analysis-charts-view-shell"' in response.text
     assert response.headers["HX-Push-Url"].endswith("statement_scope=included")
-    assert "Painel visual do período" in response.text
+    assert "Últimos 12 meses" in response.text
+    assert "Período selecionado" in response.text
+    assert "Painel visual do período" not in response.text
 
 
 def test_admin_conference_page_supports_htmx_shell_refresh(client, db_session, monkeypatch):
@@ -2948,7 +2994,9 @@ def test_admin_run_analysis_supports_htmx_shell_refresh(client, db_session, monk
     assert response.status_code == 200
     assert 'id="analysis-charts-view-shell"' in response.text
     assert "HX-Trigger" in response.headers
-    assert "Painel visual do período" in response.text
+    assert "Últimos 12 meses" in response.text
+    assert "Período selecionado" in response.text
+    assert "Painel visual do período" not in response.text
 
 
 def test_admin_conference_page_shows_auxiliary_conciliation_signals(client, db_session, monkeypatch):
@@ -3008,7 +3056,9 @@ def test_admin_metric_cards_use_clickable_values_for_drilldown(client, db_sessio
     analysis = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert analysis.status_code == 200
     assert 'id="analysis-home-dashboard-chart"' in analysis.text
-    assert "Abrir lançamentos" in analysis.text
+    assert "Últimos 12 meses" in analysis.text
+    assert "Período selecionado" in analysis.text
+    assert "Abrir lançamentos" not in analysis.text
     assert "Ver tabela" not in analysis.text
     assert "Abrir fórmula" not in analysis.text
 
@@ -3373,7 +3423,9 @@ def test_admin_analysis_page_shows_consumption_based_alerts_and_actions(client, 
 
     assert january.status_code == 200
     assert "Gráficos analíticos" in january.text
-    assert "Painel visual do período" in january.text
+    assert "Últimos 12 meses" in january.text
+    assert "Período selecionado" in january.text
+    assert "Painel visual do período" not in january.text
     assert "Itens de fatura considerados" not in january.text
     assert "Revisar a categoria Supermercado" not in january.text
     assert february.status_code == 200
@@ -3756,8 +3808,10 @@ def test_admin_analysis_page_supports_legacy_payload_without_conciliated_month(c
 
     assert response.status_code == 200
     assert "Gráficos analíticos" in response.text
-    assert "Painel visual do período" in response.text
-    assert "Abrir lançamentos" in response.text
+    assert "Últimos 12 meses" in response.text
+    assert "Período selecionado" in response.text
+    assert "Painel visual do período" not in response.text
+    assert "Abrir lançamentos" not in response.text
     assert "Visão bruta de apoio" not in response.text
     assert "legacy html" not in response.text
 
@@ -3902,9 +3956,9 @@ def test_admin_loading_buttons_are_exposed_in_reapply_and_analysis(client, db_se
 
     analysis_page = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
     assert analysis_page.status_code == 200
-    assert analysis_page.text.count("data-loading-button") >= 2
+    assert analysis_page.text.count("data-loading-button") >= 1
     assert "Aplicando..." in analysis_page.text
-    assert "Gerando análise..." in analysis_page.text
+    assert "Gerando análise..." not in analysis_page.text
 
 
 

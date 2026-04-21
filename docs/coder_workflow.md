@@ -27,10 +27,12 @@ Se a mudança tocar processo ou compatibilidade de workflow, ler também `docs/p
 - Nunca trabalhar direto na branch `develop` ou main.
 - Antes de criar uma nova branch, verificar qual branch está mais atual `develop`ou `main` e começar uma nova branch a partir dela.
 - PRs devem sempre ser abertos da branch de trabalho para a `develop`
-- Sempre criar ou revisar os testes da aplicação para garantir cobertura completa de testes.
+- Quando finalizar uma alteração, obrigatoriamente revisa testes ante de rodar a suite de testes. Se tiver ajustes claros ou novos testes necessários, fazer os ajustes e criar os testes antes de rodar a suite completa de testes.
 
 ## Validação
 
+- Antes de rodar testes, sempre verificar se existe algum ajuste óbvio que precisa ser feito e fazer antes de rodar os testes.
+- Antes de rodar os testes, verifique se todos os testes necessários foram desenolvidos e só depois de criálos, execute os testes.
 - PR só com `docs/`, `AGENTS.md` ou `README.md` alterado: `make test-docs` ou `python scripts/check_docs.py docs`
 - Qualquer mudança fora de `docs/`, `AGENTS.md` ou `README.md`: suíte completa do projeto
 - Se a validação falhar, corrigir e repetir até ficar verde

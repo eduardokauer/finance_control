@@ -18,13 +18,81 @@
       currency: 'BRL',
     });
 
+    const getAnalysisChartsShell = () => document.getElementById('analysis-charts-view-shell');
+
+    const getHomeLens = () => getAnalysisChartsShell()?.dataset?.homeLens || '';
+
+    const monthRangeFromKey = (monthKey) => {
+      if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) {
+        return null;
+      }
+      const [yearText, monthText] = monthKey.split('-');
+      const year = Number(yearText);
+      const month = Number(monthText);
+      if (!year || !month) {
+        return null;
+      }
+      const start = `${yearText}-${monthText}-01`;
+      const endDate = new Date(Date.UTC(year, month, 0));
+      const end = endDate.toISOString().slice(0, 10);
+      return { start, end };
+    };
+
+    const buildTransactionsHref = (params = {}) => {
+      const url = new URL('/admin/analysis/transactions', window.location.origin);
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          url.searchParams.set(key, `${value}`);
+        }
+      });
+      return `${url.pathname}?${url.searchParams.toString()}`;
+    };
+
+    const showAnalysisDrilldownLoading = (label = 'Abrindo lançamentos...') => {
+      const overlay = document.getElementById('analysis-drilldown-loading');
+      if (!overlay) {
+        return;
+      }
+      const copy = overlay.querySelector('[data-drilldown-loading-label]');
+      if (copy) {
+        copy.textContent = label;
+      }
+      overlay.hidden = false;
+      overlay.classList.add('is-visible');
+    };
+
+    const navigateWithAnalysisLoading = (href, label) => {
+      if (!href) {
+        return;
+      }
+      showAnalysisDrilldownLoading(label);
+      window.requestAnimationFrame(() => {
+        window.location.href = href;
+      });
+    };
+
+    const monthDrilldownHref = (monthKey, extraParams = {}) => {
+      const range = monthRangeFromKey(monthKey);
+      if (!range) {
+        return null;
+      }
+      return buildTransactionsHref({
+        selection_mode: 'month',
+        month: monthKey,
+        home_lens: getHomeLens() || undefined,
+        ...extraParams,
+      });
+    };
+
     window.mountAdminCashFlowChart = function mountAdminCashFlowChart(canvasId, data, palette = {}) {
       const canvas = document.getElementById(canvasId);
       if (!canvas || !window.Chart) {
         return null;
       }
+      const months = data.months || [];
+      const drilldown = canvas.dataset.analysisDrilldown !== 'false';
 
-      return new Chart(canvas, {
+      const chart = new Chart(canvas, {
         type: 'bar',
         data: {
           labels: data.labels,
@@ -71,6 +139,21 @@
           responsive: true,
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
+          onClick(_event, elements) {
+            if (!drilldown || !elements?.length) {
+              return;
+            }
+            const { datasetIndex, index } = elements[0];
+            const monthKey = months[index];
+            if (!monthKey) {
+              return;
+            }
+            const datasetLabel = `${chart.data.datasets[datasetIndex]?.label || ''}`.toLowerCase();
+            const monthHref = monthDrilldownHref(monthKey, {
+              analytic_type: datasetLabel.includes('receita') || datasetLabel.includes('entrad') ? 'income' : datasetLabel.includes('desp') ? 'expense' : undefined,
+            });
+            navigateWithAnalysisLoading(monthHref, `Abrindo ${chart.data.datasets[datasetIndex]?.label || 'dados'} de ${chart.data.labels[index]}...`);
+          },
           scales: {
             x: { grid: { display: false } },
             y: {
@@ -93,6 +176,8 @@
           },
         },
       });
+      canvas.dataset.analysisDrilldown = drilldown ? 'true' : 'false';
+      return chart;
     };
 
     window.mountAdminInvoiceMonthlyChart = function mountAdminInvoiceMonthlyChart(canvasId, data) {
@@ -100,8 +185,10 @@
       if (!canvas || !window.Chart) {
         return null;
       }
+      const months = data.months || [];
+      const drilldown = canvas.dataset.analysisDrilldown !== 'false';
 
-      return new Chart(canvas, {
+      const chart = new Chart(canvas, {
         type: 'bar',
         data: {
           labels: data.labels,
@@ -149,6 +236,26 @@
           responsive: true,
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
+          onClick(_event, elements) {
+            if (!drilldown || !elements?.length) {
+              return;
+            }
+            const { datasetIndex, index } = elements[0];
+            const monthKey = months[index];
+            if (!monthKey) {
+              return;
+            }
+            const datasetLabel = `${chart.data.datasets[datasetIndex]?.label || ''}`.toLowerCase();
+            const extraParams = datasetLabel.includes('credito')
+              ? { origin: 'invoice', analytic_type: 'credit' }
+              : datasetLabel.includes('charge') || datasetLabel.includes('valor faturado')
+                ? { origin: 'invoice' }
+                : datasetLabel.includes('payment')
+                  ? { origin: 'invoice', analytic_type: 'expense' }
+                  : undefined;
+            const href = monthDrilldownHref(monthKey, extraParams || {});
+            navigateWithAnalysisLoading(href, `Abrindo ${chart.data.datasets[datasetIndex]?.label || 'dados'} de ${chart.data.labels[index]}...`);
+          },
           scales: {
             x: { grid: { display: false } },
             y: {
@@ -171,6 +278,8 @@
           },
         },
       });
+      canvas.dataset.analysisDrilldown = drilldown ? 'true' : 'false';
+      return chart;
     };
 
     const categoryPeriodValueLabelsPlugin = {
@@ -225,6 +334,7 @@
       const technical = data.technical || [];
       const flowLabels = data.flow_labels || [];
       const flowKinds = data.flow_kinds || [];
+      const categoryNames = data.category_names || labels;
       const valueDisplays = data.value_displays || [];
       const flowKey = (index) => {
         if (flowKinds[index]) return `${flowKinds[index]}`;
@@ -249,8 +359,147 @@
         if (flow === 'expense') return options.expenseBorderColor || 'rgba(185, 28, 28, 0.95)';
         return options.mixedBorderColor || options.barBorderColor || 'rgba(37, 99, 235, 0.92)';
       };
+      const fillForFlow = (flow) => {
+        if (flow === 'transfer') return options.transferColor || 'rgba(100, 116, 139, 0.62)';
+        if (flow === 'income') return options.incomeColor || 'rgba(21, 128, 61, 0.74)';
+        if (flow === 'expense') return options.expenseColor || 'rgba(185, 28, 28, 0.72)';
+        return options.mixedColor || options.barColor || 'rgba(37, 99, 235, 0.72)';
+      };
+      const strokeForFlow = (flow) => {
+        if (flow === 'transfer') return options.transferBorderColor || 'rgba(71, 85, 105, 0.94)';
+        if (flow === 'income') return options.incomeBorderColor || 'rgba(21, 128, 61, 0.95)';
+        if (flow === 'expense') return options.expenseBorderColor || 'rgba(185, 28, 28, 0.95)';
+        return options.mixedBorderColor || options.barBorderColor || 'rgba(37, 99, 235, 0.92)';
+      };
 
-      return new Chart(canvas, {
+      const drilldownEnabled = canvas.dataset.analysisDrilldown !== 'false';
+      const baseEntries = labels.map((label, index) => ({
+        label,
+        categoryName: categoryNames[index] || label,
+        value: values[index],
+        valueDisplay: valueDisplays[index],
+        href: hrefs[index],
+        flowKind: flowKey(index),
+        flowLabel: flowLabels[index] || '',
+        technical: technical[index],
+        index,
+      }));
+      const selectedLabels = new Set(baseEntries.map((entry) => entry.label));
+      const legendContainer = options.legendId ? document.getElementById(options.legendId) : null;
+      const flowSelect = options.flowScopeControlId ? document.getElementById(options.flowScopeControlId) : null;
+      let chart = null;
+
+      const visibleEntries = () => {
+        const flowScope = flowSelect?.value || options.flowScope || 'both';
+        return baseEntries.filter((entry) => {
+          const flowAllowed =
+            flowScope === 'both'
+              ? true
+              : flowScope === 'income'
+                ? entry.flowKind === 'income'
+                : flowScope === 'expense'
+                  ? entry.flowKind === 'expense' || entry.flowKind === 'transfer'
+                  : true;
+          return flowAllowed && selectedLabels.has(entry.label);
+        });
+      };
+
+      const syncChart = () => {
+        if (!chart) {
+          return;
+        }
+        const entries = visibleEntries();
+        chart.data.labels = entries.map((entry) => entry.label);
+        chart.data.datasets[0].data = entries.map((entry) => entry.value);
+        chart.data.datasets[0].valueDisplays = entries.map((entry) => entry.valueDisplay);
+        chart.data.datasets[0].backgroundColor = entries.map((entry) => fillForFlow(entry.flowKind));
+        chart.data.datasets[0].borderColor = entries.map((entry) => strokeForFlow(entry.flowKind));
+        chart.$analysisEntries = entries;
+        chart.update();
+        if (legendContainer) {
+          const count = entries.length;
+          const emptyState = legendContainer.querySelector('[data-analysis-legend-empty]');
+          if (emptyState) {
+            emptyState.hidden = count > 0;
+          }
+          legendContainer.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+            checkbox.checked = selectedLabels.has(checkbox.dataset.entryLabel || checkbox.getAttribute('aria-label') || '');
+          });
+        }
+      };
+
+      const renderLegend = () => {
+        if (!legendContainer) {
+          return;
+        }
+        legendContainer.innerHTML = '';
+        const actions = document.createElement('div');
+        actions.className = 'analysis-chart-legend-actions';
+        const selectAll = document.createElement('button');
+        selectAll.type = 'button';
+        selectAll.className = 'button button-ghost';
+        selectAll.textContent = 'Selecionar todas';
+        selectAll.addEventListener('click', () => {
+          baseEntries.forEach((entry) => selectedLabels.add(entry.label));
+          syncChart();
+        });
+        const clearAll = document.createElement('button');
+        clearAll.type = 'button';
+        clearAll.className = 'button button-ghost';
+        clearAll.textContent = 'Desselecionar todas';
+        clearAll.addEventListener('click', () => {
+          selectedLabels.clear();
+          syncChart();
+        });
+        actions.appendChild(selectAll);
+        actions.appendChild(clearAll);
+        legendContainer.appendChild(actions);
+
+        const chips = document.createElement('div');
+        chips.className = 'analysis-chart-legend-chips';
+        baseEntries.forEach((entry) => {
+          const item = document.createElement('label');
+          item.className = 'chart-legend-checkbox-item';
+
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = selectedLabels.has(entry.label);
+          checkbox.setAttribute('aria-label', entry.label);
+          checkbox.dataset.entryLabel = entry.label;
+          checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+              selectedLabels.add(entry.label);
+            } else {
+              selectedLabels.delete(entry.label);
+            }
+            syncChart();
+          });
+
+          const swatch = document.createElement('span');
+          swatch.className = 'chart-legend-checkbox-swatch';
+          swatch.style.background = fillForFlow(entry.flowKind);
+          swatch.style.borderColor = strokeForFlow(entry.flowKind);
+
+          const text = document.createElement('span');
+          text.className = 'chart-legend-checkbox-text';
+          text.textContent = entry.label;
+
+          item.appendChild(checkbox);
+          item.appendChild(swatch);
+          item.appendChild(text);
+          chips.appendChild(item);
+        });
+        const emptyState = document.createElement('div');
+        emptyState.dataset.analysisLegendEmpty = 'true';
+        emptyState.hidden = baseEntries.length > 0;
+        emptyState.className = 'subtle';
+        emptyState.textContent = 'Nenhuma categoria visível com esses filtros.';
+
+        legendContainer.appendChild(chips);
+        legendContainer.appendChild(emptyState);
+      };
+
+      chart = new Chart(canvas, {
         type: 'bar',
         data: {
           labels,
@@ -274,10 +523,11 @@
             padding: { top: options.valueLabels === false ? 0 : 26 },
           },
           onClick(_event, elements) {
-            if (!elements?.length) return;
-            const href = hrefs[elements[0].index];
+            if (!drilldownEnabled || !elements?.length) return;
+            const entry = chart?.$analysisEntries?.[elements[0].index];
+            const href = entry?.href;
             if (href) {
-              window.location.href = href;
+              navigateWithAnalysisLoading(href, `Abrindo ${entry.label}...`);
             }
           },
           scales: {
@@ -316,6 +566,13 @@
           },
         },
       });
+      chart.$analysisEntries = baseEntries;
+      if (flowSelect) {
+        flowSelect.addEventListener('change', syncChart);
+      }
+      renderLegend();
+      syncChart();
+      return chart;
     };
   })();
 </script>
