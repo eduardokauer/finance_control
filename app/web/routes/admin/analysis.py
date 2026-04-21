@@ -94,7 +94,8 @@ def _relative_request_url(request: Request) -> str:
 def _analysis_shell_template(base_path: str) -> str | None:
     return {
         "/admin": "admin/partials/summary_page_shell.html",
-        "/admin/analysis": "admin/partials/analysis_page_shell.html",
+        "/admin/analysis": "admin/partials/analysis_charts_page_shell.html",
+        "/admin/analysis/charts": "admin/partials/analysis_charts_page_shell.html",
         "/admin/analysis/transactions": "admin/partials/analysis_transactions_page_shell.html",
         "/admin/conference": "admin/partials/conference_page_shell.html",
     }.get(base_path)
@@ -103,7 +104,8 @@ def _analysis_shell_template(base_path: str) -> str | None:
 def _analysis_shell_target(base_path: str) -> str | None:
     return {
         "/admin": "#summary-view-shell",
-        "/admin/analysis": "#analysis-view-shell",
+        "/admin/analysis": "#analysis-charts-view-shell",
+        "/admin/analysis/charts": "#analysis-charts-view-shell",
         "/admin/analysis/transactions": "#analysis-transactions-view-shell",
         "/admin/conference": "#conference-view-shell",
     }.get(base_path)
@@ -210,49 +212,46 @@ def _home_dashboard_card_href(active_lens: str, card_key: str, analysis_urls: di
     if active_lens == "competence":
         if card_key == "competence_income":
             return _extend_url(
-                analysis_urls["detail"],
-                params={"conciliated_analytic_type": "income"},
-                fragment="conciliated-considered-table",
+                analysis_urls["transactions_view"],
+                params={
+                    "analytic_type": "income",
+                    "home_lens": "competence",
+                },
+                fragment="analysis-transactions-table",
             )
         if card_key == "competence_expense":
             return _extend_url(
-                analysis_urls["detail"],
-                params={"conciliated_analytic_type": "expense"},
-                fragment="conciliated-considered-table",
+                analysis_urls["transactions_view"],
+                params={
+                    "analytic_type": "expense",
+                    "home_lens": "competence",
+                },
+                fragment="analysis-transactions-table",
             )
-        return _extend_url(analysis_urls["detail"], fragment="conciliated-composition")
+        return analysis_urls["detail"]
 
     if card_key == "net_flow":
-        return _extend_url(
-            analysis_urls["transactions_view"],
-            params={
-                "origin": "summary",
-                "origin_block": "cards",
-                "origin_kpi": "net_flow_month",
-                "origin_kpi_label": "Fluxo líquido do mês",
-            },
-            fragment="net-flow-atomic-table",
-        )
+        return analysis_urls["transactions_view"]
     if card_key == "income":
         return _extend_url(
-            analysis_urls["conference"],
-            params={"statement_transaction_kind": "income"},
-            fragment="statement-table",
+            analysis_urls["transactions_view"],
+            params={"analytic_type": "income"},
+            fragment="analysis-transactions-table",
         )
     if card_key == "expense":
         return _extend_url(
-            analysis_urls["conference"],
-            params={"statement_transaction_kind": "expense"},
-            fragment="statement-table",
+            analysis_urls["transactions_view"],
+            params={"analytic_type": "expense"},
+            fragment="analysis-transactions-table",
         )
     if card_key == "largest_expense":
         return _extend_url(
-            analysis_urls["conference"],
+            analysis_urls["transactions_view"],
             params={
-                "statement_transaction_kind": "expense",
-                "statement_sort": "amount_desc",
+                "analytic_type": "expense",
+                "sort": "amount_desc",
             },
-            fragment="statement-table",
+            fragment="analysis-transactions-table",
         )
     return analysis_urls["conference"]
 
@@ -290,21 +289,21 @@ def _build_alerts_with_links(alerts: list[dict], state: dict[str, str | int | No
         title = (alert.get("title") or "").lower()
         if "nao categorizado" in title or "não categorizado" in title:
             href = _url_with_query(
-                "/admin/transactions",
+                "/admin/analysis/transactions",
                 {
                     "period_start": state.get("period_start"),
                     "period_end": state.get("period_end"),
-                    "uncategorized_only": "true",
+                    "category": "Não Categorizado",
                 },
             )
             link_label = "Abrir lançamentos não categorizados"
         elif "saldo" in title:
             href = _url_with_query(
-                "/admin/transactions",
+                "/admin/analysis/transactions",
                 {
                     "period_start": state.get("period_start"),
                     "period_end": state.get("period_end"),
-                    "transaction_kind": "expense",
+                    "analytic_type": "expense",
                 },
             )
             link_label = "Abrir lançamentos do período"
@@ -366,12 +365,12 @@ def _build_overview_charts(analysis_data: dict, analysis_urls: dict) -> dict[str
                 canvas_id="overview-conciliated-period-categories-chart",
                 data=analysis_data["charts"]["conciliated_categories_period"],
                 href_builder=lambda category_name, flow_kind: _extend_url(
-                    analysis_urls["contextual"]["chart_detail"],
+                    analysis_urls["transactions_view"],
                     params={
-                        "conciliated_category": category_name,
-                        "conciliated_analytic_type": flow_kind if flow_kind in {"income", "expense", "credit"} else None,
+                        "category": category_name,
+                        "analytic_type": flow_kind if flow_kind in {"income", "expense", "credit"} else None,
                     },
-                    fragment="conciliated-considered-table",
+                    fragment="analysis-transactions-table",
                 ),
             ),
         },
@@ -387,12 +386,13 @@ def _build_overview_charts(analysis_data: dict, analysis_urls: dict) -> dict[str
                 canvas_id="overview-statement-period-categories-chart",
                 data=analysis_data["charts"]["statement_categories_period"],
                 href_builder=lambda category_name, flow_kind: _extend_url(
-                    analysis_urls["contextual"]["conference"],
+                    analysis_urls["transactions_view"],
                     params={
-                        "statement_category": category_name,
-                        "statement_transaction_kind": flow_kind if flow_kind in {"income", "expense", "transfer"} else None,
+                        "origin": "statement",
+                        "category": category_name,
+                        "analytic_type": flow_kind if flow_kind in {"income", "expense", "transfer"} else None,
                     },
-                    fragment="statement-table",
+                    fragment="analysis-transactions-table",
                 ),
             ),
         },
@@ -408,12 +408,13 @@ def _build_overview_charts(analysis_data: dict, analysis_urls: dict) -> dict[str
                 canvas_id="overview-invoice-period-categories-chart",
                 data=analysis_data["charts"]["invoice_categories_period"],
                 href_builder=lambda category_name, flow_kind: _extend_url(
-                    analysis_urls["invoice_view"],
+                    analysis_urls["transactions_view"],
                     params={
+                        "origin": "invoice",
                         "category": category_name,
-                        "item_type": "charge" if flow_kind == "expense" else "credit" if flow_kind == "credit" else None,
+                        "analytic_type": flow_kind if flow_kind in {"expense", "credit"} else None,
                     },
-                    fragment="invoice-items-table",
+                    fragment="analysis-transactions-table",
                 ),
             ),
         },
@@ -429,12 +430,11 @@ def _build_overview_charts(analysis_data: dict, analysis_urls: dict) -> dict[str
                 canvas_id="overview-categories-period-categories-chart",
                 data=analysis_data["charts"]["overview_categories_period"],
                 href_builder=lambda category_name, _flow_kind: _extend_url(
-                    analysis_urls["contextual"]["categories_detail"],
+                    analysis_urls["transactions_view"],
                     params={
-                        "focus_category": category_name,
-                        "selected_category": category_name,
+                        "category": category_name,
                     },
-                    fragment="category-composition-section",
+                    fragment="analysis-transactions-table",
                 ),
             ),
         },
@@ -668,13 +668,6 @@ def _build_context_chips(
                 "value": lens_label,
             }
         )
-    if origin == "summary":
-        chips.append({"key": "origin", "label": "Origem", "value": "Resumo"})
-    origin_label = _origin_block_label(origin_block)
-    if origin_label:
-        chips.append({"key": "origin_block", "label": "Bloco", "value": origin_label})
-    if origin_kpi_label:
-        chips.append({"key": "origin_kpi", "label": "KPI de origem", "value": origin_kpi_label})
     if origin_block == "chart":
         if home_chart_mode == "rolling_12":
             chips.append({"key": "chart_mode", "label": "Horizonte", "value": "Últimos 12 meses"})
@@ -723,7 +716,7 @@ def _build_focus_banner(
     }.get(home_chart_compare or "", "métrica atual")
     chart_mode_label = "Últimos 12 meses" if home_chart_mode == "rolling_12" else "Ano"
 
-    if base_path == "/admin/analysis":
+    if base_path in ("/admin/analysis", "/admin/analysis/charts"):
         if origin_block == "cards":
             return {
                 "key": "cards",
@@ -878,30 +871,31 @@ def _analysis_page_context(
         "period_end": resolved_end.isoformat(),
         "home_lens": resolved_home_lens,
     }
-    page_query_params = {
-        **shared_summary_state,
-        "origin": origin,
-        "origin_block": origin_block,
-        "origin_kpi": origin_kpi,
-        "origin_kpi_label": origin_kpi_label,
-    }
-
     analysis_urls = {
         "summary": _url_with_query("/admin", overview_state),
-        "detail": _url_with_query("/admin/analysis", page_query_params),
-        "transactions_view": _url_with_query("/admin/analysis/transactions", page_query_params),
-        "conference": _url_with_query("/admin/conference", page_query_params),
-        "conference_technical": _url_with_query("/admin/conference/technical", page_query_params),
+        "detail": _url_with_query("/admin/analysis/charts", shared_summary_state),
+        "charts_view": _url_with_query("/admin/analysis/charts", shared_summary_state),
+        "transactions_view": _url_with_query(
+            "/admin/analysis/transactions",
+            {
+                "selection_mode": selected_mode,
+                "month": month_value if selected_mode == "month" else None,
+                "period_start": resolved_start.isoformat(),
+                "period_end": resolved_end.isoformat(),
+            },
+        ),
+        "conference": _url_with_query("/admin/conference", shared_summary_state),
+        "conference_technical": _url_with_query("/admin/conference/technical", shared_summary_state),
         "invoice_view": _url_with_query("/admin/credit-card-invoices", overview_state),
         "categories_view": _url_with_query("/admin/categories", overview_state),
         "operations": "/admin/operations",
-        "return_to": _url_with_query(base_path, shared_summary_state if base_path == "/admin" else page_query_params),
+        "return_to": _url_with_query(base_path, shared_summary_state if base_path == "/admin" else shared_summary_state),
         "contextual": {
-            "cards_detail": _url_with_query("/admin/analysis", {**overview_state, "origin": "summary", "origin_block": "cards"}),
-            "chart_detail": _url_with_query("/admin/analysis", {**overview_state, "origin": "summary", "origin_block": "chart"}),
-            "categories_detail": _url_with_query("/admin/categories", {**overview_state, "origin": "summary", "origin_block": "categories"}),
-            "alerts_detail": _url_with_query("/admin/analysis", {**overview_state, "origin": "summary", "origin_block": "alerts"}),
-            "conference": _url_with_query("/admin/conference", {**overview_state, "origin": "summary", "origin_block": "conference"}),
+            "cards_detail": _url_with_query("/admin/analysis/transactions", shared_summary_state),
+            "chart_detail": _url_with_query("/admin/analysis/transactions", shared_summary_state),
+            "categories_detail": _url_with_query("/admin/analysis/transactions", shared_summary_state),
+            "alerts_detail": _url_with_query("/admin/analysis/transactions", shared_summary_state),
+            "conference": _url_with_query("/admin/conference", shared_summary_state),
         },
     }
     priority_alerts_source = home_dashboard.get("alerts") if base_path == "/admin" else None
@@ -933,16 +927,17 @@ def _analysis_page_context(
         home_chart_compare=effective_home_chart_compare,
     )
     analysis_breadcrumb_items = [{"label": "Resumo", "href": analysis_urls["summary"] if base_path != "/admin" else None}]
-    if base_path == "/admin/analysis":
-        analysis_breadcrumb_items.append({"label": "Visão conciliada", "href": None})
+    if base_path in ("/admin/analysis", "/admin/analysis/charts"):
+        analysis_breadcrumb_items.append({"label": "Gráficos analíticos", "href": None})
     elif base_path == "/admin/analysis/transactions":
+        analysis_breadcrumb_items.append({"label": "Gráficos analíticos", "href": analysis_urls["charts_view"]})
         analysis_breadcrumb_items.append({"label": "Lançamentos analíticos", "href": None})
     elif base_path == "/admin/conference":
         analysis_breadcrumb_items.append({"label": "Visão de Extrato", "href": None})
     elif base_path == "/admin/conference/technical":
         analysis_breadcrumb_items.append({"label": "Visão de Extrato", "href": analysis_urls["conference"]})
         analysis_breadcrumb_items.append({"label": "Auditoria técnica", "href": None})
-    if base_path == "/admin/analysis":
+    if base_path in ("/admin/analysis", "/admin/analysis/charts"):
         recent_loads = list_recent_source_files(db, source_types=["bank_statement", "credit_card_bill"], limit=10)
     elif base_path in ("/admin/conference", "/admin/conference/technical"):
         recent_loads = list_recent_source_files(db, source_types=["bank_statement"], limit=10)
@@ -961,7 +956,7 @@ def _analysis_page_context(
             "href": _url_with_query(
                 base_path,
                 {
-                    **page_query_params,
+                    **shared_summary_state,
                     "home_lens": lens["key"],
                 },
             ),
@@ -1007,32 +1002,43 @@ def _analysis_page_context(
             {"name": "home_chart_mode", "value": effective_home_chart_mode if not overview_mode else None},
             {"name": "home_chart_year", "value": effective_home_chart_year if not overview_mode else None},
             {"name": "home_chart_compare", "value": effective_home_chart_compare if not overview_mode else None},
-            {"name": "origin", "value": origin if not overview_mode else None},
-            {"name": "origin_block", "value": origin_block if not overview_mode else None},
-            {"name": "origin_kpi", "value": origin_kpi if not overview_mode else None},
-            {"name": "origin_kpi_label", "value": origin_kpi_label if not overview_mode else None},
         ],
         "analysis_urls": analysis_urls,
         "analysis_breadcrumb_items": analysis_breadcrumb_items,
         "analysis_back_href": (
             summary_back_href_simple
-            if base_path in ("/admin/analysis", "/admin/analysis/transactions", "/admin/conference")
+            if base_path == "/admin/conference"
+            else summary_back_href_simple
+            if base_path == "/admin/analysis/transactions"
             else analysis_urls["conference"]
             if base_path == "/admin/conference/technical"
             else None
         ),
-        "analysis_show_generate": base_path in ("/admin/analysis", "/admin/conference"),
+        "analysis_show_generate": base_path == "/admin/conference",
         "analysis_context_chips": analysis_context_chips,
         "analysis_focus_banner": analysis_focus_banner,
         "recent_loads": recent_loads,
-        "analysis_global_tabs": [],
+        "analysis_global_tabs": [
+            {
+                "key": "charts",
+                "label": "Gráficos",
+                "href": analysis_urls["charts_view"],
+                "is_active": base_path in ("/admin/analysis", "/admin/analysis/charts"),
+            },
+            {
+                "key": "transactions",
+                "label": "Lançamentos",
+                "href": analysis_urls["transactions_view"],
+                "is_active": base_path == "/admin/analysis/transactions",
+            },
+        ],
         "format_currency_br": format_currency_br,
         "analysis_shell_target": _analysis_shell_target(base_path),
-        "analysis_form_action": "/admin" if base_path == "/admin" else base_path,
+        "analysis_form_action": "/admin" if base_path == "/admin" else analysis_urls["charts_view"] if base_path in ("/admin/analysis", "/admin/analysis/charts") else analysis_urls["transactions_view"] if base_path == "/admin/analysis/transactions" else base_path,
         "analysis_controls_intro": (
-            "Período global da auditoria."
+            "Período global da leitura visual."
             if base_path == "/admin/conference/technical"
-            else "Período global do drilldown."
+            else "Período global da listagem."
             if base_path == "/admin/analysis/transactions"
             else "Período global da página."
         ),
@@ -1052,9 +1058,10 @@ def _transactions_analysis_page_context(
     home_chart_year: int | None,
     home_chart_compare: str | None,
     origin: str | None,
-    origin_block: str | None,
-    origin_kpi: str | None,
-    origin_kpi_label: str | None,
+    category: str | None,
+    description: str | None,
+    analytic_type: str | None,
+    sort: str | None,
 ) -> dict:
     page_context = _analysis_page_context(
         db,
@@ -1069,24 +1076,34 @@ def _transactions_analysis_page_context(
         home_chart_year=home_chart_year,
         home_chart_compare=home_chart_compare,
         origin=origin,
-        origin_block=origin_block,
-        origin_kpi=origin_kpi,
-        origin_kpi_label=origin_kpi_label,
     )
-    transactions_snapshot = build_net_flow_transactions_snapshot(
-        db,
-        period_start=page_context["period_start"],
-        period_end=page_context["period_end"],
+    page_context.update(
+        _conciliated_operational_context(
+            db,
+            period_start=page_context["period_start"],
+            period_end=page_context["period_end"],
+            home_lens=home_lens,
+            category=category,
+            description=description,
+            origin=origin,
+            analytic_type=analytic_type,
+            sort=sort,
+        )
     )
     current_relative_url = _relative_request_url(request)
     page_context.update(
         {
-            "net_flow_transactions": transactions_snapshot,
-            "net_flow_transactions_href": current_relative_url,
             "current_relative_url": current_relative_url,
             "encoded_current_url": quote(current_relative_url, safe=""),
-            "origin_kpi": origin_kpi,
-            "origin_kpi_label": origin_kpi_label,
+            "analysis_tables_anchor": "analysis-transactions-table",
+            "analysis_extra_hidden_fields": [
+                *page_context.get("analysis_extra_hidden_fields", []),
+                {"name": "origin", "value": origin},
+                {"name": "category", "value": category},
+                {"name": "description", "value": description},
+                {"name": "analytic_type", "value": analytic_type},
+                {"name": "sort", "value": sort},
+            ],
         }
     )
     return page_context
@@ -1213,6 +1230,7 @@ def _conciliated_operational_context(
     *,
     period_start: date,
     period_end: date,
+    home_lens: str | None,
     category: str | None,
     description: str | None,
     origin: str | None,
@@ -1223,6 +1241,7 @@ def _conciliated_operational_context(
         db,
         period_start=period_start,
         period_end=period_end,
+        home_lens=home_lens or "cash",
     )
     filtered_rows = _filter_conciliated_rows(
         operational_snapshot["rows"],
@@ -1469,27 +1488,12 @@ def render_analysis_shell_for_return_to(request: Request, db: Session, return_to
     if base_path in {"/admin", "/admin/summary"}:
         context = _summary_page_context(db, request=request, **common)
         context["topbar_period_oob"] = True
-    elif base_path == "/admin/analysis":
-        context = _analysis_detail_page_context(
+    elif base_path in {"/admin/analysis", "/admin/analysis/charts"}:
+        context = _analysis_page_context(
             db,
             request=request,
+            base_path="/admin/analysis/charts",
             **common,
-            conciliated_category=params.get("conciliated_category") or None,
-            conciliated_description=params.get("conciliated_description") or None,
-            conciliated_origin=params.get("conciliated_origin") or None,
-            conciliated_analytic_type=params.get("conciliated_analytic_type") or None,
-            conciliated_sort=params.get("conciliated_sort") or "recent",
-            statement_category=params.get("statement_category") or None,
-            statement_description=params.get("statement_description") or None,
-            statement_transaction_kind=params.get("statement_transaction_kind") or None,
-            statement_scope=params.get("statement_scope") or None,
-            statement_sort=params.get("statement_sort") or "recent",
-            invoice_category=params.get("invoice_category") or None,
-            invoice_description=params.get("invoice_description") or None,
-            invoice_item_type=params.get("invoice_item_type") or None,
-            invoice_card_label=params.get("invoice_card_label") or None,
-            invoice_status=params.get("invoice_status") or None,
-            invoice_sort=params.get("invoice_sort") or "recent",
         )
         context["topbar_period_oob"] = True
     elif base_path == "/admin/conference":
@@ -1509,6 +1513,10 @@ def render_analysis_shell_for_return_to(request: Request, db: Session, return_to
             db,
             request=request,
             **common,
+            category=params.get("category") or None,
+            description=params.get("description") or None,
+            analytic_type=params.get("analytic_type") or None,
+            sort=params.get("sort") or "recent",
         )
         context["topbar_period_oob"] = True
     else:
@@ -1605,92 +1613,8 @@ def admin_summary_alias_page(
 
 
 @router.get("/analysis", response_class=HTMLResponse)
+@router.get("/analysis/charts", response_class=HTMLResponse)
 def admin_analysis_page(
-    request: Request,
-    selection_mode: str | None = None,
-    month: str | None = None,
-    period_start: date | None = None,
-    period_end: date | None = None,
-    home_lens: str | None = None,
-    home_chart_mode: str | None = None,
-    home_chart_year: int | None = None,
-    home_chart_compare: str | None = None,
-    origin: str | None = None,
-    origin_block: str | None = None,
-    conciliated_category: str | None = None,
-    conciliated_description: str | None = None,
-    conciliated_origin: str | None = None,
-    conciliated_analytic_type: str | None = None,
-    conciliated_sort: str | None = "recent",
-    statement_category: str | None = None,
-    statement_description: str | None = None,
-    statement_transaction_kind: str | None = None,
-    statement_scope: str | None = None,
-    statement_sort: str | None = "recent",
-    invoice_category: str | None = None,
-    invoice_description: str | None = None,
-    invoice_item_type: str | None = None,
-    invoice_card_label: str | None = None,
-    invoice_status: str | None = None,
-    invoice_sort: str | None = "recent",
-    db: Session = Depends(get_db),
-    _: bool = Depends(require_admin_session),
-):
-    restored_period = restore_admin_period_selection(
-        request,
-        selection_mode=selection_mode,
-        month=month,
-        period_start=period_start,
-        period_end=period_end,
-    )
-    page_context = _analysis_detail_page_context(
-        db,
-        request=request,
-        selection_mode=restored_period["selection_mode"],
-        month=restored_period["month"],
-        period_start=restored_period["period_start"],
-        period_end=restored_period["period_end"],
-        home_lens=home_lens,
-        home_chart_mode=home_chart_mode,
-        home_chart_year=home_chart_year,
-        home_chart_compare=home_chart_compare,
-        origin=origin,
-        origin_block=origin_block,
-        conciliated_category=conciliated_category,
-        conciliated_description=conciliated_description,
-        conciliated_origin=conciliated_origin,
-        conciliated_analytic_type=conciliated_analytic_type,
-        conciliated_sort=conciliated_sort,
-        statement_category=statement_category,
-        statement_description=statement_description,
-        statement_transaction_kind=statement_transaction_kind,
-        statement_scope=statement_scope,
-        statement_sort=statement_sort,
-        invoice_category=invoice_category,
-        invoice_description=invoice_description,
-        invoice_item_type=invoice_item_type,
-        invoice_card_label=invoice_card_label,
-        invoice_status=invoice_status,
-        invoice_sort=invoice_sort,
-    )
-    persist_admin_period_selection(
-        request,
-        selection_mode=page_context["selection_mode"],
-        month=page_context["month_value"],
-        period_start=page_context["period_start"],
-        period_end=page_context["period_end"],
-    )
-    persist_admin_home_lens_selection(request, home_lens=page_context["home_lens"])
-    if is_htmx_request(request):
-        page_context["topbar_period_oob"] = True
-        response = _render_analysis_shell(request, base_path="/admin/analysis", context=page_context)
-        response.headers["HX-Push-Url"] = _relative_request_url(request)
-        return response
-    return render_admin(request, "admin/analysis.html", page_context)
-
-
-@router.get("/analysis/transactions", response_class=HTMLResponse)
-def admin_analysis_transactions_page(
     request: Request,
     selection_mode: str | None = None,
     month: str | None = None,
@@ -1714,9 +1638,10 @@ def admin_analysis_transactions_page(
         period_start=period_start,
         period_end=period_end,
     )
-    page_context = _transactions_analysis_page_context(
+    page_context = _analysis_page_context(
         db,
         request=request,
+        base_path="/admin/analysis/charts",
         selection_mode=restored_period["selection_mode"],
         month=restored_period["month"],
         period_start=restored_period["period_start"],
@@ -1729,6 +1654,65 @@ def admin_analysis_transactions_page(
         origin_block=origin_block,
         origin_kpi=origin_kpi,
         origin_kpi_label=origin_kpi_label,
+    )
+    persist_admin_period_selection(
+        request,
+        selection_mode=page_context["selection_mode"],
+        month=page_context["month_value"],
+        period_start=page_context["period_start"],
+        period_end=page_context["period_end"],
+    )
+    persist_admin_home_lens_selection(request, home_lens=page_context["home_lens"])
+    if is_htmx_request(request):
+        page_context["topbar_period_oob"] = True
+        response = _render_analysis_shell(request, base_path="/admin/analysis/charts", context=page_context)
+        response.headers["HX-Push-Url"] = _relative_request_url(request)
+        return response
+    return render_admin(request, "admin/analysis.html", page_context)
+
+
+@router.get("/analysis/transactions", response_class=HTMLResponse)
+def admin_analysis_transactions_page(
+    request: Request,
+    selection_mode: str | None = None,
+    month: str | None = None,
+    period_start: date | None = None,
+    period_end: date | None = None,
+    home_lens: str | None = None,
+    home_chart_mode: str | None = None,
+    home_chart_year: int | None = None,
+    home_chart_compare: str | None = None,
+    origin: str | None = None,
+    category: str | None = None,
+    description: str | None = None,
+    analytic_type: str | None = None,
+    sort: str | None = "recent",
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    restored_period = restore_admin_period_selection(
+        request,
+        selection_mode=selection_mode,
+        month=month,
+        period_start=period_start,
+        period_end=period_end,
+    )
+    page_context = _transactions_analysis_page_context(
+        db,
+        request=request,
+        selection_mode=restored_period["selection_mode"],
+        month=restored_period["month"],
+        period_start=restored_period["period_start"],
+        period_end=restored_period["period_end"],
+        home_lens=home_lens,
+        home_chart_mode=home_chart_mode,
+        home_chart_year=home_chart_year,
+        home_chart_compare=home_chart_compare,
+        origin=origin,
+        category=category,
+        description=description,
+        analytic_type=analytic_type,
+        sort=sort,
     )
     persist_admin_period_selection(
         request,

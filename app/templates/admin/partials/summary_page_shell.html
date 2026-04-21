@@ -59,7 +59,7 @@
         <strong>{{ home_dashboard.chart.title }}</strong>
         <div class="subtle">{{ home_dashboard.chart.note }}</div>
       </div>
-      <a class="button button-ghost" href="{{ analysis_urls.detail if home_dashboard.active_lens == 'competence' else analysis_urls.conference }}" data-context-cta="home-dashboard">Abrir tela da leitura ativa</a>
+      <a class="button button-ghost" href="{{ analysis_urls.charts_view }}" data-context-cta="home-dashboard">Abrir gráficos analíticos</a>
     </div>
     <div class="chart-shell chart-shell-tall">
       <canvas id="overview-home-dashboard-chart" aria-label="{{ home_dashboard.chart.title }}"></canvas>
@@ -127,10 +127,10 @@
       </div>
     </div>
     <div class="overview-link-list">
-      <a class="overview-link-row" href="{{ analysis_urls.detail }}" data-context-cta="home-dashboard">
+      <a class="overview-link-row" href="{{ analysis_urls.charts_view }}" data-context-cta="home-dashboard">
         <div class="overview-link-copy">
-          <strong>Leitura ativa detalhada</strong>
-          <span>Abre a análise detalhada com o mesmo período e a mesma lente ativa.</span>
+          <strong>Gráficos analíticos</strong>
+          <span>Abre a tela canônica de gráficos com o mesmo período e a mesma lente ativa.</span>
         </div>
         <span class="analysis-stat-chip">Abrir tela</span>
       </a>
@@ -154,7 +154,7 @@
   <details id="overview-composition" class="accordion card analysis-section-card">
     <summary>Composição da leitura ativa</summary>
     <div class="accordion-body">
-      {{ conciliated_composition_rows(conciliated_composition.rows, analysis_urls.detail) }}
+      {{ conciliated_composition_rows(conciliated_composition.rows, analysis_urls.transactions_view) }}
     </div>
   </details>
 

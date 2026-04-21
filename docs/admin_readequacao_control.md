@@ -18,16 +18,17 @@ Readequar o admin para uma linguagem visual e de navegacao consistente, sem muda
 
 ## Arquitetura de informacao
 
-### Estado transitório
+### Estado atual
 
-- `Visao Geral` -> `/admin`
-- `Analise detalhada` -> `/admin/analysis` enquanto a migração estiver em curso
-- `Conferencia` -> `/admin/conference` enquanto a migração estiver em curso
+- `Visão Geral` -> `/admin`
+- `Gráficos analíticos` -> `/admin/analysis/charts`
+- `Lançamentos analíticos` -> `/admin/analysis/transactions`
+- `Conferência` -> `/admin/conference`
 
-### Alvo final da camada analitica
+### Alvo da camada analítica
 
-- uma tela unica de graficos/KPIs
-- uma tela unica de listagem/exploracao de lancamentos
+- uma tela única de gráficos autônoma
+- uma tela única de listagem autônoma
 
 ### Operacao
 
@@ -49,10 +50,11 @@ Readequar o admin para uma linguagem visual e de navegacao consistente, sem muda
 - edicao pontual de categoria de item de fatura
 - fragments HTMX
 
-## Direcao da camada analitica
+## Direção da camada analítica
 
-- rollout progressivo: criar as telas novas primeiro, manter as antigas temporariamente, migrar entradas e drilldowns aos poucos e remover as antigas so depois de validacao
-- fatia atual: nova tela unica de lancamentos ja criada em `/admin/analysis/transactions` e conectada ao drilldown do KPI "Fluxo liquido do mes"
+- as duas telas analíticas são canônicas e independentes
+- a navegação entre gráficos e lançamentos é explícita
+- `/admin/analysis` permanece como alias de compatibilidade para a tela de gráficos
 
 ## Archetypes alvo
 

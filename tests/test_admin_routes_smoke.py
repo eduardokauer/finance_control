@@ -210,6 +210,7 @@ def test_admin_main_routes_smoke(client, db_session, monkeypatch):
 
     routes = [
         "/admin",
+        "/admin/analysis/charts?period_start=2026-03-01&period_end=2026-03-31",
         "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31",
         "/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31",
         "/admin/conference?period_start=2026-03-01&period_end=2026-03-31",
@@ -245,15 +246,18 @@ def test_admin_analysis_and_conference_routes_support_legacy_saved_payload(clien
     _seed_legacy_analysis_run(db_session)
     _login(client)
 
-    analysis_response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+    analysis_response = client.get("/admin/analysis/charts?period_start=2026-03-01&period_end=2026-03-31")
     conference_response = client.get("/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
     technical_response = client.get("/admin/conference/technical?period_start=2026-03-01&period_end=2026-03-31")
 
-    _assert_route_ok(analysis_response, "/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+    _assert_route_ok(analysis_response, "/admin/analysis/charts?period_start=2026-03-01&period_end=2026-03-31")
     _assert_route_ok(conference_response, "/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
     _assert_route_ok(technical_response, "/admin/conference/technical?period_start=2026-03-01&period_end=2026-03-31")
-    assert "Composição da leitura" in analysis_response.text
-    assert "Transações do período" in analysis_response.text
+    assert "Gráficos analíticos" in analysis_response.text
+    assert "Últimos 12 meses" in analysis_response.text
+    assert "Período selecionado" in analysis_response.text
+    assert "Painel visual do período" not in analysis_response.text
+    assert "Abrir lançamentos" not in analysis_response.text
     assert "Itens do extrato" in conference_response.text
     assert "Auditoria técnica" in conference_response.text
     assert "legacy html" in technical_response.text
@@ -268,7 +272,7 @@ def test_admin_archetype_routes_expose_layout_contracts(client, db_session, monk
     _login(client)
 
     summary_response = client.get("/admin")
-    analysis_response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
+    analysis_response = client.get("/admin/analysis/charts?period_start=2026-03-01&period_end=2026-03-31")
     conference_response = client.get("/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
     technical_response = client.get("/admin/conference/technical?period_start=2026-03-01&period_end=2026-03-31")
     operations_response = client.get("/admin/operations")
@@ -279,7 +283,7 @@ def test_admin_archetype_routes_expose_layout_contracts(client, db_session, monk
 
     for response, route in [
         (summary_response, "/admin"),
-        (analysis_response, "/admin/analysis"),
+        (analysis_response, "/admin/analysis/charts"),
         (conference_response, "/admin/conference"),
         (technical_response, "/admin/conference/technical"),
         (operations_response, "/admin/operations"),
@@ -292,9 +296,11 @@ def test_admin_archetype_routes_expose_layout_contracts(client, db_session, monk
 
     assert "home-kpi-strip" in summary_response.text
     assert "home-dashboard-grid" in summary_response.text
-    assert "analysis-context-stack" in analysis_response.text
+    assert "analysis-context-chips" not in analysis_response.text
+    assert "analysis-breadcrumbs" not in analysis_response.text
+    assert "analysis-drilldown-loading" in analysis_response.text
     assert "analysis-page-stack" in analysis_response.text
-    assert "analysis-context-stack" in conference_response.text
+    assert "analysis-page-stack" in conference_response.text
     assert "analysis-page-stack" in conference_response.text
     assert "analysis-page-stack" in technical_response.text
     assert "ops-shell-grid" in operations_response.text
