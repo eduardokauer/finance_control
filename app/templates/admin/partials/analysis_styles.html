@@ -653,8 +653,13 @@
     display: grid;
     gap: 18px;
   }
+  .analysis-chart-stack {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: minmax(0, 1fr);
+  }
   .analysis-chart-grid-four {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
   .analysis-chart-card {
     align-content: start;
