@@ -2,6 +2,7 @@ import html as html_lib
 import json
 import re
 from datetime import date
+from urllib.parse import unquote_plus
 
 from sqlalchemy import select
 
@@ -916,18 +917,81 @@ def test_admin_summary_cards_expose_drilldown_links(client, db_session, monkeypa
     assert "origin_kpi=" not in net_flow_href
 
     income_href = _extract_href_by_data_attr(response.text, "data-context-card", "income")
-    assert income_href.startswith("/admin/conference?")
-    assert "statement_transaction_kind=income" in income_href
-    assert income_href.endswith("#statement-table")
+    assert income_href.startswith("/admin/analysis/transactions?")
+    assert "analytic_type=income" in income_href
+    assert income_href.endswith("#analysis-transactions-table")
 
     expense_href = _extract_href_by_data_attr(response.text, "data-context-card", "expense")
-    assert expense_href.startswith("/admin/conference?")
-    assert "statement_transaction_kind=expense" in expense_href
-    assert expense_href.endswith("#statement-table")
+    assert expense_href.startswith("/admin/analysis/transactions?")
+    assert "analytic_type=expense" in expense_href
+    assert expense_href.endswith("#analysis-transactions-table")
 
     largest_href = _extract_href_by_data_attr(response.text, "data-context-card", "largest_expense")
-    assert largest_href.startswith("/admin/conference?")
-    assert "statement_sort=amount_desc" in largest_href
+    assert largest_href.startswith("/admin/analysis/transactions?")
+    assert "analytic_type=expense" in largest_href
+    assert "sort=amount_desc" in largest_href
+    assert largest_href.endswith("#analysis-transactions-table")
+
+
+def test_admin_summary_alert_links_non_categorized_to_analysis_transactions(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO MAR",
+        normalized="salario mar alert link",
+        transaction_date=date(2026, 3, 5),
+        amount=200.0,
+        transaction_kind="income",
+        category="Sal\u00e1rio",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR",
+        normalized="aluguel mar alert link",
+        transaction_date=date(2026, 3, 8),
+        amount=-10.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_transaction(
+        db_session,
+        description="MERCADO MAR",
+        normalized="mercado mar alert link",
+        transaction_date=date(2026, 3, 12),
+        amount=-10.0,
+        transaction_kind="expense",
+        category="Supermercado",
+    )
+    _seed_transaction(
+        db_session,
+        description="UBER MAR",
+        normalized="uber mar alert link",
+        transaction_date=date(2026, 3, 15),
+        amount=-10.0,
+        transaction_kind="expense",
+        category="Transporte",
+    )
+    _seed_transaction(
+        db_session,
+        description="SEM CATEGORIA MAR",
+        normalized="sem categoria mar alert link",
+        transaction_date=date(2026, 3, 18),
+        amount=-10.0,
+        transaction_kind="expense",
+        category="Não Categorizado",
+    )
+    _login(client)
+
+    response = client.get("/admin?selection_mode=month&month=2026-03&home_lens=competence")
+
+    assert response.status_code == 200
+    href = _extract_href_by_data_attr(response.text, "data-context-cta", "alerts")
+    assert href.startswith("/admin/analysis/transactions?")
+    decoded_href = unquote_plus(href)
+    assert "category=Não Categorizado" in decoded_href
+    assert "description=" not in href
+    assert "Abrir lançamentos não categorizados" in response.text
 
 
 def test_admin_analysis_transactions_drilldown_page_exposes_atomic_composition(client, db_session, monkeypatch):

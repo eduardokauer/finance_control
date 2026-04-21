@@ -228,24 +228,24 @@ def _home_dashboard_card_href(active_lens: str, card_key: str, analysis_urls: di
         return analysis_urls["transactions_view"]
     if card_key == "income":
         return _extend_url(
-            analysis_urls["conference"],
-            params={"statement_transaction_kind": "income"},
-            fragment="statement-table",
+            analysis_urls["transactions_view"],
+            params={"analytic_type": "income"},
+            fragment="analysis-transactions-table",
         )
     if card_key == "expense":
         return _extend_url(
-            analysis_urls["conference"],
-            params={"statement_transaction_kind": "expense"},
-            fragment="statement-table",
+            analysis_urls["transactions_view"],
+            params={"analytic_type": "expense"},
+            fragment="analysis-transactions-table",
         )
     if card_key == "largest_expense":
         return _extend_url(
-            analysis_urls["conference"],
+            analysis_urls["transactions_view"],
             params={
-                "statement_transaction_kind": "expense",
-                "statement_sort": "amount_desc",
+                "analytic_type": "expense",
+                "sort": "amount_desc",
             },
-            fragment="statement-table",
+            fragment="analysis-transactions-table",
         )
     return analysis_urls["conference"]
 
@@ -287,7 +287,7 @@ def _build_alerts_with_links(alerts: list[dict], state: dict[str, str | int | No
                 {
                     "period_start": state.get("period_start"),
                     "period_end": state.get("period_end"),
-                    "description": "Nao Categorizado",
+                    "category": "Não Categorizado",
                 },
             )
             link_label = "Abrir lançamentos não categorizados"
