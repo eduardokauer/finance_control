@@ -1,4 +1,5 @@
 {% set home_dashboard = analysis_data.home_dashboard %}
+{% set home_dashboard_rolling_12 = analysis_data.home_dashboard_rolling_12 %}
 {% if topbar_period_oob %}
   <div id="admin-topbar-center-slot" hx-swap-oob="innerHTML">
     {% include "admin/partials/analysis_topbar_period_control.html" %}
@@ -66,12 +67,12 @@
       <section class="card analysis-section-card analysis-chart-card">
         <div class="overview-chart-header">
           <div class="stack" style="gap: 4px;">
-            <strong>{{ home_dashboard.chart.title }}</strong>
-            <div class="subtle">{{ home_dashboard.chart.note }}</div>
+            <strong>{{ home_dashboard_rolling_12.chart.title }}</strong>
+            <div class="subtle">{{ home_dashboard_rolling_12.chart.note }}</div>
           </div>
         </div>
         <div class="chart-shell chart-shell-tall">
-          <canvas id="analysis-home-dashboard-chart" aria-label="{{ home_dashboard.chart.title }}"></canvas>
+          <canvas id="analysis-home-dashboard-chart" aria-label="{{ home_dashboard_rolling_12.chart.title }}"></canvas>
         </div>
       </section>
 
@@ -216,7 +217,7 @@
 
       window.mountAdminCashFlowChart(
         "analysis-home-dashboard-chart",
-        {{ home_dashboard.chart|tojson }},
+        {{ home_dashboard_rolling_12.chart|tojson }},
         {
           incomeLabel: homeLensLabels.income,
           expenseLabel: homeLensLabels.expense,

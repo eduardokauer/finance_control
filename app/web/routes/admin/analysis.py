@@ -1082,6 +1082,7 @@ def _transactions_analysis_page_context(
             db,
             period_start=page_context["period_start"],
             period_end=page_context["period_end"],
+            home_lens=home_lens,
             category=category,
             description=description,
             origin=origin,
@@ -1229,6 +1230,7 @@ def _conciliated_operational_context(
     *,
     period_start: date,
     period_end: date,
+    home_lens: str | None,
     category: str | None,
     description: str | None,
     origin: str | None,
@@ -1239,6 +1241,7 @@ def _conciliated_operational_context(
         db,
         period_start=period_start,
         period_end=period_end,
+        home_lens=home_lens or "cash",
     )
     filtered_rows = _filter_conciliated_rows(
         operational_snapshot["rows"],

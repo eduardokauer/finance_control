@@ -2793,6 +2793,51 @@ def test_admin_analysis_page_shows_empty_state_and_navigation(client, db_session
     assert "Filtrando..." in response.text
 
 
+def test_admin_analysis_transactions_honor_competence_lens_drilldown(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="SALARIO FEV COMPETENCIA MAR",
+        normalized="salario fev competencia mar",
+        transaction_date=date(2026, 2, 28),
+        competence_month="2026-03",
+        amount=7777.77,
+        transaction_kind="income",
+        category="Sal\u00e1rio",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL MAR COMPETENCIA",
+        normalized="aluguel mar competencia",
+        transaction_date=date(2026, 3, 8),
+        competence_month="2026-03",
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_transaction(
+        db_session,
+        description="ALUGUEL FEV FORA DA COMPETENCIA",
+        normalized="aluguel fev fora competencia",
+        transaction_date=date(2026, 2, 8),
+        competence_month="2026-02",
+        amount=-1500.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _login(client)
+
+    response = client.get(
+        "/admin/analysis/transactions?selection_mode=month&month=2026-03&period_start=2026-03-01&period_end=2026-03-31&home_lens=competence"
+    )
+
+    assert response.status_code == 200
+    assert "SALARIO FEV COMPETENCIA MAR" in response.text
+    assert "ALUGUEL MAR COMPETENCIA" in response.text
+    assert "ALUGUEL FEV FORA DA COMPETENCIA" not in response.text
+
+
 def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)

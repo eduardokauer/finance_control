@@ -2490,8 +2490,12 @@ def build_statement_operational_snapshot(
     period_start: date,
     period_end: date,
     conciliated_view: bool = False,
+    home_lens: str = "cash",
 ) -> dict:
-    current_txs = _load_transactions_for_period(db, period_start=period_start, period_end=period_end)
+    if home_lens == "competence":
+        current_txs = _load_transactions_for_competence_period(db, period_start=period_start, period_end=period_end)
+    else:
+        current_txs = _load_transactions_for_period(db, period_start=period_start, period_end=period_end)
     signal_map = map_conciliated_bank_payment_signals(db, transaction_ids=[tx.id for tx in current_txs])
     included_invoice_ids: set[int] = set()
     if conciliated_view:
@@ -2670,12 +2674,14 @@ def build_conciliated_operational_snapshot(
     *,
     period_start: date,
     period_end: date,
+    home_lens: str = "cash",
 ) -> dict:
     statement_snapshot = build_statement_operational_snapshot(
         db,
         period_start=period_start,
         period_end=period_end,
         conciliated_view=True,
+        home_lens=home_lens,
     )
     invoice_snapshot = build_invoice_operational_snapshot(
         db,
@@ -3096,6 +3102,17 @@ def build_analysis_snapshot(
         chart_year=home_chart_year,
         chart_compare=home_chart_compare,
     )
+    home_dashboard_rolling_12 = _build_home_dashboard(
+        db,
+        anchor_month=anchor_month,
+        current_month_txs=home_current_month_txs,
+        category_breakdown=category_breakdown,
+        category_history=category_history,
+        active_lens=home_lens,
+        chart_mode="rolling_12",
+        chart_year=anchor_month.year,
+        chart_compare=home_chart_compare,
+    )
 
     alerts = _build_alerts(
         primary_summary=primary_summary,
@@ -3142,6 +3159,7 @@ def build_analysis_snapshot(
         "comparison": comparison,
         "home_cards": home_cards,
         "home_yearly_chart": home_dashboard["chart"],
+        "home_dashboard_rolling_12": home_dashboard_rolling_12,
         "home_category_comparison": home_category_comparison,
         "home_dashboard": home_dashboard,
         "monthly_series": monthly_series,

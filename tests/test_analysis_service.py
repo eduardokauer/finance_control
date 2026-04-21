@@ -981,6 +981,24 @@ def test_analysis_snapshot_uses_competence_month_for_home_lens(db_session):
     assert competence_snapshot["home_dashboard"]["chart"]["income"][2] == 7777.77
 
 
+def test_analysis_snapshot_exposes_explicit_rolling_12_chart(db_session):
+    _add_tx(db_session, tx_date=date(2025, 4, 5), description="SALARIO ANTIGO", amount=4200.0, category="Sal\u00e1rio", transaction_kind="income")
+    _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Sal\u00e1rio", transaction_kind="income")
+
+    snapshot = build_analysis_snapshot(
+        db_session,
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        home_chart_mode="year",
+    )
+
+    rolling_chart = snapshot["home_dashboard_rolling_12"]["chart"]
+
+    assert rolling_chart["mode"] == "rolling_12"
+    assert rolling_chart["labels"][-1] == "mar/26"
+    assert "Janela móvel de 12 meses" in rolling_chart["note"]
+
+
 def test_analysis_snapshot_builds_recent_movements_for_home_from_current_month(db_session):
     _add_tx(db_session, tx_date=date(2026, 3, 5), description="SALARIO MAR", amount=5000.0, category="Salário", transaction_kind="income")
     _add_tx(db_session, tx_date=date(2026, 3, 12), description="MERCADO MAR", amount=-900.0, category="Supermercado", transaction_kind="expense")
