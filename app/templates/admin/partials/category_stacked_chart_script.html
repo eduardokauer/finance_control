@@ -81,6 +81,38 @@
       }
 
       legendContainer.innerHTML = '';
+      const actions = document.createElement('div');
+      actions.className = 'analysis-chart-legend-actions';
+      const selectAll = document.createElement('button');
+      selectAll.type = 'button';
+      selectAll.className = 'button button-ghost';
+      selectAll.textContent = 'Selecionar todas';
+      selectAll.addEventListener('click', () => {
+        chart.data.datasets.forEach((dataset, datasetIndex) => {
+          chart.setDatasetVisibility(datasetIndex, true);
+        });
+        chart.update();
+        legendContainer.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+          checkbox.checked = true;
+        });
+      });
+      const clearAll = document.createElement('button');
+      clearAll.type = 'button';
+      clearAll.className = 'button button-ghost';
+      clearAll.textContent = 'Desselecionar todas';
+      clearAll.addEventListener('click', () => {
+        chart.data.datasets.forEach((_dataset, datasetIndex) => {
+          chart.setDatasetVisibility(datasetIndex, false);
+        });
+        chart.update();
+        legendContainer.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+          checkbox.checked = false;
+        });
+      });
+      actions.appendChild(selectAll);
+      actions.appendChild(clearAll);
+      legendContainer.appendChild(actions);
+
       chart.data.datasets.forEach((dataset, datasetIndex) => {
         const item = document.createElement('label');
         item.className = 'chart-legend-checkbox-item';
@@ -117,9 +149,11 @@
       }
 
       const legendContainer = options.legendId ? document.getElementById(options.legendId) : null;
+      const months = data.months || [];
       const datasets = (data.datasets || []).map((dataset, index) => ({
         label: dataset.label,
         data: dataset.values,
+        hrefs: dataset.hrefs || [],
         backgroundColor: palette[index % palette.length].fill,
         borderColor: palette[index % palette.length].stroke,
         borderWidth: 1,
@@ -140,6 +174,21 @@
           responsive: true,
           maintainAspectRatio: false,
           interaction: { mode: 'nearest', intersect: true },
+          onClick(_event, elements) {
+            if (!elements?.length) {
+              return;
+            }
+            const { datasetIndex, index } = elements[0];
+            const monthKey = months[index];
+            const dataset = chart.data.datasets[datasetIndex];
+            const href = dataset?.hrefs?.[index] || monthDrilldownHref(monthKey, {
+              category: dataset?.label,
+              analytic_type: 'expense',
+            });
+            if (href) {
+              navigateWithAnalysisLoading(href, `Abrindo ${dataset?.label || 'categoria'} de ${chart.data.labels[index]}...`);
+            }
+          },
           plugins: {
             legend: { display: false },
             tooltip: {

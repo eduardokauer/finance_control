@@ -254,8 +254,10 @@ def test_admin_analysis_and_conference_routes_support_legacy_saved_payload(clien
     _assert_route_ok(conference_response, "/admin/conference?period_start=2026-03-01&period_end=2026-03-31")
     _assert_route_ok(technical_response, "/admin/conference/technical?period_start=2026-03-01&period_end=2026-03-31")
     assert "Gráficos analíticos" in analysis_response.text
-    assert "Painel visual do período" in analysis_response.text
-    assert "Abrir lançamentos" in analysis_response.text
+    assert "Últimos 12 meses" in analysis_response.text
+    assert "Período selecionado" in analysis_response.text
+    assert "Painel visual do período" not in analysis_response.text
+    assert "Abrir lançamentos" not in analysis_response.text
     assert "Itens do extrato" in conference_response.text
     assert "Auditoria técnica" in conference_response.text
     assert "legacy html" in technical_response.text
@@ -294,7 +296,9 @@ def test_admin_archetype_routes_expose_layout_contracts(client, db_session, monk
 
     assert "home-kpi-strip" in summary_response.text
     assert "home-dashboard-grid" in summary_response.text
-    assert "analysis-context-chips" in analysis_response.text
+    assert "analysis-context-chips" not in analysis_response.text
+    assert "analysis-breadcrumbs" not in analysis_response.text
+    assert "analysis-drilldown-loading" in analysis_response.text
     assert "analysis-page-stack" in analysis_response.text
     assert "analysis-page-stack" in conference_response.text
     assert "analysis-page-stack" in conference_response.text

@@ -3171,28 +3171,33 @@ def build_analysis_snapshot(
         "actions": actions,
         "charts": {
             "monthly": {
+                "months": [item["month"] for item in monthly_series],
                 "labels": [item["label"] for item in monthly_series],
                 "income": [round(item["income_total"], 2) for item in monthly_series],
                 "expense": [round(item["expense_total"], 2) for item in monthly_series],
                 "balance": [round(item["balance"], 2) for item in monthly_series],
             },
             "conciliated": {
+                "months": [item["month"] for item in conciliated_monthly_series],
                 "labels": [item["label"] for item in conciliated_monthly_series],
                 "income": [round(item["income_total"], 2) for item in conciliated_monthly_series],
                 "expense": [round(item["expense_total"], 2) for item in conciliated_monthly_series],
                 "balance": [round(item["balance"], 2) for item in conciliated_monthly_series],
             },
             "invoice_monthly": {
+                "months": [item["month"] for item in invoice_monthly_series],
                 "labels": [item["label"] for item in invoice_monthly_series],
                 "total_billed": [round(item["total_billed"], 2) for item in invoice_monthly_series],
                 "charge_total": [round(item["charge_total"], 2) for item in invoice_monthly_series],
                 "credit_total": [round(item["credit_total"], 2) for item in invoice_monthly_series],
             },
             "consumption_monthly": {
+                "months": [item["month"] for item in consumption_monthly_series],
                 "labels": [item["label"] for item in consumption_monthly_series],
                 "values": [round(item["consumption_total"], 2) for item in consumption_monthly_series],
             },
             "categories": {
+                "months": category_consumption_monthly_series["labels"],
                 "labels": [item["name"] for item in top_expense_categories],
                 "values": [round(item["expense_total"], 2) for item in top_expense_categories],
                 "technical": [item["is_technical"] for item in top_expense_categories],

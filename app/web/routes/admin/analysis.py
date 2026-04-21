@@ -1007,14 +1007,14 @@ def _analysis_page_context(
         "analysis_breadcrumb_items": analysis_breadcrumb_items,
         "analysis_back_href": (
             summary_back_href_simple
-            if base_path in ("/admin/analysis", "/admin/analysis/charts", "/admin/conference")
+            if base_path == "/admin/conference"
             else summary_back_href_simple
             if base_path == "/admin/analysis/transactions"
             else analysis_urls["conference"]
             if base_path == "/admin/conference/technical"
             else None
         ),
-        "analysis_show_generate": base_path in ("/admin/analysis", "/admin/analysis/charts", "/admin/conference"),
+        "analysis_show_generate": base_path == "/admin/conference",
         "analysis_context_chips": analysis_context_chips,
         "analysis_focus_banner": analysis_focus_banner,
         "recent_loads": recent_loads,
