@@ -45,6 +45,8 @@
           <a
             class="metric-value metric-value-link {{ card.value_class }}"
             href="{{ card.action.href }}"
+            data-analysis-drilldown="true"
+            data-analysis-drilldown-label="Abrindo detalhes de {{ card.title }}..."
             data-context-card="{{ card.action.key }}"
             aria-label="Abrir detalhes de {{ card.title }}"
           >{{ card.value }}</a>

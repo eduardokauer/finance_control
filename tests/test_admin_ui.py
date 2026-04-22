@@ -2881,6 +2881,7 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     assert 'analysis-category-period-flow-scope' in page.text
     assert 'analysis-category-period-legend' in page.text
     assert 'analysis-drilldown-loading' in page.text
+    assert 'data-analysis-drilldown="true"' in page.text
     assert "R$" in page.text
 
     run = db_session.scalar(select(AnalysisRun).where(AnalysisRun.period_start == date(2026, 3, 1)))
