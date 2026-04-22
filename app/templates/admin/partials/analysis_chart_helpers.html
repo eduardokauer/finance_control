@@ -67,7 +67,33 @@
       }
       showAnalysisDrilldownLoading(label);
       window.requestAnimationFrame(() => {
-        window.location.href = href;
+        window.requestAnimationFrame(() => {
+          window.location.href = href;
+        });
+      });
+    };
+
+    const bindAnalysisDrilldownLinks = () => {
+      const shell = getAnalysisChartsShell();
+      if (!shell || shell.dataset.analysisDrilldownLinksBound === 'true') {
+        return;
+      }
+      shell.dataset.analysisDrilldownLinksBound = 'true';
+      shell.addEventListener('click', (event) => {
+        const link = event.target.closest?.('a[data-analysis-drilldown="true"]');
+        if (!link || !shell.contains(link)) {
+          return;
+        }
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+          return;
+        }
+        const href = link.getAttribute('href');
+        if (!href || href.startsWith('#') || href.startsWith('javascript:')) {
+          return;
+        }
+        event.preventDefault();
+        const label = link.dataset.analysisDrilldownLabel || link.getAttribute('aria-label') || link.textContent.trim() || 'Abrindo lançamentos...';
+        navigateWithAnalysisLoading(href, label);
       });
     };
 
@@ -577,5 +603,7 @@
       syncChart();
       return chart;
     };
+
+    bindAnalysisDrilldownLinks();
   })();
 </script>

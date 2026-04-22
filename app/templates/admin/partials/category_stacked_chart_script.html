@@ -149,11 +149,13 @@
       }
 
       const legendContainer = options.legendId ? document.getElementById(options.legendId) : null;
+      const flowSelect = options.flowScopeControlId ? document.getElementById(options.flowScopeControlId) : null;
       const months = data.months || [];
       const datasets = (data.datasets || []).map((dataset, index) => ({
         label: dataset.label,
         data: dataset.values,
         hrefs: dataset.hrefs || [],
+        flowKind: dataset.flow_kind || dataset.flowKind || dataset.flow_label || 'expense',
         backgroundColor: palette[index % palette.length].fill,
         borderColor: palette[index % palette.length].stroke,
         borderWidth: 1,
@@ -162,6 +164,7 @@
         maxBarThickness: 42,
         stack: 'categories',
       }));
+      const selectedLabels = new Set(datasets.map((dataset) => dataset.label));
 
       const chart = new Chart(canvas, {
         type: 'bar',
@@ -221,7 +224,29 @@
         },
       });
 
+      const syncVisibility = () => {
+        const flowScope = flowSelect?.value || options.flowScope || 'both';
+        chart.data.datasets.forEach((dataset, datasetIndex) => {
+          const flowKind = `${datasets[datasetIndex]?.flowKind || ''}`.toLowerCase();
+          const flowAllowed =
+            flowScope === 'both'
+              ? true
+              : flowScope === 'income'
+                ? flowKind === 'income'
+                : flowScope === 'expense'
+                  ? flowKind === 'expense' || flowKind === 'transfer'
+                  : true;
+          const labelAllowed = selectedLabels.has(dataset.label);
+          chart.setDatasetVisibility(datasetIndex, flowAllowed && labelAllowed);
+        });
+        chart.update();
+      };
+
       renderLegend(chart, legendContainer);
+      if (flowSelect) {
+        flowSelect.addEventListener('change', syncVisibility);
+      }
+      syncVisibility();
       return chart;
     };
   })();

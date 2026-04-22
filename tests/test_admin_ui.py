@@ -230,7 +230,7 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert "Saídas do mês" in home.text
     assert "Maior saída do mês" in home.text
     assert "Saídas para outras telas" in home.text
-    assert "Categorias do período" in home.text
+    assert "Valor por categoria no período" in home.text
     assert "Alertas" in home.text
     assert "chart.js" in home.text.lower()
     assert "Resumo executivo da Visão de Caixa" not in home.text
@@ -1221,7 +1221,7 @@ def test_admin_summary_page_shows_overview_categories_chart_without_redundant_li
     response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Categorias do período" in response.text
+    assert "Valor por categoria no período" in response.text
     assert 'data-category-row="' not in response.text
     assert 'id="overview-categories-legend"' in response.text
     assert "mountAdminStackedCategoryChart" in response.text
@@ -1941,7 +1941,7 @@ def test_admin_summary_page_shows_recent_movements_block(client, db_session, mon
     assert response.status_code == 200
     assert "Movimentações recentes" not in response.text
     assert "Alertas" in response.text
-    assert "Categorias do período" in response.text
+    assert "Valor por categoria no período" in response.text
 
 
 def test_admin_summary_page_uses_deferred_period_apply_controls(client, db_session, monkeypatch):
@@ -2862,6 +2862,11 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     assert "Gráficos analíticos" in page.text
     assert "Últimos 12 meses" in page.text
     assert "Período selecionado" in page.text
+    assert "Categorias consolidadas dos últimos 12 meses" in page.text
+    assert "Visão conciliada: categorias do período" in page.text
+    assert "Visão de Extrato: categorias do período" in page.text
+    assert "Visão de Faturas: categorias do período" in page.text
+    assert "Categorias consolidadas do período" in page.text
     assert "Painel visual do período" not in page.text
     assert "Abrir lançamentos" not in page.text
     assert "Itens de fatura considerados" not in page.text
@@ -2876,6 +2881,7 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     assert 'analysis-category-period-flow-scope' in page.text
     assert 'analysis-category-period-legend' in page.text
     assert 'analysis-drilldown-loading' in page.text
+    assert 'data-analysis-drilldown="true"' in page.text
     assert "R$" in page.text
 
     run = db_session.scalar(select(AnalysisRun).where(AnalysisRun.period_start == date(2026, 3, 1)))
@@ -3332,7 +3338,7 @@ def test_admin_analysis_page_anchors_card_consumption_by_purchase_date(client, d
     assert january.status_code == 200
     assert "Gráficos analíticos" in january.text
     assert "Supermercado" in january.text
-    assert "Categorias do período" in january.text
+    assert "Categorias consolidadas dos últimos 12 meses" in january.text
     assert 'id="overview-categories-chart"' in january.text
     assert february.status_code == 200
     assert "Gráficos analíticos" in february.text
@@ -3582,7 +3588,7 @@ def test_admin_analysis_page_shows_conciliated_category_history(client, db_sessi
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Categorias no período" in response.text
+    assert "Categorias conciliadas do período" in response.text
     assert "mar/2026" in response.text
     assert "fev/2026" in response.text
     assert "Supermercado" in response.text
@@ -3728,7 +3734,7 @@ def test_admin_analysis_page_marks_category_history_gap_as_sem_base(client, db_s
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Categorias do período" in response.text
+    assert "Categorias consolidadas dos últimos 12 meses" in response.text
     assert "Supermercado" in response.text
     assert "overview-categories-chart" in response.text
 
