@@ -1,0 +1,68 @@
+{% macro _sort_header(control, shell_target) -%}
+  <th{% if control.key in ['cash_date', 'competence_date'] %} class="analysis-row-date-col"{% endif %}>
+    <a
+      class="analysis-sort-button{% if control.active %} analysis-sort-button-active{% endif %}"
+      href="{{ control.href }}"
+      {% if shell_target %}hx-get="{{ control.href }}" hx-target="{{ shell_target }}" hx-swap="outerHTML" hx-push-url="true"{% endif %}
+      data-sort-key="{{ control.key }}"
+      {% if control.active and control.current_direction %}data-sort-direction="{{ control.current_direction }}"{% endif %}>
+      <span>{{ control.label }}</span>
+      <span class="analysis-sort-indicator" aria-hidden="true"></span>
+    </a>
+  </th>
+{%- endmacro %}
+
+{% macro analysis_transactions_table(rows, encoded_current_url, current_sort='cash_date_desc', sort_controls=None, shell_target=None) %}
+<div class="table-wrap">
+  <table class="responsive-stack analysis-table">
+    <thead>
+      <tr>
+        {% if sort_controls %}
+          {% for control in sort_controls if control.key == 'cash_date' %}
+            {{ _sort_header(control, shell_target) }}
+          {% endfor %}
+          {% for control in sort_controls if control.key == 'competence_date' %}
+            {{ _sort_header(control, shell_target) }}
+          {% endfor %}
+        {% else %}
+          <th class="analysis-row-date-col">Data de Caixa</th>
+          <th class="analysis-row-date-col">Data de Competência</th>
+        {% endif %}
+        {% if sort_controls %}
+          {% for control in sort_controls if control.key == 'description' %}
+            {{ _sort_header(control, shell_target) }}
+          {% endfor %}
+          {% for control in sort_controls if control.key == 'origin' %}
+            {{ _sort_header(control, shell_target) }}
+          {% endfor %}
+          {% for control in sort_controls if control.key == 'category' %}
+            {{ _sort_header(control, shell_target) }}
+          {% endfor %}
+          {% for control in sort_controls if control.key == 'type' %}
+            {{ _sort_header(control, shell_target) }}
+          {% endfor %}
+          {% for control in sort_controls if control.key == 'signal' %}
+            {{ _sort_header(control, shell_target) }}
+          {% endfor %}
+          {% for control in sort_controls if control.key == 'amount' %}
+            {{ _sort_header(control, shell_target) }}
+          {% endfor %}
+        {% else %}
+          <th>Descrição</th>
+          <th>Origem</th>
+          <th>Categoria</th>
+          <th>Tipo</th>
+          <th>Sinal analítico</th>
+          <th>Valor</th>
+        {% endif %}
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        {% include "admin/partials/analysis_transactions_row.html" %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}

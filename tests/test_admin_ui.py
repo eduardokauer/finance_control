@@ -2,7 +2,7 @@ import html as html_lib
 import json
 import re
 from datetime import date
-from urllib.parse import unquote_plus
+from urllib.parse import quote, unquote_plus
 
 from sqlalchemy import select
 
@@ -1077,11 +1077,16 @@ def test_admin_analysis_transactions_drilldown_page_exposes_atomic_composition(c
 
     assert response.status_code == 200
     assert "Lançamentos analíticos" in response.text
-    assert "Lista atômica do período" in response.text
     assert "Filtros da listagem" in response.text
+    assert "Lançamentos atômicos do período" in response.text
+    assert "Data de Caixa" in response.text
+    assert "Data de Competência" in response.text
     assert "Buscar descrição" in response.text
-    assert "KPI de origem" not in response.text
-    assert "origin_kpi" not in response.text
+    assert "analysis-drilldown-loading" in response.text
+    assert 'class="analysis-stats-strip"' not in response.text
+    assert "analysis-context-chips" not in response.text
+    assert "analysis-breadcrumbs" not in response.text
+    assert "data-inline-category-edit" in response.text
     assert "SALARIO MAR DRILLDOWN" in response.text
     assert "ALUGUEL MAR DRILLDOWN" in response.text
     assert "amount-negative" in response.text
@@ -1117,10 +1122,74 @@ def test_admin_analysis_transactions_drilldown_page_uses_negative_sign_for_negat
     assert response.status_code == 200
     assert "KPI de origem" not in response.text
     assert "origin_kpi" not in response.text
-    assert "Lista atômica do período" in response.text
+    assert "Lançamentos atômicos do período" in response.text
     assert "amount-negative" in response.text
     assert "ALUGUEL MAR DRILLDOWN" in response.text
     assert "SUPERMERCADO MAR DRILLDOWN" in response.text
+
+
+def test_admin_analysis_transactions_support_inline_category_edit_for_statement_and_invoice_rows(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(
+        db_session,
+        description="ALUGUEL INLINE ANALISE",
+        normalized="aluguel inline analise",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    invoice = _seed_credit_card_invoice(
+        db_session,
+        card_label="Itaú Visa final 1234",
+        card_final="1234",
+        billing_year=2026,
+        billing_month=3,
+        due_date=date(2026, 3, 20),
+        closing_date=date(2026, 3, 12),
+        total_amount="450.00",
+        status="pending_review",
+        item_specs=[
+            ("SUPERMERCADO INLINE ANALISE", "450.00"),
+        ],
+    )
+    invoice_items = db_session.scalars(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id).order_by(CreditCardInvoiceItem.id.asc())
+    ).all()
+    assert invoice_items
+    item = invoice_items[0]
+    item.category = "Supermercado"
+    item.categorization_method = "manual"
+    item.categorization_confidence = 1.0
+    db_session.commit()
+    _login(client)
+
+    page = client.get("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31")
+    assert page.status_code == 200
+    assert "data-inline-category-edit" in page.text
+
+    return_to = quote("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31", safe="")
+
+    statement_editor = client.get(f"/admin/analysis/transactions/statement/{tx.id}/category?return_to={return_to}")
+    assert statement_editor.status_code == 200
+    assert "data-inline-category-editor" in statement_editor.text
+    statement_apply = client.post(
+        f"/admin/analysis/transactions/statement/{tx.id}/category",
+        data={"category": "Educação", "return_to": return_to},
+    )
+    assert statement_apply.status_code == 200
+    assert "Educação" in statement_apply.text
+
+    invoice_editor = client.get(f"/admin/analysis/transactions/invoice/{item.id}/category?return_to={return_to}")
+    assert invoice_editor.status_code == 200
+    assert "data-inline-category-editor" in invoice_editor.text
+    invoice_apply = client.post(
+        f"/admin/analysis/transactions/invoice/{item.id}/category",
+        data={"category": "Moradia", "return_to": return_to},
+    )
+    assert invoice_apply.status_code == 200
+    assert "Moradia" in invoice_apply.text
 
 
 def test_admin_summary_page_shows_overview_categories_chart_without_redundant_list(client, db_session, monkeypatch):
@@ -2785,7 +2854,7 @@ def test_admin_analysis_page_shows_empty_state_and_navigation(client, db_session
 
     assert response.status_code == 200
     assert "Lançamentos analíticos" in response.text
-    assert "Lista atômica do período" in response.text
+    assert "Lançamentos atômicos do período" in response.text
     assert "Filtros da listagem" in response.text
     assert "Itens de fatura considerados" not in response.text
     assert "data-loading-button" in response.text
@@ -3245,7 +3314,7 @@ def test_admin_analysis_page_shows_unified_considered_table_and_filters_it(clien
     response = client.get("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Lista atômica do período" in response.text
+    assert "Lançamentos atômicos do período" in response.text
     section_html = _extract_section_html(response.text, "analysis-transactions-table")
     assert "SALARIO MAR" in section_html
     assert "SUPERMERCADO TESTE" in section_html
@@ -4160,7 +4229,7 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
     assert transactions_analysis.status_code == 200
     assert "Lançamentos analíticos" in transactions_analysis.text
     assert "Lançamentos analíticos" in transactions_analysis.text
-    assert "Lista atômica do período" in transactions_analysis.text
+    assert "Lançamentos atômicos do período" in transactions_analysis.text
 
     assert invoices.status_code == 200
     assert "Painel principal das faturas" not in invoices.text
