@@ -360,7 +360,7 @@ def _build_overview_charts(analysis_data: dict, analysis_urls: dict) -> dict[str
             "kind": "cash-flow",
             "data": analysis_data["charts"]["conciliated"],
             "period_categories": _build_period_category_chart(
-                title="Categorias no período",
+                title="Categorias conciliadas do período",
                 note="Totais da leitura conciliada no recorte atual, do maior para o menor, com drill down por categoria.",
                 canvas_id="overview-conciliated-period-categories-chart",
                 data=analysis_data["charts"]["conciliated_categories_period"],
@@ -381,7 +381,7 @@ def _build_overview_charts(analysis_data: dict, analysis_urls: dict) -> dict[str
             "kind": "cash-flow",
             "data": analysis_data["charts"]["monthly"],
             "period_categories": _build_period_category_chart(
-                title="Categorias do período",
+                title="Categorias do extrato no período",
                 note="Totais do extrato no recorte atual, do maior para o menor, preservando categorias de receita, despesa e transferência.",
                 canvas_id="overview-statement-period-categories-chart",
                 data=analysis_data["charts"]["statement_categories_period"],
@@ -403,7 +403,7 @@ def _build_overview_charts(analysis_data: dict, analysis_urls: dict) -> dict[str
             "kind": "invoice",
             "data": analysis_data["charts"]["invoice_monthly"],
             "period_categories": _build_period_category_chart(
-                title="Categorias do período",
+                title="Categorias de faturas no período",
                 note="Totais dos itens de fatura no recorte atual, ordenados do maior para o menor.",
                 canvas_id="overview-invoice-period-categories-chart",
                 data=analysis_data["charts"]["invoice_categories_period"],
@@ -419,8 +419,8 @@ def _build_overview_charts(analysis_data: dict, analysis_urls: dict) -> dict[str
             ),
         },
         "categories": {
-            "title": "Categorias do período",
-            "note": "Leitura categorial consolidada do período com total mensal visível e filtros rápidos na legenda.",
+            "title": "Categorias dos últimos 12 meses",
+            "note": "Leitura categorial consolidada na janela móvel de 12 meses, com filtros rápidos na legenda e escolha do tipo de lançamento.",
             "canvas_id": "overview-categories-chart",
             "kind": "categories",
             "data": analysis_data["charts"]["categories_monthly"],

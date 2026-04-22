@@ -1627,6 +1627,19 @@ def _materialize_category_rows(grouped: dict[str, dict], *, expense_total: float
 
 
 def _build_category_period_totals_chart(rows: list[dict]) -> dict:
+    chart_rows = _build_category_period_chart_rows(rows)
+    return {
+        "labels": [item["label"] for item in chart_rows],
+        "category_names": [item["category_name"] for item in chart_rows],
+        "values": [item["value"] for item in chart_rows],
+        "value_displays": [item["value_display"] for item in chart_rows],
+        "flow_labels": [item["flow_label"] for item in chart_rows],
+        "flow_kinds": [item["flow_kind"] for item in chart_rows],
+        "technical": [item["is_technical"] for item in chart_rows],
+    }
+
+
+def _build_category_period_chart_rows(rows: list[dict]) -> list[dict]:
     chart_rows: list[dict] = []
     for row in rows:
         category_name = row["name"]
@@ -1639,6 +1652,7 @@ def _build_category_period_totals_chart(rows: list[dict]) -> dict:
                 chart_rows.append(
                     {
                         "label": category_name,
+                        "category_key": _analysis_category_key(category_name),
                         "category_name": category_name,
                         "value": movement_total,
                         "value_display": row["display_total"],
@@ -1654,6 +1668,7 @@ def _build_category_period_totals_chart(rows: list[dict]) -> dict:
                 [
                     {
                         "label": f"{category_name} · Receita",
+                        "category_key": _analysis_category_key(category_name),
                         "category_name": category_name,
                         "value": income_total,
                         "value_display": row["income_display"],
@@ -1663,6 +1678,7 @@ def _build_category_period_totals_chart(rows: list[dict]) -> dict:
                     },
                     {
                         "label": f"{category_name} · Despesa",
+                        "category_key": _analysis_category_key(category_name),
                         "category_name": category_name,
                         "value": expense_total,
                         "value_display": row["expense_display"],
@@ -1678,6 +1694,7 @@ def _build_category_period_totals_chart(rows: list[dict]) -> dict:
             chart_rows.append(
                 {
                     "label": category_name,
+                    "category_key": _analysis_category_key(category_name),
                     "category_name": category_name,
                     "value": income_total,
                     "value_display": row["income_display"],
@@ -1690,6 +1707,7 @@ def _build_category_period_totals_chart(rows: list[dict]) -> dict:
             chart_rows.append(
                 {
                     "label": category_name,
+                    "category_key": _analysis_category_key(category_name),
                     "category_name": category_name,
                     "value": expense_total,
                     "value_display": row["expense_display"],
@@ -1700,15 +1718,7 @@ def _build_category_period_totals_chart(rows: list[dict]) -> dict:
             )
 
     chart_rows.sort(key=lambda item: (-item["value"], item["label"].casefold()))
-    return {
-        "labels": [item["label"] for item in chart_rows],
-        "category_names": [item["category_name"] for item in chart_rows],
-        "values": [item["value"] for item in chart_rows],
-        "value_displays": [item["value_display"] for item in chart_rows],
-        "flow_labels": [item["flow_label"] for item in chart_rows],
-        "flow_kinds": [item["flow_kind"] for item in chart_rows],
-        "technical": [item["is_technical"] for item in chart_rows],
-    }
+    return chart_rows
 
 
 def _build_category_rows(txs: list[Transaction], *, expense_total: float) -> list[dict]:
@@ -2299,12 +2309,14 @@ def build_category_consumption_monthly_series(
                 }
             )
             rows = snapshot["breakdown"]["rows"]
-        for row in rows:
-            if row["expense_total"] <= 0 or row["is_technical"]:
+        chart_rows = _build_category_period_chart_rows(rows)
+        month_snapshots[-1]["rows"] = chart_rows
+        for row in chart_rows:
+            if row["flow_kind"] == "income" and not row["is_technical"]:
                 continue
-            category_key = _analysis_category_key(row["name"])
-            category_labels.setdefault(category_key, row["name"])
-            category_totals[category_key] += row["expense_total"]
+            category_key = row["category_key"]
+            category_labels.setdefault(category_key, row["category_name"])
+            category_totals[category_key] += row["value"]
 
     resolved_names = selected_names or [
         category_labels[key]
@@ -2314,19 +2326,44 @@ def build_category_consumption_monthly_series(
         )
     ]
     labels = [snapshot["label"] for snapshot in month_snapshots]
-    datasets = [{"label": name, "values": []} for name in resolved_names]
+    dataset_meta: dict[str, dict] = {}
+    for snapshot in month_snapshots:
+        for row in snapshot["rows"]:
+            dataset_meta.setdefault(
+                row["category_key"],
+                {
+                    "flow_kind": row["flow_kind"],
+                    "flow_label": row["flow_label"],
+                    "is_technical": row["is_technical"],
+                },
+            )
+    datasets = [
+        {
+            "label": name,
+            "values": [],
+            "category_key": _analysis_category_key(name),
+            "flow_kind": dataset_meta.get(_analysis_category_key(name), {}).get("flow_kind", "expense"),
+            "flow_label": dataset_meta.get(_analysis_category_key(name), {}).get("flow_label", "Despesa"),
+            "is_technical": dataset_meta.get(_analysis_category_key(name), {}).get("is_technical", False),
+        }
+        for name in resolved_names
+    ]
     for snapshot in month_snapshots:
         row_lookup = {
-            _analysis_category_key(row["name"]): row
+            row["category_key"]: row
             for row in snapshot["rows"]
-            if row["expense_total"] > 0
+            if row["value"] > 0
         }
         for dataset in datasets:
-            row = row_lookup.get(_analysis_category_key(dataset["label"]))
-            dataset["values"].append(round(row["expense_total"], 2) if row else 0.0)
+            row = row_lookup.get(dataset["category_key"])
+            dataset["values"].append(round(row["value"], 2) if row else 0.0)
     return {
         "labels": labels,
         "datasets": datasets,
+        "note": (
+            "Categorias consolidadas na janela móvel de 12 meses, com filtro por tipo de lançamento e seleção individual "
+            "na legenda para comparar o comportamento mês a mês."
+        ),
     }
 
 
