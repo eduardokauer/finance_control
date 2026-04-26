@@ -1,0 +1,110 @@
+<tr id="{{ row.row_dom_id }}">
+  <td data-label="Data de Caixa">
+    {% if row.cash_date_display %}
+      <strong>{{ row.cash_date_display }}</strong>
+    {% else %}
+      <span class="subtle">-</span>
+    {% endif %}
+  </td>
+  <td data-label="Data de Competência">
+    <strong>{{ row.competence_date_display }}</strong>
+  </td>
+  <td data-label="Descrição">
+    <div class="cell-stack">
+      <strong>{{ row.description }}</strong>
+      {% if row.source_kind_label %}
+        <span class="subtle">{{ row.source_kind_label }}</span>
+      {% endif %}
+    </div>
+  </td>
+  <td data-label="Origem">{{ row.source_label }}</td>
+  <td data-label="Categoria">
+    {% if row.inline_editing and row.inline_edit_supported %}
+      <form
+        class="analysis-inline-category-editor"
+        data-inline-category-editor
+        method="post"
+        hx-post="{{ row.inline_apply_href }}"
+        hx-target="#{{ row.row_dom_id }}"
+        hx-swap="outerHTML">
+        <div class="analysis-inline-category-meta subtle">{{ row.inline_help_text }}</div>
+        {% if row.inline_form_error %}
+          <div class="analysis-inline-category-error">{{ row.inline_form_error }}</div>
+        {% endif %}
+        <input
+          type="search"
+          class="analysis-inline-category-search"
+          data-inline-category-search
+          placeholder="Buscar categoria"
+          autocomplete="off">
+        <select
+          name="category"
+          class="analysis-inline-category-select"
+          data-inline-category-select
+          data-initial-value="{{ row.inline_selected_category }}"
+          required>
+          {% for option in row.inline_category_options %}
+            <option value="{{ option.value }}" {% if option.is_selected %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+        <input type="hidden" name="return_to" value="{{ row.return_to }}">
+        <div class="analysis-inline-category-actions">
+          <button
+            type="submit"
+            class="button button-primary analysis-inline-category-save"
+            data-inline-save-button
+            disabled
+            title="Salvar categoria">
+            <span aria-hidden="true">&#128190;</span>
+          </button>
+          <button
+            type="button"
+            class="button button-ghost analysis-inline-category-cancel"
+            hx-get="{{ row.inline_cancel_href }}"
+            hx-target="#{{ row.row_dom_id }}"
+            hx-swap="outerHTML">Cancelar</button>
+        </div>
+      </form>
+    {% else %}
+      <div class="analysis-inline-category-display">
+        <span>{{ row.category or "-" }}</span>
+        {% if row.inline_edit_supported %}
+          <button
+            type="button"
+            class="button button-ghost analysis-inline-category-trigger"
+            data-inline-category-edit
+            aria-label="Editar categoria de {{ row.description }}"
+            hx-get="{{ row.inline_edit_href }}"
+            hx-target="#{{ row.row_dom_id }}"
+            hx-swap="outerHTML">
+            <span aria-hidden="true">&#9998;</span>
+          </button>
+        {% endif %}
+      </div>
+    {% endif %}
+  </td>
+  <td data-label="Tipo">
+    <span class="badge{% if row.analytic_type == 'credit' %} ok{% elif row.analytic_type == 'expense' %} warn{% endif %}">{{ row.analytic_type_label }}</span>
+  </td>
+  <td data-label="Sinal analítico">
+    {% if row.signal_label %}
+      <span class="badge{% if row.signal_label == 'fatura conciliada' %} ok{% else %} warn{% endif %}">{{ row.signal_label }}</span>
+      <div class="subtle" style="margin-top:6px;">{{ row.signal_detail }}</div>
+    {% else %}
+      <span class="subtle">-</span>
+    {% endif %}
+  </td>
+  <td data-label="Valor" class="{% if row.amount < 0 %}amount-negative{% else %}amount-positive{% endif %}">
+    {{ row.amount_display }}
+  </td>
+  <td data-label="Ações">
+    <div class="cell-stack">
+      {% if row.primary_action_href %}
+        <a class="text-link" href="{{ row.primary_action_href }}">{{ row.primary_action_label }}</a>
+      {% endif %}
+      {% if row.secondary_action_href %}
+        <a class="text-link" href="{{ row.secondary_action_href }}">{{ row.secondary_action_label }}</a>
+      {% endif %}
+    </div>
+  </td>
+</tr>

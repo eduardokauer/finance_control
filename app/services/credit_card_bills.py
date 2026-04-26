@@ -1291,8 +1291,8 @@ def preview_manual_credit_card_invoice_item_category_change(
     editor = get_credit_card_invoice_item_category_editor(db, invoice_id=invoice_id, item_id=item_id)
     if editor is None:
         raise CreditCardInvoiceCategoryEditError("Item de fatura não encontrado.")
-    if editor.item_type != "charge":
-        raise CreditCardInvoiceCategoryEditError("Somente itens charge aceitam categoria manual de consumo.")
+    if editor.item_type not in {"charge", "credit"}:
+        raise CreditCardInvoiceCategoryEditError("Somente itens charge e credit aceitam edição manual de categoria.")
 
     selected_category = _validated_manual_invoice_item_category_name(db, category_name=category_name)
     current_category = editor.item.category
@@ -1372,7 +1372,7 @@ def preview_manual_credit_card_invoice_item_category_rule_application(
     if editor is None:
         raise CreditCardInvoiceCategoryEditError("Item de fatura não encontrado.")
     if editor.item_type != "charge":
-        raise CreditCardInvoiceCategoryEditError("Somente itens charge aceitam categoria manual de consumo.")
+        raise CreditCardInvoiceCategoryEditError("Somente itens charge aceitam aplicação de regra em massa.")
 
     selected_category = _validated_manual_invoice_item_category_name(db, category_name=category_name)
     validated_rule_type = _validated_invoice_item_rule_type(rule_type)

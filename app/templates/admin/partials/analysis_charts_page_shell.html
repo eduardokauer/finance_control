@@ -45,6 +45,8 @@
           <a
             class="metric-value metric-value-link {{ card.value_class }}"
             href="{{ card.action.href }}"
+            data-analysis-drilldown="true"
+            data-analysis-drilldown-label="Abrindo detalhes de {{ card.title }}..."
             data-context-card="{{ card.action.key }}"
             aria-label="Abrir detalhes de {{ card.title }}"
           >{{ card.value }}</a>
@@ -63,16 +65,27 @@
         <div class="help-copy">Janela móvel ancorada no último mês do recorte atual. Os gráficos abaixo sempre avançam 12 meses para trás a partir dele.</div>
       </div>
     </div>
-    <div class="analysis-chart-grid analysis-chart-grid-four">
+    <div class="analysis-chart-stack">
       <section class="card analysis-section-card analysis-chart-card">
         <div class="overview-chart-header">
           <div class="stack" style="gap: 4px;">
-            <strong>{{ home_dashboard_rolling_12.chart.title }}</strong>
-            <div class="subtle">{{ home_dashboard_rolling_12.chart.note }}</div>
+            <strong>Categorias consolidadas dos últimos 12 meses</strong>
+            <div class="subtle">{{ analysis_data.charts.categories_monthly.note }}</div>
+          </div>
+          <div class="analysis-section-actions">
+            <label class="analysis-inline-control">
+              <span class="subtle">Tipo de lançamento</span>
+              <select id="analysis-monthly-categories-flow-scope">
+                <option value="both">Ambos</option>
+                <option value="expense">Apenas despesas</option>
+                <option value="income">Apenas receitas</option>
+              </select>
+            </label>
           </div>
         </div>
+        <div id="analysis-categories-legend" class="chart-legend-checkboxes" aria-label="Categorias visíveis nos últimos 12 meses"></div>
         <div class="chart-shell chart-shell-tall">
-          <canvas id="analysis-home-dashboard-chart" aria-label="{{ home_dashboard_rolling_12.chart.title }}"></canvas>
+          <canvas id="analysis-home-dashboard-chart" aria-label="Categorias consolidadas dos últimos 12 meses"></canvas>
         </div>
       </section>
 
@@ -135,47 +148,80 @@
       </div>
     </div>
 
-    <div class="analysis-chart-grid analysis-chart-grid-four">
+    <div class="analysis-chart-stack">
       <section class="card analysis-section-card analysis-chart-card">
         <div class="overview-chart-header">
           <div class="stack" style="gap: 4px;">
-            <strong>{{ overview_charts.conciliated.period_categories.title }}</strong>
+            <strong>Visão conciliada: categorias do período</strong>
             <div class="subtle">{{ overview_charts.conciliated.period_categories.note }}</div>
           </div>
+          <div class="analysis-section-actions">
+            <label class="analysis-inline-control">
+              <span class="subtle">Tipo de lançamento</span>
+              <select id="analysis-conciliated-period-flow-scope">
+                <option value="both">Ambos</option>
+                <option value="expense">Apenas despesas</option>
+                <option value="income">Apenas receitas</option>
+              </select>
+            </label>
+          </div>
         </div>
+        <div id="analysis-conciliated-period-legend" class="analysis-chart-legend-box" aria-label="Categorias conciliadas do período"></div>
         <div class="chart-shell chart-shell-medium">
-          <canvas id="{{ overview_charts.conciliated.period_categories.canvas_id }}" aria-label="{{ overview_charts.conciliated.period_categories.title }}"></canvas>
+          <canvas id="{{ overview_charts.conciliated.period_categories.canvas_id }}" aria-label="Visão conciliada: categorias do período"></canvas>
         </div>
       </section>
 
       <section class="card analysis-section-card analysis-chart-card">
         <div class="overview-chart-header">
           <div class="stack" style="gap: 4px;">
-            <strong>{{ overview_charts.statement.period_categories.title }}</strong>
+            <strong>Visão de Extrato: categorias do período</strong>
             <div class="subtle">{{ overview_charts.statement.period_categories.note }}</div>
           </div>
-        </div>
-        <div class="chart-shell chart-shell-medium">
-          <canvas id="{{ overview_charts.statement.period_categories.canvas_id }}" aria-label="{{ overview_charts.statement.period_categories.title }}"></canvas>
-        </div>
-      </section>
-
-      <section class="card analysis-section-card analysis-chart-card">
-        <div class="overview-chart-header">
-          <div class="stack" style="gap: 4px;">
-            <strong>{{ overview_charts.invoice.period_categories.title }}</strong>
-            <div class="subtle">{{ overview_charts.invoice.period_categories.note }}</div>
+          <div class="analysis-section-actions">
+            <label class="analysis-inline-control">
+              <span class="subtle">Tipo de lançamento</span>
+              <select id="analysis-statement-period-flow-scope">
+                <option value="both">Ambos</option>
+                <option value="expense">Apenas despesas</option>
+                <option value="income">Apenas receitas</option>
+              </select>
+            </label>
           </div>
         </div>
+        <div id="analysis-statement-period-legend" class="analysis-chart-legend-box" aria-label="Categorias do extrato no período"></div>
         <div class="chart-shell chart-shell-medium">
-          <canvas id="{{ overview_charts.invoice.period_categories.canvas_id }}" aria-label="{{ overview_charts.invoice.period_categories.title }}"></canvas>
+          <canvas id="{{ overview_charts.statement.period_categories.canvas_id }}" aria-label="Visão de Extrato: categorias do período"></canvas>
         </div>
       </section>
 
       <section class="card analysis-section-card analysis-chart-card">
         <div class="overview-chart-header">
           <div class="stack" style="gap: 4px;">
-            <strong>{{ overview_charts.categories.period_categories.title }}</strong>
+            <strong>Visão de Faturas: categorias do período</strong>
+            <div class="subtle">{{ overview_charts.invoice.period_categories.note }}</div>
+          </div>
+          <div class="analysis-section-actions">
+            <label class="analysis-inline-control">
+              <span class="subtle">Tipo de lançamento</span>
+              <select id="analysis-invoice-period-flow-scope">
+                <option value="both">Ambos</option>
+                <option value="expense">Apenas despesas</option>
+                <option value="income">Apenas receitas</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div id="analysis-invoice-period-legend" class="analysis-chart-legend-box" aria-label="Categorias de faturas no período"></div>
+        <div class="chart-shell chart-shell-medium">
+          <canvas id="{{ overview_charts.invoice.period_categories.canvas_id }}" aria-label="Visão de Faturas: categorias do período"></canvas>
+        </div>
+      </section>
+
+      <section class="card analysis-section-card analysis-chart-card">
+        <div class="overview-chart-header">
+          <div class="stack" style="gap: 4px;">
+            <strong>Categorias consolidadas do período</strong>
             <div class="subtle">{{ overview_charts.categories.period_categories.note }}</div>
           </div>
           <div class="analysis-section-actions">
@@ -191,7 +237,7 @@
         </div>
         <div id="analysis-category-period-legend" class="analysis-chart-legend-box" aria-label="Categorias do período"></div>
         <div class="chart-shell chart-shell-medium">
-          <canvas id="{{ overview_charts.categories.period_categories.canvas_id }}" aria-label="{{ overview_charts.categories.period_categories.title }}"></canvas>
+          <canvas id="{{ overview_charts.categories.period_categories.canvas_id }}" aria-label="Categorias consolidadas do período"></canvas>
         </div>
       </section>
     </div>
@@ -247,25 +293,40 @@
       window.mountAdminStackedCategoryChart(
         "{{ overview_charts.categories.canvas_id }}",
         {{ analysis_data.charts.categories_monthly | tojson }},
-        { legendId: 'analysis-categories-legend' }
+        {
+          legendId: 'analysis-categories-legend',
+          flowScopeControlId: 'analysis-monthly-categories-flow-scope',
+        }
       );
 
       window.mountAdminCategoryPeriodChart(
         {{ overview_charts.conciliated.period_categories.canvas_id|tojson }},
         {{ overview_charts.conciliated.period_categories.data|tojson }},
-        { datasetLabel: 'Total conciliado no período' }
+        {
+          datasetLabel: 'Total conciliado no período',
+          legendId: 'analysis-conciliated-period-legend',
+          flowScopeControlId: 'analysis-conciliated-period-flow-scope',
+        }
       );
 
       window.mountAdminCategoryPeriodChart(
         {{ overview_charts.statement.period_categories.canvas_id|tojson }},
         {{ overview_charts.statement.period_categories.data|tojson }},
-        { datasetLabel: 'Valor no período' }
+        {
+          datasetLabel: 'Valor no período',
+          legendId: 'analysis-statement-period-legend',
+          flowScopeControlId: 'analysis-statement-period-flow-scope',
+        }
       );
 
       window.mountAdminCategoryPeriodChart(
         {{ overview_charts.invoice.period_categories.canvas_id|tojson }},
         {{ overview_charts.invoice.period_categories.data|tojson }},
-        { datasetLabel: 'Valor faturado no período' }
+        {
+          datasetLabel: 'Valor faturado no período',
+          legendId: 'analysis-invoice-period-legend',
+          flowScopeControlId: 'analysis-invoice-period-flow-scope',
+        }
       );
 
       window.mountAdminCategoryPeriodChart(

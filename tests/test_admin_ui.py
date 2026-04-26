@@ -2,7 +2,7 @@ import html as html_lib
 import json
 import re
 from datetime import date
-from urllib.parse import unquote_plus
+from urllib.parse import quote, unquote_plus
 
 from sqlalchemy import select
 
@@ -230,7 +230,7 @@ def test_admin_login_required_and_dashboard_renders(client, db_session, monkeypa
     assert "Saídas do mês" in home.text
     assert "Maior saída do mês" in home.text
     assert "Saídas para outras telas" in home.text
-    assert "Categorias do período" in home.text
+    assert "Valor por categoria no período" in home.text
     assert "Alertas" in home.text
     assert "chart.js" in home.text.lower()
     assert "Resumo executivo da Visão de Caixa" not in home.text
@@ -1077,11 +1077,16 @@ def test_admin_analysis_transactions_drilldown_page_exposes_atomic_composition(c
 
     assert response.status_code == 200
     assert "Lançamentos analíticos" in response.text
-    assert "Lista atômica do período" in response.text
     assert "Filtros da listagem" in response.text
+    assert "Lançamentos atômicos do período" in response.text
+    assert "Data de Caixa" in response.text
+    assert "Data de Competência" in response.text
     assert "Buscar descrição" in response.text
-    assert "KPI de origem" not in response.text
-    assert "origin_kpi" not in response.text
+    assert "analysis-drilldown-loading" in response.text
+    assert 'class="analysis-stats-strip"' not in response.text
+    assert "analysis-context-chips" not in response.text
+    assert "analysis-breadcrumbs" not in response.text
+    assert "data-inline-category-edit" in response.text
     assert "SALARIO MAR DRILLDOWN" in response.text
     assert "ALUGUEL MAR DRILLDOWN" in response.text
     assert "amount-negative" in response.text
@@ -1117,10 +1122,146 @@ def test_admin_analysis_transactions_drilldown_page_uses_negative_sign_for_negat
     assert response.status_code == 200
     assert "KPI de origem" not in response.text
     assert "origin_kpi" not in response.text
-    assert "Lista atômica do período" in response.text
+    assert "Lançamentos atômicos do período" in response.text
     assert "amount-negative" in response.text
     assert "ALUGUEL MAR DRILLDOWN" in response.text
     assert "SUPERMERCADO MAR DRILLDOWN" in response.text
+
+
+def test_admin_analysis_transactions_signal_sort_orders_by_visible_signal_value(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="BANCO SEM SINAL",
+        normalized="banco sem sinal",
+        transaction_date=date(2026, 3, 2),
+        amount=-12.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    linked_invoice_tx = _seed_transaction(
+        db_session,
+        description="PAGAMENTO FATURA LINKADO",
+        normalized="pagamento fatura linkado",
+        transaction_date=date(2026, 3, 3),
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_conciliated_bank_payment(db_session, tx=linked_invoice_tx)
+    _seed_credit_card_invoice(
+        db_session,
+        card_label="Itaú Visa final 4444",
+        card_final="4444",
+        billing_year=2026,
+        billing_month=3,
+        due_date=date(2026, 3, 22),
+        closing_date=date(2026, 3, 14),
+        total_amount="75.00",
+        status="pending_review",
+        item_specs=[("SUPERMERCADO PENDENTE", "75.00")],
+    )
+    _login(client)
+
+    asc = client.get("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31&sort=signal_asc")
+    assert asc.status_code == 200
+    asc_order = [
+        asc.text.index("PAGAMENTO FATURA LINKADO"),
+        asc.text.index("DESCONTO NA FATURA - PO"),
+        asc.text.index("SUPERMERCADO PENDENTE"),
+        asc.text.index("BANCO SEM SINAL"),
+    ]
+    assert asc_order == sorted(asc_order)
+
+    desc = client.get("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31&sort=signal_desc")
+    assert desc.status_code == 200
+    desc_order = [
+        desc.text.index("SUPERMERCADO PENDENTE"),
+        desc.text.index("DESCONTO NA FATURA - PO"),
+        desc.text.index("PAGAMENTO FATURA LINKADO"),
+        desc.text.index("BANCO SEM SINAL"),
+    ]
+    assert desc_order == sorted(desc_order)
+
+
+def test_admin_analysis_transactions_support_inline_category_edit_for_statement_and_invoice_rows(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    tx = _seed_transaction(
+        db_session,
+        description="ALUGUEL INLINE ANALISE",
+        normalized="aluguel inline analise",
+        transaction_date=date(2026, 3, 8),
+        amount=-1800.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    invoice = _seed_credit_card_invoice(
+        db_session,
+        card_label="Itaú Visa final 1234",
+        card_final="1234",
+        billing_year=2026,
+        billing_month=3,
+        due_date=date(2026, 3, 20),
+        closing_date=date(2026, 3, 12),
+        total_amount="450.00",
+        status="pending_review",
+        item_specs=[
+            ("SUPERMERCADO INLINE ANALISE", "450.00"),
+            ("DESCONTO INLINE ANALISE", "-35.00"),
+        ],
+    )
+    invoice_items = db_session.scalars(
+        select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id).order_by(CreditCardInvoiceItem.id.asc())
+    ).all()
+    assert len(invoice_items) == 2
+    charge_item = next(item for item in invoice_items if item.amount_brl > 0)
+    credit_item = next(item for item in invoice_items if item.amount_brl < 0)
+    charge_item.category = "Supermercado"
+    charge_item.categorization_method = "manual"
+    charge_item.categorization_confidence = 1.0
+    credit_item.category = "Outros"
+    credit_item.categorization_method = "manual"
+    credit_item.categorization_confidence = 1.0
+    db_session.commit()
+    _login(client)
+
+    page = client.get("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31")
+    assert page.status_code == 200
+    assert page.text.count("data-inline-category-edit") >= 2
+
+    return_to = quote("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31", safe="")
+
+    statement_editor = client.get(f"/admin/analysis/transactions/statement/{tx.id}/category?return_to={return_to}")
+    assert statement_editor.status_code == 200
+    assert "data-inline-category-editor" in statement_editor.text
+    statement_apply = client.post(
+        f"/admin/analysis/transactions/statement/{tx.id}/category",
+        data={"category": "Educação", "return_to": return_to},
+    )
+    assert statement_apply.status_code == 200
+    assert "Educação" in statement_apply.text
+
+    charge_editor = client.get(f"/admin/analysis/transactions/invoice/{charge_item.id}/category?return_to={return_to}")
+    assert charge_editor.status_code == 200
+    assert "data-inline-category-editor" in charge_editor.text
+    charge_apply = client.post(
+        f"/admin/analysis/transactions/invoice/{charge_item.id}/category",
+        data={"category": "Moradia", "return_to": return_to},
+    )
+    assert charge_apply.status_code == 200
+    assert "Moradia" in charge_apply.text
+
+    credit_editor = client.get(f"/admin/analysis/transactions/invoice/{credit_item.id}/category?return_to={return_to}")
+    assert credit_editor.status_code == 200
+    assert "data-inline-category-editor" in credit_editor.text
+    credit_apply = client.post(
+        f"/admin/analysis/transactions/invoice/{credit_item.id}/category",
+        data={"category": "Moradia", "return_to": return_to},
+    )
+    assert credit_apply.status_code == 200
+    assert "Moradia" in credit_apply.text
 
 
 def test_admin_summary_page_shows_overview_categories_chart_without_redundant_list(client, db_session, monkeypatch):
@@ -1221,7 +1362,7 @@ def test_admin_summary_page_shows_overview_categories_chart_without_redundant_li
     response = client.get("/admin?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Categorias do período" in response.text
+    assert "Valor por categoria no período" in response.text
     assert 'data-category-row="' not in response.text
     assert 'id="overview-categories-legend"' in response.text
     assert "mountAdminStackedCategoryChart" in response.text
@@ -1941,7 +2082,7 @@ def test_admin_summary_page_shows_recent_movements_block(client, db_session, mon
     assert response.status_code == 200
     assert "Movimentações recentes" not in response.text
     assert "Alertas" in response.text
-    assert "Categorias do período" in response.text
+    assert "Valor por categoria no período" in response.text
 
 
 def test_admin_summary_page_uses_deferred_period_apply_controls(client, db_session, monkeypatch):
@@ -2785,7 +2926,7 @@ def test_admin_analysis_page_shows_empty_state_and_navigation(client, db_session
 
     assert response.status_code == 200
     assert "Lançamentos analíticos" in response.text
-    assert "Lista atômica do período" in response.text
+    assert "Lançamentos atômicos do período" in response.text
     assert "Filtros da listagem" in response.text
     assert "Itens de fatura considerados" not in response.text
     assert "data-loading-button" in response.text
@@ -2862,6 +3003,11 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     assert "Gráficos analíticos" in page.text
     assert "Últimos 12 meses" in page.text
     assert "Período selecionado" in page.text
+    assert "Categorias consolidadas dos últimos 12 meses" in page.text
+    assert "Visão conciliada: categorias do período" in page.text
+    assert "Visão de Extrato: categorias do período" in page.text
+    assert "Visão de Faturas: categorias do período" in page.text
+    assert "Categorias consolidadas do período" in page.text
     assert "Painel visual do período" not in page.text
     assert "Abrir lançamentos" not in page.text
     assert "Itens de fatura considerados" not in page.text
@@ -2876,6 +3022,7 @@ def test_admin_analysis_page_can_generate_and_render_latest_analysis(client, db_
     assert 'analysis-category-period-flow-scope' in page.text
     assert 'analysis-category-period-legend' in page.text
     assert 'analysis-drilldown-loading' in page.text
+    assert 'data-analysis-drilldown="true"' in page.text
     assert "R$" in page.text
 
     run = db_session.scalar(select(AnalysisRun).where(AnalysisRun.period_start == date(2026, 3, 1)))
@@ -3239,7 +3386,7 @@ def test_admin_analysis_page_shows_unified_considered_table_and_filters_it(clien
     response = client.get("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Lista atômica do período" in response.text
+    assert "Lançamentos atômicos do período" in response.text
     section_html = _extract_section_html(response.text, "analysis-transactions-table")
     assert "SALARIO MAR" in section_html
     assert "SUPERMERCADO TESTE" in section_html
@@ -3332,7 +3479,7 @@ def test_admin_analysis_page_anchors_card_consumption_by_purchase_date(client, d
     assert january.status_code == 200
     assert "Gráficos analíticos" in january.text
     assert "Supermercado" in january.text
-    assert "Categorias do período" in january.text
+    assert "Categorias consolidadas dos últimos 12 meses" in january.text
     assert 'id="overview-categories-chart"' in january.text
     assert february.status_code == 200
     assert "Gráficos analíticos" in february.text
@@ -3582,7 +3729,7 @@ def test_admin_analysis_page_shows_conciliated_category_history(client, db_sessi
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Categorias no período" in response.text
+    assert "Categorias conciliadas do período" in response.text
     assert "mar/2026" in response.text
     assert "fev/2026" in response.text
     assert "Supermercado" in response.text
@@ -3728,7 +3875,7 @@ def test_admin_analysis_page_marks_category_history_gap_as_sem_base(client, db_s
     response = client.get("/admin/analysis?period_start=2026-03-01&period_end=2026-03-31")
 
     assert response.status_code == 200
-    assert "Categorias do período" in response.text
+    assert "Categorias consolidadas dos últimos 12 meses" in response.text
     assert "Supermercado" in response.text
     assert "overview-categories-chart" in response.text
 
@@ -4154,7 +4301,7 @@ def test_admin_operation_and_configuration_pages_show_shared_archetype(client, d
     assert transactions_analysis.status_code == 200
     assert "Lançamentos analíticos" in transactions_analysis.text
     assert "Lançamentos analíticos" in transactions_analysis.text
-    assert "Lista atômica do período" in transactions_analysis.text
+    assert "Lançamentos atômicos do período" in transactions_analysis.text
 
     assert invoices.status_code == 200
     assert "Painel principal das faturas" not in invoices.text
