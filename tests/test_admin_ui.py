@@ -1128,6 +1128,63 @@ def test_admin_analysis_transactions_drilldown_page_uses_negative_sign_for_negat
     assert "SUPERMERCADO MAR DRILLDOWN" in response.text
 
 
+def test_admin_analysis_transactions_signal_sort_orders_by_visible_signal_value(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
+    _seed_categories(db_session)
+    _seed_transaction(
+        db_session,
+        description="BANCO SEM SINAL",
+        normalized="banco sem sinal",
+        transaction_date=date(2026, 3, 2),
+        amount=-12.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    linked_invoice_tx = _seed_transaction(
+        db_session,
+        description="PAGAMENTO FATURA LINKADO",
+        normalized="pagamento fatura linkado",
+        transaction_date=date(2026, 3, 3),
+        amount=-120.0,
+        transaction_kind="expense",
+        category="Moradia",
+    )
+    _seed_conciliated_bank_payment(db_session, tx=linked_invoice_tx)
+    _seed_credit_card_invoice(
+        db_session,
+        card_label="Itaú Visa final 4444",
+        card_final="4444",
+        billing_year=2026,
+        billing_month=3,
+        due_date=date(2026, 3, 22),
+        closing_date=date(2026, 3, 14),
+        total_amount="75.00",
+        status="pending_review",
+        item_specs=[("SUPERMERCADO PENDENTE", "75.00")],
+    )
+    _login(client)
+
+    asc = client.get("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31&sort=signal_asc")
+    assert asc.status_code == 200
+    asc_order = [
+        asc.text.index("PAGAMENTO FATURA LINKADO"),
+        asc.text.index("DESCONTO NA FATURA - PO"),
+        asc.text.index("SUPERMERCADO PENDENTE"),
+        asc.text.index("BANCO SEM SINAL"),
+    ]
+    assert asc_order == sorted(asc_order)
+
+    desc = client.get("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31&sort=signal_desc")
+    assert desc.status_code == 200
+    desc_order = [
+        desc.text.index("SUPERMERCADO PENDENTE"),
+        desc.text.index("DESCONTO NA FATURA - PO"),
+        desc.text.index("PAGAMENTO FATURA LINKADO"),
+        desc.text.index("BANCO SEM SINAL"),
+    ]
+    assert desc_order == sorted(desc_order)
+
+
 def test_admin_analysis_transactions_support_inline_category_edit_for_statement_and_invoice_rows(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "admin_ui_password", "secret-123")
     _seed_categories(db_session)
@@ -1152,22 +1209,27 @@ def test_admin_analysis_transactions_support_inline_category_edit_for_statement_
         status="pending_review",
         item_specs=[
             ("SUPERMERCADO INLINE ANALISE", "450.00"),
+            ("DESCONTO INLINE ANALISE", "-35.00"),
         ],
     )
     invoice_items = db_session.scalars(
         select(CreditCardInvoiceItem).where(CreditCardInvoiceItem.invoice_id == invoice.id).order_by(CreditCardInvoiceItem.id.asc())
     ).all()
-    assert invoice_items
-    item = invoice_items[0]
-    item.category = "Supermercado"
-    item.categorization_method = "manual"
-    item.categorization_confidence = 1.0
+    assert len(invoice_items) == 2
+    charge_item = next(item for item in invoice_items if item.amount_brl > 0)
+    credit_item = next(item for item in invoice_items if item.amount_brl < 0)
+    charge_item.category = "Supermercado"
+    charge_item.categorization_method = "manual"
+    charge_item.categorization_confidence = 1.0
+    credit_item.category = "Outros"
+    credit_item.categorization_method = "manual"
+    credit_item.categorization_confidence = 1.0
     db_session.commit()
     _login(client)
 
     page = client.get("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31")
     assert page.status_code == 200
-    assert "data-inline-category-edit" in page.text
+    assert page.text.count("data-inline-category-edit") >= 2
 
     return_to = quote("/admin/analysis/transactions?period_start=2026-03-01&period_end=2026-03-31", safe="")
 
@@ -1181,15 +1243,25 @@ def test_admin_analysis_transactions_support_inline_category_edit_for_statement_
     assert statement_apply.status_code == 200
     assert "Educação" in statement_apply.text
 
-    invoice_editor = client.get(f"/admin/analysis/transactions/invoice/{item.id}/category?return_to={return_to}")
-    assert invoice_editor.status_code == 200
-    assert "data-inline-category-editor" in invoice_editor.text
-    invoice_apply = client.post(
-        f"/admin/analysis/transactions/invoice/{item.id}/category",
+    charge_editor = client.get(f"/admin/analysis/transactions/invoice/{charge_item.id}/category?return_to={return_to}")
+    assert charge_editor.status_code == 200
+    assert "data-inline-category-editor" in charge_editor.text
+    charge_apply = client.post(
+        f"/admin/analysis/transactions/invoice/{charge_item.id}/category",
         data={"category": "Moradia", "return_to": return_to},
     )
-    assert invoice_apply.status_code == 200
-    assert "Moradia" in invoice_apply.text
+    assert charge_apply.status_code == 200
+    assert "Moradia" in charge_apply.text
+
+    credit_editor = client.get(f"/admin/analysis/transactions/invoice/{credit_item.id}/category?return_to={return_to}")
+    assert credit_editor.status_code == 200
+    assert "data-inline-category-editor" in credit_editor.text
+    credit_apply = client.post(
+        f"/admin/analysis/transactions/invoice/{credit_item.id}/category",
+        data={"category": "Moradia", "return_to": return_to},
+    )
+    assert credit_apply.status_code == 200
+    assert "Moradia" in credit_apply.text
 
 
 def test_admin_summary_page_shows_overview_categories_chart_without_redundant_list(client, db_session, monkeypatch):

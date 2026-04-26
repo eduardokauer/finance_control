@@ -98,6 +98,10 @@ def _analysis_category_key(value: str | None) -> str:
     return normalize_description(_analysis_category_name(value))
 
 
+def _analysis_reverse_sort_text(value: str) -> str:
+    return "".join(chr(0x10FFFF - ord(ch)) for ch in value)
+
+
 def _is_transfer_technical(tx: Transaction) -> bool:
     return tx.transaction_kind == "transfer" or _normalized_category_name(tx.category) in TECHNICAL_TRANSFER_KEYS
 
@@ -2950,8 +2954,32 @@ def _analysis_transactions_sort_value(row: dict, *, sort: str) -> tuple:
         )
     if sort == "type_desc":
         return (
-            "".join(chr(0x10FFFF - ord(ch)) for ch in row["analytic_type_label"].casefold()),
+            _analysis_reverse_sort_text(row["analytic_type_label"].casefold()),
             -row["competence_date"].toordinal(),
+            row["record_id"],
+        )
+    if sort == "signal_asc":
+        signal_label = row.get("signal_label") or ""
+        signal_detail = row.get("signal_detail") or ""
+        return (
+            row.get("signal_label") is None,
+            signal_label.casefold(),
+            signal_detail.casefold(),
+            row["competence_date"].toordinal(),
+            row.get("cash_date") is None,
+            row.get("cash_date").toordinal() if row.get("cash_date") else 0,
+            row["record_id"],
+        )
+    if sort == "signal_desc":
+        signal_label = row.get("signal_label") or ""
+        signal_detail = row.get("signal_detail") or ""
+        return (
+            row.get("signal_label") is None,
+            _analysis_reverse_sort_text(signal_label.casefold()),
+            _analysis_reverse_sort_text(signal_detail.casefold()),
+            -row["competence_date"].toordinal(),
+            0 if row.get("cash_date") is not None else 1,
+            -(row.get("cash_date") or row["competence_date"]).toordinal(),
             row["record_id"],
         )
     if sort == "amount_asc":
@@ -3057,8 +3085,8 @@ def build_analysis_transactions_snapshot(
             analytic_type = "credit"
             analytic_type_label = "Crédito"
             amount = abs(float(row["amount"]))
-            primary_action_href = f"/admin/credit-card-invoices/{row['invoice_id']}"
-            primary_action_label = "Abrir fatura"
+            primary_action_href = f"/admin/credit-card-invoices/{row['invoice_id']}/items/{row['id']}/category"
+            primary_action_label = "Editar item"
         cash_date = invoice_cash_dates.get(row["invoice_id"]) if row["conciliation_status"] == "conciliated" else None
         signal_label = "fatura conciliada" if row["conciliation_status"] == "conciliated" else "fatura não conciliada"
         signal_detail = (

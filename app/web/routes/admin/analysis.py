@@ -1399,7 +1399,7 @@ def _analysis_transaction_category_scope(kind: str | None) -> str | None:
         return "income"
     if kind == "transfer":
         return "transfer"
-    if kind in {"expense", "credit_card_payment", "adjustment", "tax"}:
+    if kind in {"expense", "credit", "credit_card_payment", "adjustment", "tax"}:
         return "expense"
     return None
 
@@ -1429,11 +1429,11 @@ def _analysis_transaction_row_inline_context(
     form_error: str | None = None,
 ) -> dict:
     category_scope = _analysis_transaction_category_scope(row.get("source_kind"))
-    if row["source"] == "invoice" and row.get("source_kind") == "charge":
+    if row["source"] == "invoice" and row.get("source_kind") in {"charge", "credit"}:
         category_scope = "expense"
     category_options = options_by_scope.get(category_scope or "", [])
     inline_edit_supported = bool(category_options) and (
-        row["source"] == "statement" or (row["source"] == "invoice" and row.get("source_kind") == "charge")
+        row["source"] == "statement" or (row["source"] == "invoice" and row.get("source_kind") in {"charge", "credit"})
     )
     selected_value = (selected_category or row.get("category") or "").strip()
     row_dom_id = _analysis_transaction_row_dom_id(row["source"], row["record_id"])
@@ -1591,7 +1591,7 @@ def _build_invoice_item_analysis_row(editor) -> dict:
         "signal_label": "fatura conciliada" if editor.conciliation_status == "conciliated" else "fatura não conciliada",
         "signal_detail": signal_detail,
         "primary_action_href": f"/admin/credit-card-invoices/{editor.invoice.id}/items/{item.id}/category",
-        "primary_action_label": "Editar item" if editor.item_type == "charge" else "Abrir item",
+        "primary_action_label": "Editar item",
         "secondary_action_href": f"/admin/credit-card-invoices/{editor.invoice.id}",
         "secondary_action_label": "Fatura",
     }
