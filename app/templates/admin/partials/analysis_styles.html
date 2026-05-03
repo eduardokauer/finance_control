@@ -653,8 +653,13 @@
     display: grid;
     gap: 18px;
   }
+  .analysis-chart-stack {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: minmax(0, 1fr);
+  }
   .analysis-chart-grid-four {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
   .analysis-chart-card {
     align-content: start;
@@ -849,6 +854,9 @@
     border-bottom: 1px solid var(--line);
     font-size: 0.92rem;
   }
+  .analysis-row-date-col {
+    min-width: 132px;
+  }
   .analysis-sort-button {
     display: inline-flex;
     align-items: center;
@@ -952,16 +960,26 @@
     align-items: center;
   }
   .analysis-filter-form {
-    display: grid;
+    display: block;
+  }
+  .analysis-filter-toolbar {
+    display: flex;
+    align-items: flex-end;
     gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 2px;
   }
   .analysis-filter-grid {
-    display: grid;
+    display: flex;
+    flex: 1 1 auto;
+    min-width: max-content;
     gap: 12px;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
   .analysis-filter-grid label {
-    display: grid;
+    display: flex;
+    flex: 0 0 220px;
+    min-width: 220px;
+    flex-direction: column;
     gap: 6px;
     color: var(--muted);
     font-size: 0.84rem;
@@ -970,6 +988,11 @@
   .analysis-filter-grid input,
   .analysis-filter-grid select {
     min-height: 42px;
+  }
+  .analysis-filter-actions {
+    flex: 0 0 auto;
+    margin-left: auto;
+    white-space: nowrap;
   }
   .analysis-stats-strip {
     display: flex;

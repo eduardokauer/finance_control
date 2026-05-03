@@ -3,20 +3,30 @@ from __future__ import annotations
 from datetime import date
 from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit, urlunsplit
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.core.admin_auth import require_admin_session
 from app.core.database import get_db
+from app.repositories.models import (
+    CreditCardInvoice,
+    CreditCardInvoiceConciliation,
+    CreditCardInvoiceConciliationItem,
+    CreditCardInvoiceItem,
+    Transaction,
+)
 from app.services.admin import (
+    list_categories,
     latest_analysis_run_for_period,
     list_available_analysis_months,
     list_recent_source_files,
+    reclassify_transactions_manual,
     renderable_analysis_html,
     resolve_analysis_period,
 )
 from app.services.analysis import (
+    build_analysis_transactions_snapshot,
     build_analysis_snapshot,
     build_conciliated_composition_snapshot,
     build_conciliated_operational_snapshot,
@@ -24,9 +34,16 @@ from app.services.analysis import (
     build_net_flow_transactions_snapshot,
     build_statement_operational_snapshot,
     format_currency_br,
+    format_signed_currency_br,
     parse_analysis_payload,
 )
-from app.services.credit_card_bills import list_credit_card_invoices
+from app.services.credit_card_bills import (
+    CreditCardInvoiceCategoryEditError,
+    apply_manual_credit_card_invoice_item_category_change,
+    get_credit_card_invoice_item_category_editor,
+    list_credit_card_invoices,
+    map_conciliated_bank_payment_signals,
+)
 
 from .helpers import (
     is_htmx_request,
@@ -89,6 +106,60 @@ def _extend_url(
 
 def _relative_request_url(request: Request) -> str:
     return request.url.path + (f"?{request.url.query}" if request.url.query else "")
+
+
+def _analysis_sort_key(sort: str | None) -> str:
+    resolved = (sort or "").strip()
+    if resolved in {"", "recent"}:
+        return "cash_date_desc"
+    return resolved
+
+
+def _analysis_sort_href(current_relative_url: str, sort: str) -> str:
+    return _extend_url(current_relative_url, params={"sort": sort}, fragment="analysis-transactions-table")
+
+
+def _analysis_sort_controls(current_relative_url: str, current_sort: str) -> list[dict]:
+    sort_key = _analysis_sort_key(current_sort)
+    defaults = {
+        "cash_date": "desc",
+        "competence_date": "desc",
+        "description": "asc",
+        "origin": "asc",
+        "category": "asc",
+        "type": "asc",
+        "signal": "asc",
+        "amount": "desc",
+    }
+    labels = {
+        "cash_date": "Data de Caixa",
+        "competence_date": "Data de Competência",
+        "description": "Descrição",
+        "origin": "Origem",
+        "category": "Categoria",
+        "type": "Tipo",
+        "signal": "Sinal analítico",
+        "amount": "Valor",
+    }
+    controls = []
+    for key in ("cash_date", "competence_date", "description", "origin", "category", "type", "signal", "amount"):
+        active = sort_key.startswith(f"{key}_")
+        if active:
+            current_direction = sort_key.rsplit("_", 1)[-1]
+            next_direction = "asc" if current_direction == "desc" else "desc"
+        else:
+            current_direction = None
+            next_direction = defaults[key]
+        controls.append(
+            {
+                "key": key,
+                "label": labels[key],
+                "active": active,
+                "current_direction": current_direction,
+                "href": _analysis_sort_href(current_relative_url, f"{key}_{next_direction}"),
+            }
+        )
+    return controls
 
 
 def _analysis_shell_template(base_path: str) -> str | None:
@@ -360,7 +431,7 @@ def _build_overview_charts(analysis_data: dict, analysis_urls: dict) -> dict[str
             "kind": "cash-flow",
             "data": analysis_data["charts"]["conciliated"],
             "period_categories": _build_period_category_chart(
-                title="Categorias no período",
+                title="Categorias conciliadas do período",
                 note="Totais da leitura conciliada no recorte atual, do maior para o menor, com drill down por categoria.",
                 canvas_id="overview-conciliated-period-categories-chart",
                 data=analysis_data["charts"]["conciliated_categories_period"],
@@ -381,7 +452,7 @@ def _build_overview_charts(analysis_data: dict, analysis_urls: dict) -> dict[str
             "kind": "cash-flow",
             "data": analysis_data["charts"]["monthly"],
             "period_categories": _build_period_category_chart(
-                title="Categorias do período",
+                title="Categorias do extrato no período",
                 note="Totais do extrato no recorte atual, do maior para o menor, preservando categorias de receita, despesa e transferência.",
                 canvas_id="overview-statement-period-categories-chart",
                 data=analysis_data["charts"]["statement_categories_period"],
@@ -403,7 +474,7 @@ def _build_overview_charts(analysis_data: dict, analysis_urls: dict) -> dict[str
             "kind": "invoice",
             "data": analysis_data["charts"]["invoice_monthly"],
             "period_categories": _build_period_category_chart(
-                title="Categorias do período",
+                title="Categorias de faturas no período",
                 note="Totais dos itens de fatura no recorte atual, ordenados do maior para o menor.",
                 canvas_id="overview-invoice-period-categories-chart",
                 data=analysis_data["charts"]["invoice_categories_period"],
@@ -419,8 +490,8 @@ def _build_overview_charts(analysis_data: dict, analysis_urls: dict) -> dict[str
             ),
         },
         "categories": {
-            "title": "Categorias do período",
-            "note": "Leitura categorial consolidada do período com total mensal visível e filtros rápidos na legenda.",
+            "title": "Categorias dos últimos 12 meses",
+            "note": "Leitura categorial consolidada na janela móvel de 12 meses, com filtros rápidos na legenda e escolha do tipo de lançamento.",
             "canvas_id": "overview-categories-chart",
             "kind": "categories",
             "data": analysis_data["charts"]["categories_monthly"],
@@ -1063,6 +1134,7 @@ def _transactions_analysis_page_context(
     analytic_type: str | None,
     sort: str | None,
 ) -> dict:
+    resolved_sort = _analysis_sort_key(sort)
     page_context = _analysis_page_context(
         db,
         request=request,
@@ -1077,33 +1149,75 @@ def _transactions_analysis_page_context(
         home_chart_compare=home_chart_compare,
         origin=origin,
     )
-    page_context.update(
-        _conciliated_operational_context(
-            db,
-            period_start=page_context["period_start"],
-            period_end=page_context["period_end"],
-            home_lens=home_lens,
+    transaction_snapshot = build_analysis_transactions_snapshot(
+        db,
+        period_start=page_context["period_start"],
+        period_end=page_context["period_end"],
+        home_lens=home_lens or "cash",
+        sort=resolved_sort,
+    )
+    current_relative_url = _relative_request_url(request)
+    encoded_current_url = quote(current_relative_url, safe="")
+    category_options_by_scope = _analysis_transaction_category_options(db)
+    enriched_rows = [
+        _analysis_transaction_row_inline_context(
+            row,
+            encoded_current_url=encoded_current_url,
+            options_by_scope=category_options_by_scope,
+        )
+        for row in transaction_snapshot["rows"]
+    ]
+    filtered_rows = [
+        row
+        for row in enriched_rows
+        if _analysis_transaction_matches_filters(
+            row,
             category=category,
             description=description,
             origin=origin,
             analytic_type=analytic_type,
-            sort=sort,
         )
-    )
-    current_relative_url = _relative_request_url(request)
+    ]
     page_context.update(
         {
             "current_relative_url": current_relative_url,
-            "encoded_current_url": quote(current_relative_url, safe=""),
+            "encoded_current_url": encoded_current_url,
             "analysis_tables_anchor": "analysis-transactions-table",
+            "analysis_sort_controls": _analysis_sort_controls(current_relative_url, resolved_sort),
+            "analysis_current_sort": resolved_sort,
+            "analysis_transactions_rows": filtered_rows,
             "analysis_extra_hidden_fields": [
                 *page_context.get("analysis_extra_hidden_fields", []),
                 {"name": "origin", "value": origin},
                 {"name": "category", "value": category},
                 {"name": "description", "value": description},
                 {"name": "analytic_type", "value": analytic_type},
-                {"name": "sort", "value": sort},
+                {"name": "sort", "value": resolved_sort},
             ],
+            "conciliated_rows": filtered_rows,
+            "conciliated_filters": {
+                "category": category or "",
+                "description": description or "",
+                "origin": origin or "",
+                "analytic_type": analytic_type or "",
+                "sort": resolved_sort,
+            },
+            "conciliated_filter_options": {
+                "categories": sorted({row["category"] for row in enriched_rows if row["category"]}),
+                "origins": sorted({row["source"] for row in enriched_rows if row["source"]}),
+                "analytic_types": sorted({row["analytic_type"] for row in enriched_rows if row["analytic_type"]}),
+            },
+            "conciliated_stats": {
+                "total_rows": len(filtered_rows),
+                "full_total_rows": transaction_snapshot["row_count"],
+                "statement_count": sum(1 for row in filtered_rows if row["source"] == "statement"),
+                "invoice_count": sum(1 for row in filtered_rows if row["source"] == "invoice"),
+                "income_count": sum(1 for row in filtered_rows if row["analytic_type"] == "income"),
+                "expense_count": sum(1 for row in filtered_rows if row["analytic_type"] == "expense"),
+                "credit_count": sum(1 for row in filtered_rows if row["analytic_type"] == "credit"),
+                "net_impact_display": format_signed_currency_br(sum(row["amount"] for row in filtered_rows)),
+                "net_result_display": format_signed_currency_br(sum(row["amount"] for row in filtered_rows)),
+            },
         }
     )
     return page_context
@@ -1277,6 +1391,209 @@ def _conciliated_operational_context(
             "net_impact_display": format_currency_br(sum(abs(row["impact_amount"]) for row in filtered_rows)),
             "net_result_display": format_currency_br(sum(row["impact_amount"] for row in filtered_rows)),
         },
+    }
+
+
+def _analysis_transaction_category_scope(kind: str | None) -> str | None:
+    if kind == "income":
+        return "income"
+    if kind == "transfer":
+        return "transfer"
+    if kind in {"expense", "credit", "credit_card_payment", "adjustment", "tax"}:
+        return "expense"
+    return None
+
+
+def _analysis_transaction_category_options(db: Session) -> dict[str, list[dict]]:
+    options_by_scope: dict[str, list[dict]] = {"income": [], "expense": [], "transfer": []}
+    for category in list_categories(db):
+        if not category.is_active:
+            continue
+        options_by_scope.setdefault(category.transaction_kind, []).append(
+            {"value": category.name, "label": category.name}
+        )
+    return options_by_scope
+
+
+def _analysis_transaction_row_dom_id(source: str, record_id: int) -> str:
+    return f"analysis-transaction-row-{source}-{record_id}"
+
+
+def _analysis_transaction_row_inline_context(
+    row: dict,
+    *,
+    encoded_current_url: str,
+    options_by_scope: dict[str, list[dict]],
+    editing: bool = False,
+    selected_category: str | None = None,
+    form_error: str | None = None,
+) -> dict:
+    category_scope = _analysis_transaction_category_scope(row.get("source_kind"))
+    if row["source"] == "invoice" and row.get("source_kind") in {"charge", "credit"}:
+        category_scope = "expense"
+    category_options = options_by_scope.get(category_scope or "", [])
+    inline_edit_supported = bool(category_options) and (
+        row["source"] == "statement" or (row["source"] == "invoice" and row.get("source_kind") in {"charge", "credit"})
+    )
+    selected_value = (selected_category or row.get("category") or "").strip()
+    row_dom_id = _analysis_transaction_row_dom_id(row["source"], row["record_id"])
+    return {
+        **row,
+        "row_dom_id": row_dom_id,
+        "inline_edit_supported": inline_edit_supported,
+        "inline_editing": editing and inline_edit_supported,
+        "inline_selected_category": selected_value,
+        "inline_category_options": [
+            {
+                **option,
+                "is_selected": option["value"] == selected_value,
+            }
+            for option in category_options
+        ]
+        if inline_edit_supported
+        else [],
+        "inline_form_error": form_error,
+        "inline_edit_href": (
+            f"/admin/analysis/transactions/{row['source']}/{row['record_id']}/category?return_to={encoded_current_url}"
+        )
+        if inline_edit_supported
+        else None,
+        "inline_apply_href": f"/admin/analysis/transactions/{row['source']}/{row['record_id']}/category",
+        "inline_cancel_href": (
+            f"/admin/analysis/transactions/{row['source']}/{row['record_id']}/category?return_to={encoded_current_url}"
+        ),
+        "return_to": encoded_current_url,
+        "inline_help_text": (
+            "Ajuste pontual somente deste item. Para aplicar regra futura, use a tela de edição."
+            if row["source"] == "invoice"
+            else f"Tipo fixo nesta edição: {row.get('source_kind_label')}. Para mudar tipo ou regra, use Editar lançamento."
+        ),
+    }
+
+
+def _analysis_transaction_matches_filters(
+    row: dict,
+    *,
+    category: str | None,
+    description: str | None,
+    origin: str | None,
+    analytic_type: str | None,
+) -> bool:
+    if category and row.get("category") != category:
+        return False
+    if origin and row.get("source") != origin:
+        return False
+    if analytic_type and row.get("analytic_type") != analytic_type:
+        return False
+    if description:
+        if not (
+            _matches_description(row.get("description", ""), description)
+            or _matches_description(row.get("description_normalized", ""), description)
+        ):
+            return False
+    return True
+
+
+def _render_analysis_transaction_row(request: Request, row: dict, *, status_code: int = 200) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/analysis_transactions_row.html",
+        {
+            "request": request,
+            "row": row,
+        },
+        status_code=status_code,
+    )
+
+
+def _build_statement_analysis_row(db: Session, tx: Transaction) -> dict:
+    signal = map_conciliated_bank_payment_signals(db, transaction_ids=[tx.id]).get(tx.id)
+    analytic_type_label = {
+        "income": "Receita",
+        "expense": "Despesa",
+        "transfer": "Transferência",
+        "credit_card_payment": "Pagamento",
+    }.get(tx.transaction_kind, tx.transaction_kind)
+    return {
+        "source": "statement",
+        "source_label": "Extrato",
+        "record_id": tx.id,
+        "cash_date": tx.transaction_date,
+        "cash_date_display": tx.transaction_date.strftime("%d/%m/%Y"),
+        "competence_date": tx.transaction_date,
+        "competence_date_display": tx.transaction_date.strftime("%d/%m/%Y"),
+        "description": tx.description_raw,
+        "description_normalized": tx.description_normalized or "",
+        "category": tx.category or "",
+        "analytic_type": tx.transaction_kind,
+        "analytic_type_label": analytic_type_label,
+        "source_kind": tx.transaction_kind,
+        "source_kind_label": tx.transaction_kind,
+        "amount": float(tx.amount),
+        "amount_display": format_signed_currency_br(float(tx.amount)),
+        "signal_label": "bank_payment conciliado" if signal is not None else None,
+        "signal_detail": (
+            f"{signal.card_label} · {signal.billing_month:02d}/{signal.billing_year} · status {signal.conciliation_status}"
+            if signal is not None
+            else "Nenhuma conciliação encontrada para este lançamento."
+        ),
+        "primary_action_href": f"/admin/transactions/{tx.id}",
+        "primary_action_label": "Abrir lançamento",
+        "secondary_action_href": None,
+        "secondary_action_label": None,
+    }
+
+
+def _analysis_invoice_cash_date(db: Session, invoice_id: int) -> date | None:
+    row = db.execute(
+        select(Transaction.transaction_date)
+        .select_from(CreditCardInvoice)
+        .join(CreditCardInvoiceConciliation, CreditCardInvoiceConciliation.invoice_id == CreditCardInvoice.id)
+        .join(CreditCardInvoiceConciliationItem, CreditCardInvoiceConciliationItem.conciliation_id == CreditCardInvoiceConciliation.id)
+        .join(Transaction, Transaction.id == CreditCardInvoiceConciliationItem.bank_transaction_id)
+        .where(
+            CreditCardInvoice.id == invoice_id,
+            CreditCardInvoiceConciliation.status == "conciliated",
+            CreditCardInvoiceConciliationItem.item_type == "bank_payment",
+            CreditCardInvoiceConciliationItem.bank_transaction_id.is_not(None),
+        )
+        .order_by(Transaction.transaction_date.asc(), Transaction.id.asc())
+    ).first()
+    return row[0] if row else None
+
+
+def _build_invoice_item_analysis_row(editor) -> dict:
+    item = editor.item
+    analytic_type = "expense" if editor.item_type == "charge" else "credit"
+    analytic_type_label = "Despesa" if editor.item_type == "charge" else "Crédito"
+    amount = -abs(float(item.amount_brl)) if editor.item_type == "charge" else abs(float(item.amount_brl))
+    cash_date = _analysis_invoice_cash_date(editor.item.invoice_id) if editor.conciliation_status == "conciliated" else None
+    signal_detail = "caixa vazio até a conciliação."
+    if editor.conciliation_status == "conciliated" and cash_date is not None:
+        signal_detail = f"paga em {cash_date.strftime('%d/%m/%Y')}"
+    return {
+        "source": "invoice",
+        "source_label": "Fatura",
+        "record_id": item.id,
+        "cash_date": cash_date,
+        "cash_date_display": cash_date.strftime("%d/%m/%Y") if cash_date else "",
+        "competence_date": item.purchase_date,
+        "competence_date_display": item.purchase_date.strftime("%d/%m/%Y"),
+        "description": item.description_raw,
+        "description_normalized": item.description_normalized or "",
+        "category": item.category or "",
+        "analytic_type": analytic_type,
+        "analytic_type_label": analytic_type_label,
+        "source_kind": editor.item_type,
+        "source_kind_label": editor.item_type,
+        "amount": amount,
+        "amount_display": format_signed_currency_br(amount),
+        "signal_label": "fatura conciliada" if editor.conciliation_status == "conciliated" else "fatura não conciliada",
+        "signal_detail": signal_detail,
+        "primary_action_href": f"/admin/credit-card-invoices/{editor.invoice.id}/items/{item.id}/category",
+        "primary_action_label": "Editar item",
+        "secondary_action_href": f"/admin/credit-card-invoices/{editor.invoice.id}",
+        "secondary_action_label": "Fatura",
     }
 
 
@@ -1728,6 +2045,135 @@ def admin_analysis_transactions_page(
         response.headers["HX-Push-Url"] = _relative_request_url(request)
         return response
     return render_admin(request, "admin/analysis_transactions.html", page_context)
+
+
+@router.get("/analysis/transactions/{source}/{record_id}/category", response_class=HTMLResponse)
+def admin_analysis_transaction_category_edit(
+    source: str,
+    record_id: int,
+    request: Request,
+    return_to: str | None = None,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    resolved_return_to = unquote(return_to or "/admin/analysis/transactions")
+    encoded_return_to = quote(resolved_return_to, safe="")
+    options_by_scope = _analysis_transaction_category_options(db)
+
+    if source == "statement":
+        tx = db.get(Transaction, record_id)
+        if tx is None:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        row = _analysis_transaction_row_inline_context(
+            _build_statement_analysis_row(db, tx),
+            encoded_current_url=encoded_return_to,
+            options_by_scope=options_by_scope,
+            editing=True,
+        )
+        return _render_analysis_transaction_row(request, row)
+
+    if source == "invoice":
+        item = db.get(CreditCardInvoiceItem, record_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Invoice item not found")
+        editor = get_credit_card_invoice_item_category_editor(db, invoice_id=item.invoice_id, item_id=item.id)
+        if editor is None:
+            raise HTTPException(status_code=404, detail="Invoice item not found")
+        row = _analysis_transaction_row_inline_context(
+            _build_invoice_item_analysis_row(editor),
+            encoded_current_url=encoded_return_to,
+            options_by_scope=options_by_scope,
+            editing=True,
+        )
+        return _render_analysis_transaction_row(request, row)
+
+    raise HTTPException(status_code=404, detail="Unsupported analysis row source")
+
+
+@router.post("/analysis/transactions/{source}/{record_id}/category", response_class=HTMLResponse)
+def admin_analysis_transaction_category_apply(
+    source: str,
+    record_id: int,
+    request: Request,
+    category: str = Form(...),
+    return_to: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin_session),
+):
+    resolved_return_to = unquote(return_to or "/admin/analysis/transactions")
+    encoded_return_to = quote(resolved_return_to, safe="")
+    options_by_scope = _analysis_transaction_category_options(db)
+
+    if source == "statement":
+        tx = db.get(Transaction, record_id)
+        if tx is None:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        scope = _analysis_transaction_category_scope(tx.transaction_kind)
+        valid_names = {option["value"] for option in options_by_scope.get(scope or "", [])}
+        selected_category = category.strip()
+        if selected_category not in valid_names:
+            row = _analysis_transaction_row_inline_context(
+                _build_statement_analysis_row(db, tx),
+                encoded_current_url=encoded_return_to,
+                options_by_scope=options_by_scope,
+                editing=True,
+                selected_category=selected_category,
+                form_error="Categoria inválida para este lançamento.",
+            )
+            return _render_analysis_transaction_row(request, row, status_code=422)
+
+        reclassify_transactions_manual(
+            db,
+            [tx],
+            category=selected_category,
+            transaction_kind=tx.transaction_kind,
+            notes="Edição inline na listagem de análise.",
+            origin="analysis_transactions_inline",
+        )
+        db.refresh(tx)
+        row = _analysis_transaction_row_inline_context(
+            _build_statement_analysis_row(db, tx),
+            encoded_current_url=encoded_return_to,
+            options_by_scope=options_by_scope,
+        )
+        return _render_analysis_transaction_row(request, row)
+
+    if source == "invoice":
+        item = db.get(CreditCardInvoiceItem, record_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Invoice item not found")
+        try:
+            apply_manual_credit_card_invoice_item_category_change(
+                db,
+                invoice_id=item.invoice_id,
+                item_id=item.id,
+                category_name=category,
+            )
+        except CreditCardInvoiceCategoryEditError as exc:
+            editor = get_credit_card_invoice_item_category_editor(db, invoice_id=item.invoice_id, item_id=item.id)
+            if editor is None:
+                raise HTTPException(status_code=404, detail="Invoice item not found")
+            row = _analysis_transaction_row_inline_context(
+                _build_invoice_item_analysis_row(editor),
+                encoded_current_url=encoded_return_to,
+                options_by_scope=options_by_scope,
+                editing=True,
+                selected_category=category,
+                form_error=str(exc),
+            )
+            return _render_analysis_transaction_row(request, row, status_code=422)
+
+        editor = get_credit_card_invoice_item_category_editor(db, invoice_id=item.invoice_id, item_id=item.id)
+        if editor is None:
+            raise HTTPException(status_code=404, detail="Invoice item not found")
+        row = _analysis_transaction_row_inline_context(
+            _build_invoice_item_analysis_row(editor),
+            encoded_current_url=encoded_return_to,
+            options_by_scope=options_by_scope,
+        )
+        return _render_analysis_transaction_row(request, row)
+
+    raise HTTPException(status_code=404, detail="Unsupported analysis row source")
 
 
 @router.get("/conference", response_class=HTMLResponse)

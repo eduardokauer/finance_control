@@ -7,7 +7,15 @@ import json
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.repositories.models import AnalysisRun, CreditCard, CreditCardInvoice, CreditCardInvoiceConciliation, CreditCardInvoiceItem, Transaction
+from app.repositories.models import (
+    AnalysisRun,
+    CreditCard,
+    CreditCardInvoice,
+    CreditCardInvoiceConciliation,
+    CreditCardInvoiceConciliationItem,
+    CreditCardInvoiceItem,
+    Transaction,
+)
 from app.services.credit_card_bills import build_conciliation_analytics_snapshot, classify_credit_card_invoice_item, map_conciliated_bank_payment_signals
 from app.utils.normalization import normalize_description
 
@@ -88,6 +96,10 @@ def _normalized_category_name(value: str | None) -> str:
 
 def _analysis_category_key(value: str | None) -> str:
     return normalize_description(_analysis_category_name(value))
+
+
+def _analysis_reverse_sort_text(value: str) -> str:
+    return "".join(chr(0x10FFFF - ord(ch)) for ch in value)
 
 
 def _is_transfer_technical(tx: Transaction) -> bool:
@@ -1627,6 +1639,19 @@ def _materialize_category_rows(grouped: dict[str, dict], *, expense_total: float
 
 
 def _build_category_period_totals_chart(rows: list[dict]) -> dict:
+    chart_rows = _build_category_period_chart_rows(rows)
+    return {
+        "labels": [item["label"] for item in chart_rows],
+        "category_names": [item["category_name"] for item in chart_rows],
+        "values": [item["value"] for item in chart_rows],
+        "value_displays": [item["value_display"] for item in chart_rows],
+        "flow_labels": [item["flow_label"] for item in chart_rows],
+        "flow_kinds": [item["flow_kind"] for item in chart_rows],
+        "technical": [item["is_technical"] for item in chart_rows],
+    }
+
+
+def _build_category_period_chart_rows(rows: list[dict]) -> list[dict]:
     chart_rows: list[dict] = []
     for row in rows:
         category_name = row["name"]
@@ -1639,6 +1664,7 @@ def _build_category_period_totals_chart(rows: list[dict]) -> dict:
                 chart_rows.append(
                     {
                         "label": category_name,
+                        "category_key": _analysis_category_key(category_name),
                         "category_name": category_name,
                         "value": movement_total,
                         "value_display": row["display_total"],
@@ -1654,6 +1680,7 @@ def _build_category_period_totals_chart(rows: list[dict]) -> dict:
                 [
                     {
                         "label": f"{category_name} · Receita",
+                        "category_key": _analysis_category_key(category_name),
                         "category_name": category_name,
                         "value": income_total,
                         "value_display": row["income_display"],
@@ -1663,6 +1690,7 @@ def _build_category_period_totals_chart(rows: list[dict]) -> dict:
                     },
                     {
                         "label": f"{category_name} · Despesa",
+                        "category_key": _analysis_category_key(category_name),
                         "category_name": category_name,
                         "value": expense_total,
                         "value_display": row["expense_display"],
@@ -1678,6 +1706,7 @@ def _build_category_period_totals_chart(rows: list[dict]) -> dict:
             chart_rows.append(
                 {
                     "label": category_name,
+                    "category_key": _analysis_category_key(category_name),
                     "category_name": category_name,
                     "value": income_total,
                     "value_display": row["income_display"],
@@ -1690,6 +1719,7 @@ def _build_category_period_totals_chart(rows: list[dict]) -> dict:
             chart_rows.append(
                 {
                     "label": category_name,
+                    "category_key": _analysis_category_key(category_name),
                     "category_name": category_name,
                     "value": expense_total,
                     "value_display": row["expense_display"],
@@ -1700,15 +1730,7 @@ def _build_category_period_totals_chart(rows: list[dict]) -> dict:
             )
 
     chart_rows.sort(key=lambda item: (-item["value"], item["label"].casefold()))
-    return {
-        "labels": [item["label"] for item in chart_rows],
-        "category_names": [item["category_name"] for item in chart_rows],
-        "values": [item["value"] for item in chart_rows],
-        "value_displays": [item["value_display"] for item in chart_rows],
-        "flow_labels": [item["flow_label"] for item in chart_rows],
-        "flow_kinds": [item["flow_kind"] for item in chart_rows],
-        "technical": [item["is_technical"] for item in chart_rows],
-    }
+    return chart_rows
 
 
 def _build_category_rows(txs: list[Transaction], *, expense_total: float) -> list[dict]:
@@ -2299,12 +2321,14 @@ def build_category_consumption_monthly_series(
                 }
             )
             rows = snapshot["breakdown"]["rows"]
-        for row in rows:
-            if row["expense_total"] <= 0 or row["is_technical"]:
+        chart_rows = _build_category_period_chart_rows(rows)
+        month_snapshots[-1]["rows"] = chart_rows
+        for row in chart_rows:
+            if row["flow_kind"] == "income" and not row["is_technical"]:
                 continue
-            category_key = _analysis_category_key(row["name"])
-            category_labels.setdefault(category_key, row["name"])
-            category_totals[category_key] += row["expense_total"]
+            category_key = row["category_key"]
+            category_labels.setdefault(category_key, row["category_name"])
+            category_totals[category_key] += row["value"]
 
     resolved_names = selected_names or [
         category_labels[key]
@@ -2314,19 +2338,44 @@ def build_category_consumption_monthly_series(
         )
     ]
     labels = [snapshot["label"] for snapshot in month_snapshots]
-    datasets = [{"label": name, "values": []} for name in resolved_names]
+    dataset_meta: dict[str, dict] = {}
+    for snapshot in month_snapshots:
+        for row in snapshot["rows"]:
+            dataset_meta.setdefault(
+                row["category_key"],
+                {
+                    "flow_kind": row["flow_kind"],
+                    "flow_label": row["flow_label"],
+                    "is_technical": row["is_technical"],
+                },
+            )
+    datasets = [
+        {
+            "label": name,
+            "values": [],
+            "category_key": _analysis_category_key(name),
+            "flow_kind": dataset_meta.get(_analysis_category_key(name), {}).get("flow_kind", "expense"),
+            "flow_label": dataset_meta.get(_analysis_category_key(name), {}).get("flow_label", "Despesa"),
+            "is_technical": dataset_meta.get(_analysis_category_key(name), {}).get("is_technical", False),
+        }
+        for name in resolved_names
+    ]
     for snapshot in month_snapshots:
         row_lookup = {
-            _analysis_category_key(row["name"]): row
+            row["category_key"]: row
             for row in snapshot["rows"]
-            if row["expense_total"] > 0
+            if row["value"] > 0
         }
         for dataset in datasets:
-            row = row_lookup.get(_analysis_category_key(dataset["label"]))
-            dataset["values"].append(round(row["expense_total"], 2) if row else 0.0)
+            row = row_lookup.get(dataset["category_key"])
+            dataset["values"].append(round(row["value"], 2) if row else 0.0)
     return {
         "labels": labels,
         "datasets": datasets,
+        "note": (
+            "Categorias consolidadas na janela móvel de 12 meses, com filtro por tipo de lançamento e seleção individual "
+            "na legenda para comparar o comportamento mês a mês."
+        ),
     }
 
 
@@ -2786,6 +2835,304 @@ def build_conciliated_operational_snapshot(
         "credit_count": sum(1 for row in rows if row["analytic_type"] == "credit"),
         "net_impact_total": round(sum(row["impact_amount"] for row in rows), 2),
         "net_impact_display": format_signed_currency_br(sum(row["impact_amount"] for row in rows)),
+    }
+
+
+def _load_invoice_cash_dates_for_period(
+    db: Session,
+    *,
+    period_start: date,
+    period_end: date,
+) -> dict[int, date]:
+    rows = db.execute(
+        select(
+            CreditCardInvoice.id,
+            Transaction.transaction_date,
+        )
+        .join(CreditCardInvoiceConciliation, CreditCardInvoiceConciliation.invoice_id == CreditCardInvoice.id)
+        .join(CreditCardInvoiceConciliationItem, CreditCardInvoiceConciliationItem.conciliation_id == CreditCardInvoiceConciliation.id)
+        .join(Transaction, Transaction.id == CreditCardInvoiceConciliationItem.bank_transaction_id)
+        .where(
+            CreditCardInvoice.due_date >= period_start,
+            CreditCardInvoice.due_date <= period_end,
+            CreditCardInvoiceConciliation.status == "conciliated",
+            CreditCardInvoiceConciliationItem.item_type == "bank_payment",
+            CreditCardInvoiceConciliationItem.bank_transaction_id.is_not(None),
+        )
+        .order_by(CreditCardInvoice.id.asc(), Transaction.transaction_date.asc(), Transaction.id.asc())
+    ).all()
+    cash_dates: dict[int, date] = {}
+    for invoice_id, cash_date in rows:
+        cash_dates.setdefault(int(invoice_id), cash_date)
+    return cash_dates
+
+
+def _analysis_transactions_sort_value(row: dict, *, sort: str) -> tuple:
+    if sort == "cash_date_asc":
+        cash_date = row.get("cash_date")
+        return (
+            cash_date is None,
+            cash_date.toordinal() if cash_date else 0,
+            row["competence_date"].toordinal(),
+            abs(row["amount"]),
+            row["description"].casefold(),
+            row["record_id"],
+        )
+    if sort == "cash_date_desc":
+        cash_date = row.get("cash_date") or row["competence_date"]
+        return (
+            0 if row.get("cash_date") is not None else 1,
+            -cash_date.toordinal(),
+            -row["competence_date"].toordinal(),
+            -abs(row["amount"]),
+            row["description"].casefold(),
+            row["record_id"],
+        )
+    if sort == "competence_date_asc":
+        return (
+            row["competence_date"].toordinal(),
+            row.get("cash_date") is None,
+            row.get("cash_date").toordinal() if row.get("cash_date") else 0,
+            abs(row["amount"]),
+            row["description"].casefold(),
+            row["record_id"],
+        )
+    if sort == "competence_date_desc":
+        return (
+            -row["competence_date"].toordinal(),
+            0 if row.get("cash_date") is not None else 1,
+            -(row.get("cash_date") or row["competence_date"]).toordinal(),
+            -abs(row["amount"]),
+            row["description"].casefold(),
+            row["record_id"],
+        )
+    if sort == "description_asc":
+        return (
+            row["description_normalized"].casefold(),
+            row["competence_date"].toordinal(),
+            0 if row.get("cash_date") is not None else 1,
+            row.get("cash_date").toordinal() if row.get("cash_date") else 0,
+            row["record_id"],
+        )
+    if sort == "description_desc":
+        return (
+            "".join(chr(0x10FFFF - ord(ch)) for ch in row["description_normalized"].casefold()),
+            -row["competence_date"].toordinal(),
+            0 if row.get("cash_date") is not None else 1,
+            -(row.get("cash_date") or row["competence_date"]).toordinal(),
+            row["record_id"],
+        )
+    if sort == "origin_asc":
+        return (
+            row["source_label"].casefold(),
+            row["competence_date"].toordinal(),
+            row["record_id"],
+        )
+    if sort == "origin_desc":
+        return (
+            "".join(chr(0x10FFFF - ord(ch)) for ch in row["source_label"].casefold()),
+            -row["competence_date"].toordinal(),
+            row["record_id"],
+        )
+    if sort == "category_asc":
+        return (
+            row["category"].casefold(),
+            row["competence_date"].toordinal(),
+            row["record_id"],
+        )
+    if sort == "category_desc":
+        return (
+            "".join(chr(0x10FFFF - ord(ch)) for ch in row["category"].casefold()),
+            -row["competence_date"].toordinal(),
+            row["record_id"],
+        )
+    if sort == "type_asc":
+        return (
+            row["analytic_type_label"].casefold(),
+            row["competence_date"].toordinal(),
+            row["record_id"],
+        )
+    if sort == "type_desc":
+        return (
+            _analysis_reverse_sort_text(row["analytic_type_label"].casefold()),
+            -row["competence_date"].toordinal(),
+            row["record_id"],
+        )
+    if sort == "signal_asc":
+        signal_label = row.get("signal_label") or ""
+        signal_detail = row.get("signal_detail") or ""
+        return (
+            row.get("signal_label") is None,
+            signal_label.casefold(),
+            signal_detail.casefold(),
+            row["competence_date"].toordinal(),
+            row.get("cash_date") is None,
+            row.get("cash_date").toordinal() if row.get("cash_date") else 0,
+            row["record_id"],
+        )
+    if sort == "signal_desc":
+        signal_label = row.get("signal_label") or ""
+        signal_detail = row.get("signal_detail") or ""
+        return (
+            row.get("signal_label") is None,
+            _analysis_reverse_sort_text(signal_label.casefold()),
+            _analysis_reverse_sort_text(signal_detail.casefold()),
+            -row["competence_date"].toordinal(),
+            0 if row.get("cash_date") is not None else 1,
+            -(row.get("cash_date") or row["competence_date"]).toordinal(),
+            row["record_id"],
+        )
+    if sort == "amount_asc":
+        return (
+            abs(row["amount"]),
+            row["competence_date"].toordinal(),
+            row["record_id"],
+        )
+    if sort == "amount_desc":
+        return (
+            -abs(row["amount"]),
+            -row["competence_date"].toordinal(),
+            row["record_id"],
+        )
+    return (
+        -(row.get("cash_date") or row["competence_date"]).toordinal(),
+        -row["competence_date"].toordinal(),
+        -abs(row["amount"]),
+        row["description"].casefold(),
+        row["record_id"],
+    )
+
+
+def build_analysis_transactions_snapshot(
+    db: Session,
+    *,
+    period_start: date,
+    period_end: date,
+    home_lens: str = "cash",
+    sort: str = "cash_date_desc",
+) -> dict:
+    statement_snapshot = build_statement_operational_snapshot(
+        db,
+        period_start=period_start,
+        period_end=period_end,
+        conciliated_view=False,
+        home_lens=home_lens,
+    )
+    invoice_snapshot = build_invoice_operational_snapshot(
+        db,
+        period_start=period_start,
+        period_end=period_end,
+        conciliated_only=False,
+    )
+    invoice_cash_dates = _load_invoice_cash_dates_for_period(db, period_start=period_start, period_end=period_end)
+
+    rows: list[dict] = []
+    for row in statement_snapshot["rows"]:
+        cash_date = row["transaction_date"]
+        amount = float(row["amount"])
+        analytic_type = row["transaction_kind"]
+        analytic_type_label = {
+            "income": "Receita",
+            "expense": "Despesa",
+            "transfer": "Transferência",
+            "credit_card_payment": "Pagamento",
+        }.get(analytic_type, analytic_type)
+        rows.append(
+            {
+                "source": "statement",
+                "source_label": "Extrato",
+                "record_id": row["id"],
+                "cash_date": cash_date,
+                "cash_date_display": format_date_br(cash_date),
+                "competence_date": cash_date,
+                "competence_date_display": format_date_br(cash_date),
+                "description": row["description"],
+                "description_normalized": row["description_normalized"],
+                "category": row["category"],
+                "analytic_type": analytic_type,
+                "analytic_type_label": analytic_type_label,
+                "source_kind": row["transaction_kind"],
+                "source_kind_label": row["transaction_kind"],
+                "amount": amount,
+                "amount_display": format_signed_currency_br(amount),
+                "signal_label": "bank_payment conciliado" if row["is_conciliated_bank_payment"] else None,
+                "signal_detail": (
+                    f"{row['invoice_reference']}"
+                    if row["is_conciliated_bank_payment"] and row.get("invoice_reference")
+                    else row["conciliation_reason"]
+                ),
+                "primary_action_href": f"/admin/transactions/{row['id']}",
+                "primary_action_label": "Abrir lançamento",
+                "secondary_action_href": (
+                    f"/admin/credit-card-invoices/{row['invoice_id']}#invoice-conciliation-section"
+                    if row.get("invoice_id")
+                    else None
+                ),
+                "secondary_action_label": "Fatura" if row.get("invoice_id") else None,
+            }
+        )
+
+    for row in invoice_snapshot["rows"]:
+        if row["item_type"] not in {"charge", "credit"}:
+            continue
+        if row["item_type"] == "charge":
+            analytic_type = "expense"
+            analytic_type_label = "Despesa"
+            amount = -abs(float(row["amount"]))
+            primary_action_href = f"/admin/credit-card-invoices/{row['invoice_id']}/items/{row['id']}/category"
+            primary_action_label = "Editar item"
+        else:
+            analytic_type = "credit"
+            analytic_type_label = "Crédito"
+            amount = abs(float(row["amount"]))
+            primary_action_href = f"/admin/credit-card-invoices/{row['invoice_id']}/items/{row['id']}/category"
+            primary_action_label = "Editar item"
+        cash_date = invoice_cash_dates.get(row["invoice_id"]) if row["conciliation_status"] == "conciliated" else None
+        signal_label = "fatura conciliada" if row["conciliation_status"] == "conciliated" else "fatura não conciliada"
+        signal_detail = (
+            f"paga em {format_date_br(cash_date)}"
+            if cash_date is not None
+            else "caixa vazio até a conciliação"
+        )
+        rows.append(
+            {
+                "source": "invoice",
+                "source_label": "Fatura",
+                "record_id": row["id"],
+                "cash_date": cash_date,
+                "cash_date_display": format_date_br(cash_date) if cash_date else "",
+                "competence_date": row["purchase_date"],
+                "competence_date_display": row["purchase_date_display"],
+                "description": row["description"],
+                "description_normalized": row["description_normalized"],
+                "category": row["category"],
+                "analytic_type": analytic_type,
+                "analytic_type_label": analytic_type_label,
+                "source_kind": row["item_type"],
+                "source_kind_label": row["item_type"],
+                "amount": amount,
+                "amount_display": format_signed_currency_br(amount),
+                "signal_label": signal_label,
+                "signal_detail": signal_detail,
+                "primary_action_href": primary_action_href,
+                "primary_action_label": primary_action_label,
+                "secondary_action_href": f"/admin/credit-card-invoices/{row['invoice_id']}",
+                "secondary_action_label": "Fatura",
+            }
+        )
+
+    rows.sort(key=lambda row: _analysis_transactions_sort_value(row, sort=sort))
+
+    return {
+        "rows": rows,
+        "row_count": len(rows),
+        "statement_count": sum(1 for row in rows if row["source"] == "statement"),
+        "invoice_count": sum(1 for row in rows if row["source"] == "invoice"),
+        "income_count": sum(1 for row in rows if row["analytic_type"] == "income"),
+        "expense_count": sum(1 for row in rows if row["analytic_type"] == "expense"),
+        "credit_count": sum(1 for row in rows if row["analytic_type"] == "credit"),
+        "net_impact_total": round(sum(row["amount"] for row in rows), 2),
+        "net_impact_display": format_signed_currency_br(sum(row["amount"] for row in rows)),
     }
 
 
